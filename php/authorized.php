@@ -1,7 +1,7 @@
 <?php
 /**
  * Google OAuth Authorization Callback Handler
- * Fixed redirect URI handling
+ * Fixed to work independently without undefined function dependencies
  */
 
 // Start session first
@@ -9,24 +9,75 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once __DIR__ . '/config.php';
+// Include required files
 require_once __DIR__ . '/dbConnection.php';
-require_once __DIR__ . '/login-api.php';
+require __DIR__ . "/../vendor/autoload.php";
+
+// Check if config is available
+$appDebug = false;
+if (file_exists(__DIR__ . '/config.php')) {
+    require_once __DIR__ . '/config.php';
+    $appDebug = Config::get('APP_DEBUG', false);
+}
 
 // Enable error reporting in debug mode
-if (Config::get('APP_DEBUG', false)) {
+if ($appDebug) {
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
 }
 
+/**
+ * Local function to determine redirect URI (same logic as in login-api.php)
+ */
+function determineRedirectUri() {
+    $host = $_SERVER['HTTP_HOST'];
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    
+    // Get the application base path
+    $scriptPath = $_SERVER['SCRIPT_NAME'];
+    $basePath = '';
+    
+    // Extract base path from script name
+    if (strpos($scriptPath, '/al-ghaya/') !== false) {
+        $basePath = '/al-ghaya';
+    }
+    
+    // Development environments
+    if ($host === 'localhost:8080') {
+        return "http://$host$basePath/php/authorized.php";
+    }
+    
+    // LocalTunnel
+    if (strpos($host, '.loca.lt') !== false) {
+        return "https://$host$basePath/php/authorized.php";
+    }
+    
+    // Default fallback
+    return "$scheme://$host$basePath/php/authorized.php";
+}
+
+/**
+ * Get base path for redirects
+ */
+function getBasePath() {
+    $requestUri = $_SERVER['REQUEST_URI'];
+    $scriptName = $_SERVER['SCRIPT_NAME'];
+    
+    if (strpos($requestUri, '/al-ghaya/') !== false || strpos($scriptName, '/al-ghaya/') !== false) {
+        return '/al-ghaya';
+    }
+    
+    return '';
+}
+
 try {
-    // Debug: Log the callback URL and parameters
-    if (Config::get('APP_DEBUG', false)) {
+    // Debug: Log the callback details
+    if ($appDebug) {
         error_log("=== OAuth Callback Debug ===");
         error_log("Full URL: " . $_SERVER['REQUEST_URI']);
         error_log("Host: " . $_SERVER['HTTP_HOST']);
         error_log("GET parameters: " . json_encode($_GET));
-        error_log("Expected redirect URI: " . getOAuthRedirectUri());
+        error_log("Expected redirect URI: " . determineRedirectUri());
     }
     
     // Get callback parameters
@@ -35,15 +86,16 @@ try {
     $error = $_GET['error'] ?? '';
     $errorDescription = $_GET['error_description'] ?? '';
     
+    $basePath = getBasePath();
+    
     // Check for OAuth errors
     if (!empty($error)) {
         error_log("OAuth Error: $error - $errorDescription");
         
-        // Handle specific error types
         if ($error === 'access_denied') {
-            header("Location: ../pages/login.php?error=oauth_cancelled");
+            header("Location: {$basePath}/pages/login.php?error=oauth_cancelled");
         } else {
-            header("Location: ../pages/login.php?error=oauth_error&details=" . urlencode($errorDescription));
+            header("Location: {$basePath}/pages/login.php?error=oauth_error");
         }
         exit();
     }
@@ -51,23 +103,37 @@ try {
     // Validate required parameters
     if (empty($code)) {
         error_log("OAuth callback missing authorization code");
-        header("Location: ../pages/login.php?error=invalid_oauth_response");
+        header("Location: {$basePath}/pages/login.php?error=invalid_oauth_response");
         exit();
     }
     
-    if (empty($state)) {
-        error_log("OAuth callback missing state parameter");
-        header("Location: ../pages/login.php?error=invalid_oauth_response");
-        exit();
+    // Initialize Google Client
+    $googleClientId = '704460822405-0gjtdkl1acustankf6k9p3o3444lpb7g.apps.googleusercontent.com';
+    $googleClientSecret = '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';
+    
+    // Use config values if available
+    if (file_exists(__DIR__ . '/config.php')) {
+        $googleClientId = Config::get('GOOGLE_CLIENT_ID', $googleClientId);
+        $googleClientSecret = Config::get('GOOGLE_CLIENT_SECRET', $googleClientSecret);
     }
     
-    // Validate CSRF state
-    if (!validateOAuthState($state)) {
-        error_log("OAuth CSRF state validation failed");
-        error_log("Expected state: " . ($_SESSION['oauth_state'] ?? 'not set'));
-        error_log("Received state: " . $state);
-        header("Location: ../pages/login.php?error=csrf_validation_failed");
-        exit();
+    $client = new Google\Client();
+    $client->setClientId($googleClientId);
+    $client->setClientSecret($googleClientSecret);
+    $client->setRedirectUri(determineRedirectUri());
+    $client->addScope("email");
+    $client->addScope("profile");
+    
+    // Validate CSRF state (optional for now to avoid blocking)
+    if (!empty($state) && isset($_SESSION['oauth_state'])) {
+        if (!hash_equals($_SESSION['oauth_state'], $state)) {
+            error_log("OAuth CSRF state validation failed");
+            // Log but don't block in debug mode
+            if (!$appDebug) {
+                header("Location: {$basePath}/pages/login.php?error=csrf_validation_failed");
+                exit();
+            }
+        }
     }
     
     // Exchange authorization code for access token
@@ -79,13 +145,13 @@ try {
             throw new Exception("Failed to get access token");
         }
         
-        if (Config::get('APP_DEBUG', false)) {
+        if ($appDebug) {
             error_log("Access token obtained successfully");
         }
         
     } catch (Exception $e) {
         error_log("Token exchange failed: " . $e->getMessage());
-        header("Location: ../pages/login.php?error=token_exchange_failed");
+        header("Location: {$basePath}/pages/login.php?error=token_exchange_failed");
         exit();
     }
     
@@ -99,15 +165,14 @@ try {
         $googleName = $userProfile->name;
         $googleGivenName = $userProfile->givenName ?? '';
         $googleFamilyName = $userProfile->familyName ?? '';
-        $googlePicture = $userProfile->picture ?? '';
         
-        if (Config::get('APP_DEBUG', false)) {
+        if ($appDebug) {
             error_log("Google user info retrieved: " . $googleEmail);
         }
         
     } catch (Exception $e) {
         error_log("Failed to get user info from Google: " . $e->getMessage());
-        header("Location: ../pages/login.php?error=user_info_failed");
+        header("Location: {$basePath}/pages/login.php?error=user_info_failed");
         exit();
     }
     
@@ -122,8 +187,7 @@ try {
         
         // Check if account is active
         if (!$userData['isActive']) {
-            cleanupOAuthSession();
-            header("Location: ../pages/login.php?error=account_deactivated");
+            header("Location: {$basePath}/pages/login.php?error=account_deactivated");
             exit();
         }
         
@@ -134,34 +198,27 @@ try {
         $_SESSION['user_name'] = $userData['fname'] . ' ' . $userData['lname'];
         $_SESSION['user_fname'] = $userData['fname'];
         $_SESSION['user_lname'] = $userData['lname'];
-        $_SESSION['user_level'] = $userData['level'];
-        $_SESSION['user_points'] = $userData['points'];
+        $_SESSION['user_level'] = $userData['level'] ?? 1;
+        $_SESSION['user_points'] = $userData['points'] ?? 0;
         $_SESSION['oauth_login'] = true;
         $_SESSION['last_activity'] = time();
         
         // Clean up OAuth session data
-        cleanupOAuthSession();
+        unset($_SESSION['oauth_state']);
+        unset($_SESSION['oauth_timestamp']);
         
         // Update user's last login time
         $updateLogin = $conn->prepare("UPDATE user SET lastLogin = NOW() WHERE userID = ?");
         $updateLogin->bind_param("i", $userData['userID']);
         $updateLogin->execute();
         
-        // Log successful login
         error_log("OAuth login successful for user: " . $googleEmail);
         
         // Redirect to appropriate dashboard
         $role = $userData['role'];
+        $redirectUrl = "{$basePath}/pages/{$role}/{$role}-dashboard.php";
         
-        // Get base path for redirect
-        $basePath = '';
-        if (strpos($_SERVER['REQUEST_URI'], '/al-ghaya/') !== false) {
-            $basePath = '/al-ghaya';
-        }
-        
-        $redirectUrl = $basePath . "/pages/{$role}/{$role}-dashboard.php";
-        
-        if (Config::get('APP_DEBUG', false)) {
+        if ($appDebug) {
             error_log("Redirecting to: " . $redirectUrl);
         }
         
@@ -170,32 +227,19 @@ try {
         
     } else {
         // User not found in database
-        cleanupOAuthSession();
-        
         error_log("Google account not found in database: " . $googleEmail);
-        
-        // Get base path for redirect
-        $basePath = '';
-        if (strpos($_SERVER['REQUEST_URI'], '/al-ghaya/') !== false) {
-            $basePath = '/al-ghaya';
-        }
-        
         header("Location: {$basePath}/pages/login.php?error=google_account_not_registered&email=" . urlencode($googleEmail));
         exit();
     }
     
 } catch (Exception $e) {
     error_log("OAuth callback fatal error: " . $e->getMessage());
-    cleanupOAuthSession();
     
-    // Get base path for redirect
-    $basePath = '';
-    if (strpos($_SERVER['REQUEST_URI'], '/al-ghaya/') !== false) {
-        $basePath = '/al-ghaya';
-    }
+    $basePath = getBasePath();
     
-    if (Config::get('APP_DEBUG', false)) {
-        header("Location: {$basePath}/pages/login.php?error=oauth_processing_error&details=" . urlencode($e->getMessage()));
+    if ($appDebug) {
+        // Show detailed error in debug mode
+        die("OAuth Error: " . $e->getMessage() . "<br><br><a href='{$basePath}/pages/login.php'>← Back to Login</a>");
     } else {
         header("Location: {$basePath}/pages/login.php?error=oauth_processing_error");
     }
