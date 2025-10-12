@@ -1,0 +1,66 @@
+# Al-Ghaya LMS - Files to ignore
+
+# Environment Configuration
+.env
+.env.local
+.env.production
+.env.staging
+
+# Composer
+vendor/
+composer.phar
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database backups
+*.sql
+*.sqlite
+*.db
+
+# File uploads
+uploads/*
+!uploads/.gitkeep
+
+# Cache
+cache/
+tmp/
+temp/
+
+# Session files
+sessions/
+
+# Configuration backups
+config-backup/
+*.conf.bak
+
+# Security
+*.key
+*.pem
+*.crt
+
+# Application specific
+dist/css/compiled/
+dist/js/compiled/
