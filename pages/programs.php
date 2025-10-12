@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="../dist/css/programs.css">
     <link rel="icon" type="image/x-icon" href="../images/Al-ghaya_logoForPrint.svg">
     <title>Al-Ghaya - Programs</title>
-
+    <?php include '../components/header.php' ?>
     <style>
         @font-face {
             font-family: 'Winky Rough';

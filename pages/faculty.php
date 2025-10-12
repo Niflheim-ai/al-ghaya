@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="../dist/css/faculty.css">
     <link rel="icon" type="image/x-icon" href="../images/Al-ghaya_logoForPrint.svg">
     <title>Al-Ghaya - Faculty</title>
+    <?php include '../components/header.php' ?>
 </head>
 <body>
     <!-- Navbar -->

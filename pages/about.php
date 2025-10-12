@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="../dist/css/index.css">
     <link rel="icon" type="image/x-icon" href="../images/Al-ghaya_logoForPrint.svg">
     <title>Al-Ghaya - About</title>
+    <?php include '../components/header.php' ?>
 </head>
 <body>
     <!-- Navbar -->
