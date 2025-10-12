@@ -1,0 +1,22 @@
+{
+  "name": "al-ghaya",
+  "version": "1.0.0",
+  "description": "A Gamified Learning Management System For Capstone",
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.12",
+    "tailwindcss": "^4.1.12"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "prettier-plugin-tailwindcss": "^0.6.13"
+  },
+  "scripts": {
+    "dev": "tailwindcss -i ./src/input.css -o ./src/output.css --watch",
+    "build": "tailwindcss -i ./src/input.css -o ./src/output.css --minify",
+    "format": "prettier --write .",
+    "start": "php -S localhost:8000 -t pages"
+  },
+  "keywords": ["lms", "gamification", "arabic", "islamic-studies", "education"],
+  "author": "Al-Ghaya Team",
+  "license": "MIT"
+}
