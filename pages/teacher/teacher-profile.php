@@ -2,8 +2,8 @@
 session_start();
 include('../../php/dbConnection.php');
 
-// Check if user is logged in and is a student
-if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
+// Check if user is logged in and is a teacher
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
     header("Location: ../login.php");
     exit();
 }
@@ -22,6 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $lastName = trim($_POST['last_name']);
     $email = trim($_POST['email']);
     $phone = trim($_POST['phone']);
+    $department = trim($_POST['department']);
+    $experience = trim($_POST['experience']);
     $bio = trim($_POST['bio']);
     $currentPassword = $_POST['current_password'];
     $newPassword = $_POST['new_password'];
@@ -64,16 +66,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         // Update user information
         if (!empty($newPassword)) {
             $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
-            $updateQuery = $conn->prepare("UPDATE user SET fname = ?, lname = ?, email = ?, phone = ?, bio = ?, password = ? WHERE userID = ?");
-            $updateQuery->bind_param("ssssssi", $firstName, $lastName, $email, $phone, $bio, $hashedPassword, $userID);
+            $updateQuery = $conn->prepare("UPDATE user SET fname = ?, lname = ?, email = ?, phone = ?, department = ?, experience = ?, bio = ?, password = ? WHERE userID = ?");
+            $updateQuery->bind_param("ssssssssi", $firstName, $lastName, $email, $phone, $department, $experience, $bio, $hashedPassword, $userID);
         } else {
-            $updateQuery = $conn->prepare("UPDATE user SET fname = ?, lname = ?, email = ?, phone = ?, bio = ? WHERE userID = ?");
-            $updateQuery->bind_param("sssssi", $firstName, $lastName, $email, $phone, $bio, $userID);
+            $updateQuery = $conn->prepare("UPDATE user SET fname = ?, lname = ?, email = ?, phone = ?, department = ?, experience = ?, bio = ? WHERE userID = ?");
+            $updateQuery->bind_param("sssssssi", $firstName, $lastName, $email, $phone, $department, $experience, $bio, $userID);
         }
         
         if ($updateQuery->execute()) {
             $_SESSION['success_message'] = "Profile updated successfully!";
-            header("Location: student-profile.php");
+            header("Location: teacher-profile.php");
             exit();
         } else {
             $errors[] = "Failed to update profile. Please try again.";
@@ -81,11 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     }
 }
 
-// Get user statistics (you can expand this based on your gamification system)
-$statsQuery = $conn->prepare("SELECT level, points, proficiency FROM user WHERE userID = ?");
-$statsQuery->bind_param("i", $userID);
-$statsQuery->execute();
-$stats = $statsQuery->get_result()->fetch_assoc();
+// Get teaching statistics (you can expand this based on your LMS data)
+$courseStats = [
+    'total_courses' => 5,
+    'active_students' => 127,
+    'completed_lessons' => 45,
+    'average_rating' => 4.8
+];
 ?>
 
 <!DOCTYPE html>
@@ -93,13 +97,12 @@ $stats = $statsQuery->get_result()->fetch_assoc();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile - Al-Ghaya Student</title>
+    <title>Teacher Profile - Al-Ghaya</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="icon" type="image/x-icon" href="../../images/al-ghaya_logoForPrint.svg">
     <style>
-        .profile-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .nav-link.active { background-color: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .profile-card { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -109,11 +112,11 @@ $stats = $statsQuery->get_result()->fetch_assoc();
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
                     <img class="h-8 w-auto" src="../../images/al-ghaya_logoForPrint.svg" alt="Al-Ghaya">
-                    <span class="ml-2 text-xl font-semibold text-gray-900">Al-Ghaya</span>
+                    <span class="ml-2 text-xl font-semibold text-gray-900">Al-Ghaya Teacher</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <a href="student-dashboard.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
-                    <a href="student-profile.php" class="bg-blue-100 text-blue-700 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
+                    <a href="teacher-dashboard.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                    <a href="teacher-profile.php" class="bg-green-100 text-green-700 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
                     <a href="../logout.php" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200">
                         Logout
                     </a>
@@ -134,54 +137,34 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                             </span>
                         </div>
                         <h2 class="text-2xl font-bold mb-2"><?= htmlspecialchars($user['fname'] . ' ' . $user['lname']) ?></h2>
-                        <p class="text-blue-100 mb-4"><?= htmlspecialchars($user['email']) ?></p>
-                        <div class="flex justify-center space-x-4 text-sm">
-                            <div class="text-center">
-                                <p class="font-semibold text-lg"><?= $stats['level'] ?></p>
-                                <p class="text-blue-100">Level</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="font-semibold text-lg"><?= number_format($stats['points']) ?></p>
-                                <p class="text-blue-100">Points</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="font-semibold text-lg"><?= ucfirst($stats['proficiency']) ?></p>
-                                <p class="text-blue-100">Level</p>
-                            </div>
+                        <p class="text-green-100 mb-2"><?= htmlspecialchars($user['email']) ?></p>
+                        <p class="text-green-200 text-sm mb-4"><?= htmlspecialchars($user['department'] ?? 'General Studies') ?></p>
+                        <div class="bg-white bg-opacity-10 rounded-lg p-3">
+                            <p class="text-sm text-green-100">Member since</p>
+                            <p class="font-semibold"><?= date('F Y', strtotime($user['dateCreated'])) ?></p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Quick Stats -->
+                <!-- Teaching Stats -->
                 <div class="mt-6 bg-white rounded-xl shadow-sm p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Learning Progress</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-600">Arabic Language</span>
-                                <span class="text-gray-900">75%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-600 h-2 rounded-full" style="width: 75%"></div>
-                            </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Teaching Statistics</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-center p-4 bg-blue-50 rounded-lg">
+                            <p class="text-2xl font-bold text-blue-600"><?= $courseStats['total_courses'] ?></p>
+                            <p class="text-sm text-gray-600">Courses</p>
                         </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-600">Islamic Studies</span>
-                                <span class="text-gray-900">60%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-green-600 h-2 rounded-full" style="width: 60%"></div>
-                            </div>
+                        <div class="text-center p-4 bg-green-50 rounded-lg">
+                            <p class="text-2xl font-bold text-green-600"><?= $courseStats['active_students'] ?></p>
+                            <p class="text-sm text-gray-600">Students</p>
                         </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-600">Quran Studies</span>
-                                <span class="text-gray-900">85%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-purple-600 h-2 rounded-full" style="width: 85%"></div>
-                            </div>
+                        <div class="text-center p-4 bg-purple-50 rounded-lg">
+                            <p class="text-2xl font-bold text-purple-600"><?= $courseStats['completed_lessons'] ?></p>
+                            <p class="text-sm text-gray-600">Lessons</p>
+                        </div>
+                        <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                            <p class="text-2xl font-bold text-yellow-600"><?= $courseStats['average_rating'] ?></p>
+                            <p class="text-sm text-gray-600">Rating</p>
                         </div>
                     </div>
                 </div>
@@ -191,8 +174,8 @@ $stats = $statsQuery->get_result()->fetch_assoc();
             <div class="lg:col-span-2">
                 <div class="bg-white rounded-xl shadow-sm">
                     <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-semibold text-gray-900">Edit Profile</h3>
-                        <p class="text-gray-600">Update your personal information and settings</p>
+                        <h3 class="text-lg font-semibold text-gray-900">Teacher Profile</h3>
+                        <p class="text-gray-600">Update your professional information and settings</p>
                     </div>
                     
                     <form method="POST" class="p-6 space-y-6">
@@ -221,13 +204,13 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                                     <label for="first_name" class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                                     <input type="text" id="first_name" name="first_name" required
                                         value="<?= htmlspecialchars($user['fname']) ?>"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
                                     <label for="last_name" class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
                                     <input type="text" id="last_name" name="last_name" required
                                         value="<?= htmlspecialchars($user['lname']) ?>"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                             </div>
                         </div>
@@ -240,23 +223,55 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                                     <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                                     <input type="email" id="email" name="email" required
                                         value="<?= htmlspecialchars($user['email']) ?>"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
                                     <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                                     <input type="tel" id="phone" name="phone"
                                         value="<?= htmlspecialchars($user['phone'] ?? '') ?>"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Professional Information -->
+                        <div>
+                            <h4 class="text-md font-medium text-gray-900 mb-4">Professional Information</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="department" class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                    <select id="department" name="department"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <option value="">Select Department</option>
+                                        <option value="Arabic Language" <?= ($user['department'] === 'Arabic Language') ? 'selected' : '' ?>>Arabic Language</option>
+                                        <option value="Islamic Studies" <?= ($user['department'] === 'Islamic Studies') ? 'selected' : '' ?>>Islamic Studies</option>
+                                        <option value="Quran Studies" <?= ($user['department'] === 'Quran Studies') ? 'selected' : '' ?>>Quran Studies</option>
+                                        <option value="Islamic History" <?= ($user['department'] === 'Islamic History') ? 'selected' : '' ?>>Islamic History</option>
+                                        <option value="Hadith Studies" <?= ($user['department'] === 'Hadith Studies') ? 'selected' : '' ?>>Hadith Studies</option>
+                                        <option value="Islamic Jurisprudence" <?= ($user['department'] === 'Islamic Jurisprudence') ? 'selected' : '' ?>>Islamic Jurisprudence</option>
+                                        <option value="General Studies" <?= ($user['department'] === 'General Studies') ? 'selected' : '' ?>>General Studies</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="experience" class="block text-sm font-medium text-gray-700 mb-2">Teaching Experience</label>
+                                    <select id="experience" name="experience"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <option value="">Select Experience Level</option>
+                                        <option value="Entry Level" <?= ($user['experience'] === 'Entry Level') ? 'selected' : '' ?>>Entry Level (0-2 years)</option>
+                                        <option value="Experienced" <?= ($user['experience'] === 'Experienced') ? 'selected' : '' ?>>Experienced (3-5 years)</option>
+                                        <option value="Senior" <?= ($user['experience'] === 'Senior') ? 'selected' : '' ?>>Senior (6-10 years)</option>
+                                        <option value="Expert" <?= ($user['experience'] === 'Expert') ? 'selected' : '' ?>>Expert (10+ years)</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Bio -->
                         <div>
-                            <label for="bio" class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                            <label for="bio" class="block text-sm font-medium text-gray-700 mb-2">Professional Bio</label>
                             <textarea id="bio" name="bio" rows="4"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Tell us about yourself..."><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                placeholder="Share your teaching philosophy, qualifications, and experience..."><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
                         </div>
 
                         <!-- Password Section -->
@@ -266,17 +281,17 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                                 <div>
                                     <label for="current_password" class="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
                                     <input type="password" id="current_password" name="current_password"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
                                     <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
                                     <input type="password" id="new_password" name="new_password"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
                                     <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
                                     <input type="password" id="confirm_password" name="confirm_password"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                             </div>
                             <p class="mt-2 text-sm text-gray-500">Leave blank to keep current password</p>
@@ -285,7 +300,7 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                         <!-- Submit Button -->
                         <div class="flex justify-end pt-6 border-t border-gray-200">
                             <button type="submit" name="update_profile"
-                                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition duration-200">
+                                class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition duration-200">
                                 Update Profile
                             </button>
                         </div>

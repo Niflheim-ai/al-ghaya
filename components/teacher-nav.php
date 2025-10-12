@@ -1,3 +1,18 @@
+<?php
+// At the top of each dashboard page
+include('../../php/dbConnection.php');
+
+// Get user information for profile display
+if (isset($_SESSION['userID'])) {
+    $userQuery = $conn->prepare("SELECT fname, lname, email, department FROM user WHERE userID = ?");
+    $userQuery->bind_param("i", $_SESSION['userID']);
+    $userQuery->execute();
+    $userInfo = $userQuery->get_result()->fetch_assoc();
+    $userInitials = strtoupper(substr($userInfo['fname'], 0, 1) . substr($userInfo['lname'], 0, 1));
+    $userName = $userInfo['fname'] . ' ' . $userInfo['lname'];
+}
+?>
+
 <!-- Navbar -->
 <nav class="bg-company_white flex flex-grow items-center justify-center sticky top-0 z-50">
     <div class="px-[50px] py-[20px] sm:px-6 lg:px-8 max-w-[1200px] w-full">
@@ -19,7 +34,7 @@
                 } ?>">
                     <i class="ph ph-address-book-tabs text-[24px] group-hover:hidden"></i>
                     <i class="ph-duotone ph-address-book-tabs text-[24px] hidden group-hover:block"></i>
-                    <p>My Dashboard</p>
+                    <p>Dashboard</p>
                 </a>
 
                 <a href="teacher-programs.php" class="<?php if ($current_page == 'teacher-programs') {
@@ -37,25 +52,24 @@
                 } else {
                     echo 'group menu-item-inactive flex items-center';
                 } ?>">
-                    <i class="ph ph-receipt text-[24px] group-hover:hidden"></i>
-                    <i class="ph-duotone ph-receipt text-[24px] hidden group-hover:block"></i>
+                    <i class="ph ph-presentation-chart text-[24px] group-hover:hidden"></i>
+                    <i class="ph-duotone ph-presentation-chart text-[24px] hidden group-hover:block"></i>
                     <p>Analytics</p>
                 </a>
             </div>
 
             <div class="flex items-center">
                 <!-- Change Language Dropdown -->
-                <div class="hidden lg:flex items-center relative z-50 mr-3">
-                    <!-- Language Button -->
+                <div class="hidden lg:flex items-center relative z-40 mr-4">
                     <button id="lang-button"
                         class="flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-200 hover:cursor-pointer">
-                        <i class="ph-light ph-globe text-secondary text-[30px]"></i>
-                        <span id="selected-lang" class="text-secondary font-semibold">English</span>
+                        <i class="ph-light ph-globe text-secondary text-[24px]"></i>
+                        <span id="selected-lang" class="text-secondary font-medium">EN</span>
+                        <i class="ph ph-caret-down text-secondary text-[14px]"></i>
                     </button>
 
-                    <!-- Dropdown Menu (hidden by default) -->
                     <div id="lang-dropdown"
-                        class="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg py-2 hidden">
+                        class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200">
                         <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer"
                             data-lang="en">English</a>
                         <div class="border-t border-gray-200 my-1"></div>
@@ -64,65 +78,138 @@
                     </div>
                 </div>
 
-                <!-- Login/User Profile (Desktop Only) -->
-                <div class="hidden lg:flex items-center relative">
-                    <!-- Profile Button -->
-                    <button id="profile-menu-button" class="flex items-center focus:outline-none hover:cursor-pointer">
-                        <i class="ph ph-gear text-secondary text-[30px]"></i>
+                <!-- Profile Section -->
+                <div class="relative">
+                    <button id="teacher-profile-button" onclick="toggleProfileDropdown('teacher')" 
+                        class="flex items-center focus:outline-none hover:cursor-pointer group">
+                        <div class="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-lg border-2 border-secondary hover:bg-green-700 transition-all duration-200">
+                            <?= $userInitials ?>
+                        </div>
+                        <i class="ph ph-caret-down text-secondary text-[16px] ml-2 group-hover:text-gray-600 transition-colors duration-200"></i>
                     </button>
 
-                    <!-- Dropdown Menu (hidden by default) -->
-                    <div id="profile-dropdown"
-                        class="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg py-2 hidden">
-                        <a href="student-profile.php" class="block px-4 py-2 text-sm hover:bg-gray-100">My Profile</a>
-                        <a href="student-settings.php" class="block px-4 py-2 text-sm hover:bg-gray-100">Settings</a>
-                        <div class="border-t border-gray-200 my-1"></div>
-                        <a href="../../php/signout.php" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-100">Sign
-                            Out</a>
+                    <!-- Dropdown Menu -->
+                    <div id="teacher-profile-dropdown" 
+                        class="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg py-2 border border-gray-200 hidden z-50 transform opacity-0 scale-95 transition-all duration-200 origin-top-right">
+                        <!-- User Info Section -->
+                        <div class="px-4 py-3 border-b border-gray-100">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
+                                    <?= $userInitials ?>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 truncate"><?= htmlspecialchars($userName) ?></p>
+                                    <p class="text-xs text-gray-500 truncate"><?= htmlspecialchars($userInfo['email']) ?></p>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                                        <?= htmlspecialchars($userInfo['department'] ?? 'Teacher') ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Menu Items -->
+                        <div class="py-1">
+                            <a href="teacher-profile.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
+                                <i class="ph ph-user-circle text-[18px] mr-3 text-gray-400"></i>
+                                Profile Settings
+                            </a>
+                            <a href="teacher-courses.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
+                                <i class="ph ph-books text-[18px] mr-3 text-gray-400"></i>
+                                My Courses
+                            </a>
+                            <a href="teacher-students.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
+                                <i class="ph ph-users-three text-[18px] mr-3 text-gray-400"></i>
+                                My Students
+                            </a>
+                            <a href="teacher-settings.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
+                                <i class="ph ph-gear-six text-[18px] mr-3 text-gray-400"></i>
+                                Account Settings
+                            </a>
+                        </div>
+
+                        <!-- Logout Section -->
+                        <div class="border-t border-gray-100 py-1">
+                            <a href="../logout.php" class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-150">
+                                <i class="ph ph-sign-out text-[18px] mr-3 text-red-500"></i>
+                                Sign Out
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Mobile Menu Button -->
-            <div class="md:flex lg:hidden flex items-center">
-                <button id="menu-toggle"
-                    class="text-neutral-800 hover:text-gray-400 focus:outline-none hover:cursor-pointer">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 6h16M4 12h16m-7 6h7"></path>
-                    </svg>
-                </button>
-            </div>
         </div>
 
-
-        <!-- Mobile Menu (Initially Hidden) -->
-        <div id="mobile-menu"
-            class="hidden flex flex-col items-center overflow-hidden max-h-0 transition-all duration-900 ease-in-out">
-            <div class="px-2 pt-2 pb-3 space-y-2 flex flex-col items-center w-full">
-                <a href="student-dashboard.php" class="<?php if ($current_page == 'teacher-dashboard') {
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="lg:hidden hidden">
+            <div class="px-2 pt-2 pb-3 space-y-2 bg-company_white border-t border-gray-200">
+                <a href="teacher-dashboard.php" class="<?php if ($current_page == 'teacher-dashboard') {
                     echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
                 } else {
                     echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
-                } ?>">My Dashboard</a>
+                } ?>">Dashboard</a>
 
-                <a href="programs.php" class="<?php if ($current_page == 'teacher-programs') {
+                <a href="teacher-programs.php" class="<?php if ($current_page == 'teacher-programs') {
                     echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
                 } else {
                     echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
                 } ?>">Programs</a>
 
-                <a href="student-transactions.php" class="<?php if ($current_page == 'teacher-transactions') {
+                <a href="teacher-analytics.php" class="<?php if ($current_page == 'teacher-analytics') {
                     echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
                 } else {
                     echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
                 } ?>">Analytics</a>
+                
                 <div class="border-t border-gray-700 w-full my-2"></div>
-                <a href="../../php/signout.php"
-                    class="block w-full text-center rounded-md bg-[#10375B] px-3 py-2 text-base font-medium text-white hover:bg-blue-900">Sign
-                    Out</a>
+                <a href="teacher-profile.php" class="block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white">Profile</a>
+                <a href="../logout.php" class="block w-full text-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700">Sign Out</a>
             </div>
         </div>
     </div>
 </nav>
+
+<script>
+function toggleProfileDropdown(userType) {
+    const dropdown = document.getElementById(`${userType}-profile-dropdown`);
+    
+    if (dropdown.classList.contains('hidden')) {
+        dropdown.classList.remove('hidden', 'opacity-0', 'scale-95');
+        dropdown.classList.add('opacity-100', 'scale-100');
+    } else {
+        dropdown.classList.add('opacity-0', 'scale-95');
+        setTimeout(() => {
+            dropdown.classList.add('hidden');
+        }, 200);
+    }
+}
+
+// Language dropdown toggle
+document.getElementById('lang-button').addEventListener('click', function() {
+    const dropdown = document.getElementById('lang-dropdown');
+    dropdown.classList.toggle('hidden');
+});
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    // Teacher profile dropdown
+    const teacherButton = document.getElementById('teacher-profile-button');
+    const teacherDropdown = document.getElementById('teacher-profile-dropdown');
+    
+    if (teacherButton && teacherDropdown && !teacherButton.contains(event.target) && !teacherDropdown.contains(event.target)) {
+        teacherDropdown.classList.add('opacity-0', 'scale-95');
+        setTimeout(() => {
+            teacherDropdown.classList.add('hidden');
+        }, 200);
+    }
+    
+    // Language dropdown
+    const langButton = document.getElementById('lang-button');
+    const langDropdown = document.getElementById('lang-dropdown');
+    
+    if (langButton && langDropdown && !langButton.contains(event.target) && !langDropdown.contains(event.target)) {
+        langDropdown.classList.add('hidden');
+    }
+});
+</script>
+
+<script src="../../components/profile-dropdown.js"></script>

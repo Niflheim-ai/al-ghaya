@@ -1,4 +1,13 @@
 <?php
+session_start();
+include '../../php/dbConnection.php';
+
+// Check if user is logged in and is an admin
+if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../login.php");
+    exit();
+}
+
 $current_page = "admin-home";
 $page_title = "My Dashboard";
 ?>
