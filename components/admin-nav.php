@@ -13,6 +13,9 @@ if (isset($_SESSION['userID'])) {
 }
 ?>
 
+<!-- Include SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <!-- Navbar -->
 <nav class="bg-secondary flex flex-grow items-center justify-center sticky top-0 z-50">
     <div class="px-[50px] py-[20px] sm:px-6 lg:px-8 max-w-[1200px] w-full">
@@ -114,10 +117,10 @@ if (isset($_SESSION['userID'])) {
 
                         <!-- Logout Section -->
                         <div class="border-t border-gray-100 py-1">
-                            <a href="../logout.php" class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-150">
+                            <button onclick="confirmSignOut()" class="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-150 text-left">
                                 <i class="ph ph-sign-out text-[18px] mr-3 text-red-500"></i>
                                 Sign Out
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -153,7 +156,7 @@ if (isset($_SESSION['userID'])) {
 
                 <div class="border-t border-gray-500 w-full my-2"></div>
                 <a href="admin-profile.php" class="block w-full text-center rounded-md px-3 py-2 text-md font-medium text-white hover:bg-gray-700">Profile</a>
-                <a href="../logout.php" class="block w-full text-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700">Sign Out</a>
+                <button onclick="confirmSignOut()" class="block w-full text-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700">Sign Out</button>
             </div>
         </div>
     </div>
@@ -175,6 +178,46 @@ function toggleProfileDropdown(userType) {
     }
 }
 
+// SweetAlert confirmation for sign out
+function confirmSignOut() {
+    Swal.fire({
+        title: 'Sign Out Confirmation',
+        text: 'Are you sure you want to sign out of your admin account?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Sign Out',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        customClass: {
+            popup: 'swal2-popup-custom',
+            title: 'swal2-title-custom',
+            content: 'swal2-content-custom'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading state
+            Swal.fire({
+                title: 'Signing Out...',
+                text: 'Please wait while we sign you out securely.',
+                icon: 'info',
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Redirect to logout after a brief delay
+            setTimeout(() => {
+                window.location.href = '../logout.php';
+            }, 1000);
+        }
+    });
+}
+
 // Close dropdown when clicking outside
 document.addEventListener('click', function(event) {
     const adminButton = document.getElementById('admin-profile-button');
@@ -189,4 +232,20 @@ document.addEventListener('click', function(event) {
 });
 </script>
 
-<script src="../../components/profile-dropdown.js"></script>
+<style>
+.swal2-popup-custom {
+    border-radius: 12px !important;
+    padding: 2rem !important;
+}
+
+.swal2-title-custom {
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+}
+
+.swal2-content-custom {
+    font-size: 1rem !important;
+    color: #6b7280 !important;
+}
+</style>
