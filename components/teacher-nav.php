@@ -13,6 +13,9 @@ if (isset($_SESSION['userID'])) {
 }
 ?>
 
+<!-- Include SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <!-- Navbar -->
 <nav class="bg-company_white flex flex-grow items-center justify-center sticky top-0 z-50">
     <div class="px-[50px] py-[20px] sm:px-6 lg:px-8 max-w-[1200px] w-full">
@@ -129,10 +132,10 @@ if (isset($_SESSION['userID'])) {
 
                         <!-- Logout Section -->
                         <div class="border-t border-gray-100 py-1">
-                            <a href="../logout.php" class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-150">
+                            <button onclick="confirmTeacherSignOut()" class="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-150 text-left">
                                 <i class="ph ph-sign-out text-[18px] mr-3 text-red-500"></i>
                                 Sign Out
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -162,7 +165,7 @@ if (isset($_SESSION['userID'])) {
                 
                 <div class="border-t border-gray-700 w-full my-2"></div>
                 <a href="teacher-profile.php" class="block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white">Profile</a>
-                <a href="../logout.php" class="block w-full text-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700">Sign Out</a>
+                <button onclick="confirmTeacherSignOut()" class="block w-full text-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700">Sign Out</button>
             </div>
         </div>
     </div>
@@ -181,6 +184,49 @@ function toggleProfileDropdown(userType) {
             dropdown.classList.add('hidden');
         }, 200);
     }
+}
+
+// SweetAlert confirmation for teacher sign out
+function confirmTeacherSignOut() {
+    Swal.fire({
+        title: 'End Teaching Session?',
+        text: 'Are you sure you want to sign out and end your teaching session?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, Sign Out',
+        cancelButtonText: 'Continue Teaching',
+        reverseButtons: true,
+        customClass: {
+            popup: 'swal2-popup-custom',
+            title: 'swal2-title-custom',
+            content: 'swal2-content-custom'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show appreciation message for teachers
+            Swal.fire({
+                title: 'Thank You for Teaching! 🎆',
+                html: 'Your dedication to educating students is truly appreciated.<br><br><div class="text-sm text-gray-600">Signing out securely...</div>',
+                icon: 'success',
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                timer: 2500,
+                didOpen: () => {
+                    setTimeout(() => {
+                        Swal.showLoading();
+                    }, 1500);
+                }
+            });
+            
+            // Redirect to logout after the appreciation message
+            setTimeout(() => {
+                window.location.href = '../logout.php';
+            }, 2500);
+        }
+    });
 }
 
 // Language dropdown toggle
@@ -212,4 +258,20 @@ document.addEventListener('click', function(event) {
 });
 </script>
 
-<script src="../../components/profile-dropdown.js"></script>
+<style>
+.swal2-popup-custom {
+    border-radius: 12px !important;
+    padding: 2rem !important;
+}
+
+.swal2-title-custom {
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+}
+
+.swal2-content-custom {
+    font-size: 1rem !important;
+    color: #6b7280 !important;
+}
+</style>
