@@ -105,12 +105,12 @@ The system uses a comprehensive MySQL database with the following key tables:
    composer install
    ```
 
-3. **Install Node.js dependencies**
+4. **Install Node.js dependencies**
    ```bash
    npm install
    ```
 
-4. **Database setup**
+5. **Database setup**
    ```bash
    # Create database
    mysql -u root -p
@@ -120,18 +120,18 @@ The system uses a comprehensive MySQL database with the following key tables:
    mysql -u root -p al_ghaya_lms < sql/database_setup.sql
    ```
 
-5. **Configure database connection**
+6. **Configure database connection**
    ```php
    // Edit php/dbConnection.php
    $conn = mysqli_connect("localhost", "your_username", "your_password", "al_ghaya_lms");
    ```
 
-6. **Build assets**
+7. **Build assets**
    ```bash
    npm run build
    ```
 
-7. **Start development server**
+8. **Start development server**
    ```bash
    npm run start
    # or
@@ -239,7 +239,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Project Team**: Al-Ghaya Development Team
 - **Email**: [Your Contact Email]
 - **Website**: [Your Website]
-- **Live Demo**: https://al-ghaya.vercel.app
+- **Live Demo**: https://al-ghaya-2.vercel.app
 
 ## 🚀 Deployment
 
@@ -251,7 +251,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 5. Set up backup procedures
 
 ### Vercel Deployment (Current)
-- Main branch deployment at: https://al-ghaya.vercel.app
+- Deployed at: https://al-ghaya-2.vercel.app
 - Automatic deployments from main branch
 - Environment variables configured in Vercel dashboard
 
@@ -266,6 +266,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Note**: This repository now contains the complete AI-enhanced development branch content from al-ghaya-2. All features documented here are now available in this main branch.
+**Note**: This is the AI-enhanced development branch with significant improvements over the main branch. The features documented here represent the latest development work and may not be available in the production deployment until merged.
 
-**Repository Status**: ✅ Migrated from AI Development Branch | 🔄 Ready for Production | 🚀 Enhanced Features
+**AI Development Branch Status**: ✅ Active Development | 🔄 Ready for Testing | 🚀 Enhanced Features

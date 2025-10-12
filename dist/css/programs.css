@@ -1,0 +1,46 @@
+@font-face {
+    font-family: 'Winky Rough';
+    src: url('../assets/fonts/WinkyRough-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+* {
+    font-family: 'Poppins', sans-serif;
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+
+.perspective {
+    perspective: 1000px;
+}
+
+.preserve-3d {
+    transform-style: preserve-3d;
+}
+
+.backface-hidden {
+    backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+    transform: rotateY(180deg);
+}
+
+.swiper-pagination-bullet {
+    width: 18px;
+    height: 18px;
+    background-color: #7e7e7e;
+    border-radius: 50%;
+    transition: all 0.6s ease-in-out;
+}
+
+.swiper-pagination-bullet-active {
+    background-color: #717271;
+    width: 30px;
+    border-radius: 14px;
+}
+
+.font-winky {
+    font-family: 'Winky Rough', sans-serif;
+}

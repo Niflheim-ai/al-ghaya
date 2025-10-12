@@ -1,0 +1,33 @@
+* {
+    font-family: 'Poppins', sans-serif;
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+
+.swiper-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.swiper-wrapper { 
+    transition-timing-function: linear; 
+}
+
+.fading-border {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 100px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.fading-border.left {
+    left: 0;
+    background: linear-gradient(to right, rgba(255, 255, 255, 0.8), transparent);
+}
+
+.fading-border.right {
+    right: 0;
+    background: linear-gradient(to left, rgba(255, 255, 255, 0.8), transparent);
+}

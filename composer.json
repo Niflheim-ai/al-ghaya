@@ -1,6 +1,6 @@
 {
-    "name": "al-ghaya/project",
-    "description": "Al-Ghaya: A Gamified Learning Management System For Arabic and Islamic Studies",
+    "name": "al-ghaya-2/project",
+    "description": "Al-Ghaya 2: A Gamified Learning Management System For Arabic and Islamic Studies",
     "type": "project",
     "keywords": ["lms", "gamification", "arabic", "islamic-studies", "education"],
     "license": "MIT",

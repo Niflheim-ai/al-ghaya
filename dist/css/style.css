@@ -1,0 +1,44 @@
+@import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&family=Winky+Rough:ital,wght@0,300..900;1,300..900&display=swap");
+
+html {
+  font-size: 15px;
+}
+
+body {
+  font-family: "Winky Rough", sans-serif;
+  color: #05051a;
+}
+
+.arabic {
+  font-family: "Vazirmatn", sans-serif;
+}
+
+.answers label {
+  font-weight: 500;
+}
+
+/* Add custom CSS for consistent thumbnail sizing */
+.program-thumbnail {
+  width: 221px;
+  height: 400px;
+  object-fit: cover;
+}
+
+.chapter-thumbnail-preview {
+  width: 120px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}

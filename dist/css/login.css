@@ -1,0 +1,30 @@
+* {
+    font-family: 'Poppins', sans-serif;
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+
+body {
+    /* background: linear-gradient(155deg, #ffffff00 50%, #d8d518 50%); */
+}
+
+/* .diag-bg {
+    background-image: -webkit-linear-gradient(155deg, #ffffff00 50%, #d8d518 50%);
+    height: 100%;
+    width: 100%;
+    filter: blur(50px);
+    position: absolute;
+    transform: rotate(180deg);
+    z-index: -9;
+} */
+
+.content {
+    z-index: 999;
+}
+
+.diag-bg {
+    margin-top: -20%;
+    z-index: -9999;
+    overflow: hidden;
+    position: relative;
+}
