@@ -1,7 +1,7 @@
 <?php
 /**
  * Al-Ghaya Google OAuth API Configuration
- * Secured with environment variables
+ * Fixed redirect URI mismatch issue
  */
 
 require __DIR__ . "/../vendor/autoload.php";
@@ -37,20 +37,43 @@ $client->setPrompt('select_account');
 
 /**
  * Generate appropriate OAuth redirect URI based on environment
+ * Fixed to match your Google OAuth console configuration
  * @return string Redirect URI
  */
 function getOAuthRedirectUri() {
     $host = $_SERVER['HTTP_HOST'];
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     
+    // Get the base path of your application
+    $requestUri = $_SERVER['REQUEST_URI'];
+    $scriptName = $_SERVER['SCRIPT_NAME'];
+    
+    // Extract the base directory path
+    $basePath = '';
+    if (strpos($requestUri, '/al-ghaya/') !== false) {
+        $basePath = '/al-ghaya';
+    } elseif (strpos($scriptName, '/al-ghaya/') !== false) {
+        $basePath = '/al-ghaya';
+    }
+    
     // Development environments
-    if ($host === 'localhost:8000' || $host === 'localhost:8080' || $host === '127.0.0.1:8000') {
-        return "http://$host/php/authorized.php";
+    if ($host === 'localhost:8080' || $host === 'localhost:8000' || $host === '127.0.0.1:8080' || $host === '127.0.0.1:8000') {
+        return "http://$host$basePath/php/authorized.php";
+    }
+    
+    // LocalTunnel or similar tunneling services
+    if (strpos($host, '.loca.lt') !== false) {
+        return "https://$host$basePath/php/authorized.php";
+    }
+    
+    // Ngrok tunneling
+    if (strpos($host, '.ngrok.') !== false) {
+        return "https://$host$basePath/php/authorized.php";
     }
     
     // GitHub Codespaces
     if (strpos($host, 'github.dev') !== false || strpos($host, 'githubpreview.dev') !== false) {
-        return "https://$host/php/authorized.php";
+        return "https://$host$basePath/php/authorized.php";
     }
     
     // Vercel deployment
@@ -64,8 +87,30 @@ function getOAuthRedirectUri() {
     }
     
     // Custom domain or production
-    $appUrl = Config::get('APP_URL', "https://$host");
-    return rtrim($appUrl, '/') . '/php/authorized.php';
+    $appUrl = Config::get('APP_URL');
+    if ($appUrl) {
+        return rtrim($appUrl, '/') . '/php/authorized.php';
+    }
+    
+    // Fallback
+    return "$scheme://$host$basePath/php/authorized.php";
+}
+
+/**
+ * Get current base URL for debugging
+ * @return string Current base URL
+ */
+function getCurrentBaseUrl() {
+    $host = $_SERVER['HTTP_HOST'];
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $requestUri = $_SERVER['REQUEST_URI'];
+    
+    $basePath = '';
+    if (strpos($requestUri, '/al-ghaya/') !== false) {
+        $basePath = '/al-ghaya';
+    }
+    
+    return "$scheme://$host$basePath";
 }
 
 /**
@@ -75,9 +120,15 @@ function getOAuthRedirectUri() {
 function getSecureAuthUrl() {
     global $client;
     
+    // Start session if not already started
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
+    
     // Generate state parameter for CSRF protection
     $state = bin2hex(random_bytes(32));
     $_SESSION['oauth_state'] = $state;
+    $_SESSION['oauth_timestamp'] = time();
     
     $client->setState($state);
     return $client->createAuthUrl();
@@ -89,8 +140,21 @@ function getSecureAuthUrl() {
  * @return bool True if state is valid
  */
 function validateOAuthState($receivedState) {
-    return isset($_SESSION['oauth_state']) && 
-           hash_equals($_SESSION['oauth_state'], $receivedState);
+    if (!isset($_SESSION['oauth_state'])) {
+        return false;
+    }
+    
+    // Check state match
+    if (!hash_equals($_SESSION['oauth_state'], $receivedState)) {
+        return false;
+    }
+    
+    // Check timestamp (max 10 minutes)
+    if (!isset($_SESSION['oauth_timestamp']) || (time() - $_SESSION['oauth_timestamp']) > 600) {
+        return false;
+    }
+    
+    return true;
 }
 
 /**
@@ -98,14 +162,18 @@ function validateOAuthState($receivedState) {
  */
 function cleanupOAuthSession() {
     unset($_SESSION['oauth_state']);
+    unset($_SESSION['oauth_timestamp']);
 }
 
-// Error handling for OAuth configuration
+// Debug information (only in development)
 if (Config::get('APP_DEBUG', false)) {
-    // In debug mode, log configuration status
-    error_log("Google OAuth Configuration Loaded:");
-    error_log("Client ID: " . (Config::has('GOOGLE_CLIENT_ID') ? 'Set' : 'Missing'));
-    error_log("Client Secret: " . (Config::has('GOOGLE_CLIENT_SECRET') ? 'Set' : 'Missing'));
-    error_log("Redirect URI: " . $redirectUri);
+    error_log("=== OAuth Configuration Debug ===");
+    error_log("Current Host: " . $_SERVER['HTTP_HOST']);
+    error_log("Request URI: " . $_SERVER['REQUEST_URI']);
+    error_log("Script Name: " . $_SERVER['SCRIPT_NAME']);
+    error_log("Generated Redirect URI: " . getOAuthRedirectUri());
+    error_log("Current Base URL: " . getCurrentBaseUrl());
+    error_log("Client ID: " . (Config::has('GOOGLE_CLIENT_ID') ? 'Set ✓' : 'Missing ✗'));
+    error_log("Client Secret: " . (Config::has('GOOGLE_CLIENT_SECRET') ? 'Set ✓' : 'Missing ✗'));
 }
 ?>
