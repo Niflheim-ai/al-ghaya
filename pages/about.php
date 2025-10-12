@@ -1,6 +1,7 @@
 <?php
     session_start();
     $current_page = 'about';
+    $page_title = 'about';
 
     if (isset($_SESSION['userID']) && isset($_SESSION['role'])) {
         // Redirect based on user role
@@ -158,62 +159,7 @@
     <hr class="my-12 h-px border-t-0 bg-transparent bg-gradient-to-r from-transparent via-neutral-800 to-transparent opacity-45 dark:via-neutral-800"/>
 
     <!-- Footer -->
-    <footer class="bg-[#10375B]">
-        <div class="mx-auto w-full max-w-screen-2xl p-4 py-6 lg:py-8">
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 sm:gap-6 items-start">
-                <!-- Logo and Character -->
-                <div class="col-span-2 flex flex-row items-center justify-center mb-6">
-                    <img src="../images/muslim-coffee.svg" class="h-65 lg:max-w-xs lg:flex hidden" alt="Character" />
-                    <div class="flex items-center">
-                        <img src="../images/Vertical.svg" class="h-[148px] me-3" alt="Al-Ghaya Logo"/>
-                    </div>
-                </div>
-
-                <!-- Our Location -->
-                <div class="col-span-1 px-10 lg:mt-20">
-                    <h2 class="mb-3 text-lg font-semibold text-white uppercase">Our Location</h2>
-                    <ul class="text-white font-medium">
-                        <li class="mb-4">
-                            <span class="font-bold">Al-Ghaya Office</span>
-                        </li>
-                        <li class="break-all max-w-xs">
-                            <span>ISCAG School, Salitran 1, Dasmarinas, Cavite</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Contact -->
-                <div class="col-span-1 px-10 lg:mt-20">
-                    <h2 class="mb-3 text-lg font-semibold text-white uppercase">Contact</h2>
-                    <ul class="text-white font-medium">
-                        <li class="mb-3">
-                            <span>Omar Eguia</span>
-                        </li>
-                        <li>
-                            <span>+9766231230</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Socials -->
-                <div class="col-span-1 px-10 lg:mt-20">
-                    <h2 class="mb-3 text-lg font-semibold text-white uppercase">Socials</h2>
-                    <a href="#" class="text-white hover:text-gray-600">
-                        <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 8 19">
-                            <path fill-rule="evenodd" d="M6.135 3H8V0H6.135a4.147 4.147 0 0 0-4.142 4.142V6H0v3h2v9.938h3V9h2.021l.592-3H5V3.591A.6.6 0 0 1 5.592 3h.543Z" clip-rule="evenodd"/>
-                        </svg>
-                        <span class="sr-only">Facebook page</span>
-                    </a>
-                </div>
-            </div>
-
-            <hr class="my-6 border-gray-200 mx-auto dark:border-gray-700 lg:my-8" />
-
-            <div class="sm:flex sm:items-center sm:justify-center text-center">
-                <span class="text-sm text-white">© 2025 Al-Ghaya. All Rights Reserved.</span>
-            </div>
-        </div>
-    </footer>
+    <?php include '../components/footer.php'; ?>
 
     <!-- Back to Top button -->
     <button type="button" onclick="scrollToTop()" class="scroll-to-top hidden fixed bottom-4 right-4 bg-gray-800 text-white rounded-full transition duration-300 hover:bg-gray-700 hover:text-gray-200 hover:cursor-pointer" id="scroll-to-top">

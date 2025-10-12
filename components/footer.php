@@ -3,7 +3,14 @@
   <!-- Details -->
   <section class="flex flex-col md:flex-row h-fit w-full max-w-[1200px] items-center justify-center gap-[50px] md:gap-[75px]">
     <!-- Logo -->
-    <img src="../../images/vertical_V2.svg" alt="Al-Ghaya Logo" class="h-[120px] w-[100px] md:h-[178px] md:w-[149px] mb-6 md:mb-0" />
+    <?php 
+      if ($page_title == 'index' || $page_title == 'about' || $page_title == 'programs' || $page_title == 'faculty') {
+        echo '<img src="../images/vertical_V2.svg" alt="Al-Ghaya Logo" class="h-[120px] w-[100px] md:h-[178px] md:w-[149px] mb-6 md:mb-0" />';
+      }
+      else {
+        echo '<img src="../../images/vertical_V2.svg" alt="Al-Ghaya Logo" class="h-[120px] w-[100px] md:h-[178px] md:w-[149px] mb-6 md:mb-0" />';
+      }
+    ?>
 
     <!-- Footer Content -->
     <div class="flex flex-col md:flex-row h-fit w-full md:w-fit gap-[30px] md:gap-[50px]">

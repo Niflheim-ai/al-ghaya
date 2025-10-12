@@ -1,6 +1,7 @@
 <?php
     session_start(); // Start session at the top
     $current_page = "homepage";
+    $page_title = 'index';
 
     // Check if user is logged in
     if (isset($_SESSION['userID']) && isset($_SESSION['role'])) {

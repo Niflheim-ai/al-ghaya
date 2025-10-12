@@ -6,8 +6,8 @@
     $client->setClientSecret("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");
     
     // Set redirect URI based on environment
-    if ($_SERVER['HTTP_HOST'] === 'localhost:8000' || $_SERVER['HTTP_HOST'] === 'localhost:8080') {
-        $client->setRedirectUri("http://localhost:8000/php/authorized.php");
+    if ($_SERVER['HTTP_HOST'] === 'localhost:8080' || $_SERVER['HTTP_HOST'] === 'localhost:8080') {
+        $client->setRedirectUri("http://localhost:8080/php/authorized.php");
     } elseif (strpos($_SERVER['HTTP_HOST'], 'github.dev') !== false) {
         // GitHub Codespaces
         $client->setRedirectUri("https://" . $_SERVER['HTTP_HOST'] . "/php/authorized.php");
