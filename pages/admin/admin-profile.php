@@ -72,12 +72,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         }
         
         if ($updateQuery->execute()) {
-            $_SESSION['success_message'] = "Profile updated successfully!";
+            $_SESSION['success_message'] = "Administrator profile updated successfully!";
+            $_SESSION['success_type'] = 'admin_profile_update';
             header("Location: admin-profile.php");
             exit();
         } else {
             $errors[] = "Failed to update profile. Please try again.";
         }
+    }
+    
+    // Store errors in session for JavaScript access
+    if (!empty($errors)) {
+        $_SESSION['form_errors'] = $errors;
     }
 }
 
@@ -101,6 +107,19 @@ $statsQuery = [
     <link rel="icon" type="image/x-icon" href="../../images/al-ghaya_logoForPrint.svg">
     <style>
         .profile-card { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); }
+        .swal2-popup-admin {
+            border-radius: 12px !important;
+            padding: 2rem !important;
+        }
+        .swal2-title-admin {
+            font-size: 1.5rem !important;
+            font-weight: 600 !important;
+            color: #1f2937 !important;
+        }
+        .swal2-content-admin {
+            font-size: 1rem !important;
+            color: #6b7280 !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -115,9 +134,9 @@ $statsQuery = [
                 <div class="flex items-center space-x-4">
                     <a href="admin-dashboard.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
                     <a href="admin-profile.php" class="bg-red-100 text-red-700 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
-                    <a href="../logout.php" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200">
+                    <button onclick="confirmAdminSignOut()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200">
                         Logout
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -179,24 +198,7 @@ $statsQuery = [
                         <p class="text-gray-600">Update your administrative account information</p>
                     </div>
                     
-                    <form method="POST" class="p-6 space-y-6">
-                        <?php if (isset($errors) && !empty($errors)): ?>
-                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                                <div class="flex">
-                                    <svg class="h-5 w-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                                    </svg>
-                                    <div>
-                                        <ul class="list-disc list-inside text-red-700">
-                                            <?php foreach ($errors as $error): ?>
-                                                <li><?= htmlspecialchars($error) ?></li>
-                                            <?php endforeach; ?>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-
+                    <form method="POST" class="p-6 space-y-6" id="adminProfileForm">
                         <!-- Personal Information -->
                         <div>
                             <h4 class="text-md font-medium text-gray-900 mb-4">Personal Information</h4>
@@ -282,8 +284,9 @@ $statsQuery = [
                         <!-- Submit Button -->
                         <div class="flex justify-end pt-6 border-t border-gray-200">
                             <button type="submit" name="update_profile"
-                                class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition duration-200">
-                                Update Profile
+                                class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition duration-200"
+                                onclick="return confirmProfileUpdate()">
+                                Update Administrator Profile
                             </button>
                         </div>
                     </form>
@@ -292,43 +295,161 @@ $statsQuery = [
         </div>
     </div>
 
-    <?php if (isset($_SESSION['success_message'])): ?>
     <script>
+    // Enhanced SweetAlert functions
+    function confirmAdminSignOut() {
         Swal.fire({
-            icon: 'success',
-            title: 'Success!',
-            text: '<?= $_SESSION['success_message'] ?>',
-            timer: 3000,
-            showConfirmButton: false
+            title: 'Administrator Sign Out',
+            text: 'Are you sure you want to sign out from the admin panel?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Sign Out',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+            customClass: {
+                popup: 'swal2-popup-admin',
+                title: 'swal2-title-admin',
+                content: 'swal2-content-admin'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Signing Out...',
+                    text: 'Thank you for maintaining the Al-Ghaya system.',
+                    icon: 'info',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    timer: 2000,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                setTimeout(() => {
+                    window.location.href = '../logout.php';
+                }, 2000);
+            }
         });
-    </script>
-    <?php unset($_SESSION['success_message']); endif; ?>
+    }
 
-    <script>
-        // Password confirmation validation
-        document.getElementById('confirm_password').addEventListener('input', function() {
-            const newPassword = document.getElementById('new_password').value;
-            const confirmPassword = this.value;
+    function confirmProfileUpdate() {
+        Swal.fire({
+            title: 'Update Administrator Profile?',
+            text: 'This will update your administrative account information.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Update Profile',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+            customClass: {
+                popup: 'swal2-popup-admin',
+                title: 'swal2-title-admin',
+                content: 'swal2-content-admin'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading state
+                Swal.fire({
+                    title: 'Updating Profile...',
+                    text: 'Please wait while we update your administrator profile.',
+                    icon: 'info',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Submit the form
+                document.getElementById('adminProfileForm').submit();
+            }
+        });
+        
+        return false; // Prevent default form submission
+    }
+
+    // Handle success/error messages
+    <?php if (isset($_SESSION['success_message'])): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            <?php if ($_SESSION['success_type'] === 'admin_profile_update'): ?>
+                Swal.fire({
+                    title: 'Profile Updated Successfully! 🎉',
+                    html: 'Your administrator profile has been updated.<br><small class="text-gray-600">All changes have been saved to the system.</small>',
+                    icon: 'success',
+                    confirmButtonColor: '#dc2626',
+                    confirmButtonText: 'Continue',
+                    customClass: {
+                        popup: 'swal2-popup-admin',
+                        title: 'swal2-title-admin',
+                        content: 'swal2-content-admin'
+                    }
+                });
+            <?php else: ?>
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: '<?= $_SESSION['success_message'] ?>',
+                    confirmButtonColor: '#dc2626',
+                    customClass: {
+                        popup: 'swal2-popup-admin',
+                        title: 'swal2-title-admin',
+                        content: 'swal2-content-admin'
+                    }
+                });
+            <?php endif; ?>
+        });
+    <?php unset($_SESSION['success_message'], $_SESSION['success_type']); endif; ?>
+
+    <?php if (isset($_SESSION['form_errors'])): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            const errors = <?= json_encode($_SESSION['form_errors']) ?>;
+            const errorList = errors.map(error => `<li class="text-left">${error}</li>`).join('');
             
-            if (newPassword !== confirmPassword && confirmPassword.length > 0) {
-                this.setCustomValidity('Passwords do not match');
-                this.classList.add('border-red-500');
-            } else {
-                this.setCustomValidity('');
-                this.classList.remove('border-red-500');
-            }
+            Swal.fire({
+                title: 'Profile Update Failed',
+                html: `<div class="text-left"><p class="mb-3">Please correct the following issues:</p><ul class="list-disc list-inside text-red-600">${errorList}</ul></div>`,
+                icon: 'error',
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: 'Fix Issues',
+                customClass: {
+                    popup: 'swal2-popup-admin',
+                    title: 'swal2-title-admin',
+                    content: 'swal2-content-admin'
+                }
+            });
         });
+    <?php unset($_SESSION['form_errors']); endif; ?>
 
-        // Phone number formatting
-        document.getElementById('phone').addEventListener('input', function() {
-            let value = this.value.replace(/\D/g, '');
-            if (value.length >= 6) {
-                value = value.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
-            } else if (value.length >= 3) {
-                value = value.replace(/(\d{3})(\d{0,3})/, '($1) $2');
-            }
-            this.value = value;
-        });
+    // Form validation
+    document.getElementById('confirm_password').addEventListener('input', function() {
+        const newPassword = document.getElementById('new_password').value;
+        const confirmPassword = this.value;
+        
+        if (newPassword !== confirmPassword && confirmPassword.length > 0) {
+            this.setCustomValidity('Passwords do not match');
+            this.classList.add('border-red-500');
+        } else {
+            this.setCustomValidity('');
+            this.classList.remove('border-red-500');
+        }
+    });
+
+    // Phone number formatting
+    document.getElementById('phone').addEventListener('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length >= 6) {
+            value = value.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+        } else if (value.length >= 3) {
+            value = value.replace(/(\d{3})(\d{0,3})/, '($1) $2');
+        }
+        this.value = value;
+    });
     </script>
 </body>
 </html>
