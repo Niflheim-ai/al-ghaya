@@ -114,9 +114,9 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                 <div class="flex items-center space-x-4">
                     <a href="student-dashboard.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
                     <a href="student-profile.php" class="bg-blue-100 text-blue-700 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
-                    <a href="../logout.php" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200">
+                    <button onclick="confirmStudentSignOut()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200">
                         Logout
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -294,6 +294,51 @@ $stats = $statsQuery->get_result()->fetch_assoc();
             </div>
         </div>
     </div>
+
+    <script>
+        // SweetAlert confirmation for student sign out
+        function confirmStudentSignOut() {
+            Swal.fire({
+                title: 'End Learning Session?',
+                text: 'Are you sure you want to sign out and end your learning session?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Sign Out',
+                cancelButtonText: 'Stay Learning',
+                reverseButtons: true,
+                customClass: {
+                    popup: 'swal2-popup-custom',
+                    title: 'swal2-title-custom',
+                    content: 'swal2-content-custom'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show motivational message for students
+                    Swal.fire({
+                        title: 'Great Progress Today! 🌟',
+                        html: 'Keep up the excellent work on your Arabic learning journey!<br><br><div class="text-sm text-gray-600">Signing out securely...</div>',
+                        icon: 'success',
+                        showConfirmButton: false,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        timer: 2500,
+                        didOpen: () => {
+                            setTimeout(() => {
+                                Swal.showLoading();
+                            }, 1500);
+                        }
+                    });
+                    
+                    // Redirect to logout after the motivational message
+                    setTimeout(() => {
+                        window.location.href = '../logout.php';
+                    }, 2500);
+                }
+            });
+        }
+    </script>
 
     <?php if (isset($_SESSION['success_message'])): ?>
     <script>

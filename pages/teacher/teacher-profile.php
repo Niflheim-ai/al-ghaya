@@ -117,9 +117,9 @@ $courseStats = [
                 <div class="flex items-center space-x-4">
                     <a href="teacher-dashboard.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
                     <a href="teacher-profile.php" class="bg-green-100 text-green-700 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
-                    <a href="../logout.php" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200">
+                    <button onclick="confirmTeacherSignOut()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200">
                         Logout
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -309,6 +309,51 @@ $courseStats = [
             </div>
         </div>
     </div>
+
+    <script>
+        // SweetAlert confirmation for teacher sign out
+        function confirmTeacherSignOut() {
+            Swal.fire({
+                title: 'End Teaching Session?',
+                text: 'Are you sure you want to sign out and end your teaching session?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#059669',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Sign Out',
+                cancelButtonText: 'Continue Teaching',
+                reverseButtons: true,
+                customClass: {
+                    popup: 'swal2-popup-custom',
+                    title: 'swal2-title-custom',
+                    content: 'swal2-content-custom'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show appreciation message for teachers
+                    Swal.fire({
+                        title: 'Thank You for Teaching! 🎆',
+                        html: 'Your dedication to educating students is truly appreciated.<br><br><div class="text-sm text-gray-600">Signing out securely...</div>',
+                        icon: 'success',
+                        showConfirmButton: false,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        timer: 2500,
+                        didOpen: () => {
+                            setTimeout(() => {
+                                Swal.showLoading();
+                            }, 1500);
+                        }
+                    });
+                    
+                    // Redirect to logout after the appreciation message
+                    setTimeout(() => {
+                        window.location.href = '../logout.php';
+                    }, 2500);
+                }
+            });
+        }
+    </script>
 
     <?php if (isset($_SESSION['success_message'])): ?>
     <script>
