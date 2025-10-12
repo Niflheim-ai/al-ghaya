@@ -12,7 +12,7 @@
 
             <!-- Navigation buttons -->
             <div class="hidden lg:flex justify-start gap-[20px] w-full">
-                <a href="../../pages/admin/admin-home.php" class="<?php if ($current_page == 'admin-home') {
+                <a href="../../pages/admin/admin-dashboard.php" class="<?php if ($current_page == 'admin-home') {
                                                             echo 'group menu-item-active-admin flex items-center';
                                                         } else {
                                                             echo 'group menu-item-inactive-admin flex items-center';
