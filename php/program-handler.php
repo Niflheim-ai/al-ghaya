@@ -6,34 +6,39 @@
 
 session_start();
 require_once 'dbConnection.php';
-require_once 'enhanced-program-functions.php';
+require_once 'functions.php';
+require_once 'program-helpers.php';
+
+// Set JSON content type for all responses
+header('Content-Type: application/json');
 
 // Check if user is logged in and is a teacher
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
-    header('HTTP/1.1 403 Forbidden');
-    exit(json_encode(['success' => false, 'message' => 'Unauthorized access']));
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    exit;
 }
 
 $user_id = $_SESSION['userID'];
 $teacher_id = getTeacherIdFromSession($conn, $user_id);
 
 if (!$teacher_id) {
-    header('HTTP/1.1 403 Forbidden');
-    exit(json_encode(['success' => false, 'message' => 'Teacher profile not found']));
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Teacher profile not found']);
+    exit;
 }
 
+// Get action from request
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 // Handle JSON requests
-if (isset($_SERVER['CONTENT_TYPE']) && $_SERVER['CONTENT_TYPE'] === 'application/json') {
+if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
     $input = json_decode(file_get_contents('php://input'), true);
-    $action = $input['action'] ?? '';
-} else {
-    $input = $_POST;
+    if ($input) {
+        $action = $input['action'] ?? $action;
+        $_POST = array_merge($_POST, $input);
+    }
 }
-
-// Set content type for JSON responses
-header('Content-Type: application/json');
 
 try {
     switch ($action) {
@@ -43,14 +48,11 @@ try {
         case 'create_program':
             $data = [
                 'teacherID' => $teacher_id,
-                'title' => $input['title'] ?? '',
-                'description' => $input['description'] ?? '',
-                'category' => mapDifficultyToCategory($input['difficulty_level'] ?? 'Student'),
-                'difficulty_level' => $input['difficulty_level'] ?? 'Student',
-                'price' => floatval($input['price'] ?? 0),
-                'overview_video_url' => $input['overview_video_url'] ?? '',
-                'status' => $input['status'] ?? 'draft',
-                'currency' => 'PHP',
+                'title' => $_POST['title'] ?? 'New Program',
+                'description' => $_POST['description'] ?? '',
+                'category' => $_POST['category'] ?? 'beginner',
+                'price' => floatval($_POST['price'] ?? 0),
+                'status' => $_POST['status'] ?? 'draft',
                 'thumbnail' => 'default-thumbnail.jpg'
             ];
             
@@ -64,14 +66,55 @@ try {
             
             $program_id = createProgram($conn, $data);
             if ($program_id) {
-                $_SESSION['success_message'] = 'Program created successfully!';
-                if (isset($_POST['action'])) {
-                    header("Location: ../pages/teacher/teacher-programs-enhanced.php?action=create&program_id={$program_id}");
-                    exit();
-                }
-                echo json_encode(['success' => true, 'program_id' => $program_id]);
+                echo json_encode([
+                    'success' => true, 
+                    'program_id' => $program_id,
+                    'message' => 'Program created successfully'
+                ]);
             } else {
                 throw new Exception('Failed to create program');
+            }
+            break;
+            
+        case 'update_program':
+            $program_id = intval($_POST['program_id'] ?? 0);
+            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                throw new Exception('Invalid program or no permission');
+            }
+            
+            $data = [
+                'teacherID' => $teacher_id,
+                'title' => $_POST['title'] ?? '',
+                'description' => $_POST['description'] ?? '',
+                'category' => $_POST['category'] ?? 'beginner',
+                'price' => floatval($_POST['price'] ?? 0),
+                'status' => $_POST['status'] ?? 'draft'
+            ];
+            
+            if (updateProgram($conn, $program_id, $data)) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Program updated successfully'
+                ]);
+            } else {
+                throw new Exception('Failed to update program');
+            }
+            break;
+            
+        case 'get_program':
+            $program_id = intval($_POST['program_id'] ?? 0);
+            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                throw new Exception('Invalid program or no permission');
+            }
+            
+            $program = getProgram($conn, $program_id, $teacher_id);
+            if ($program) {
+                echo json_encode([
+                    'success' => true,
+                    'program' => $program
+                ]);
+            } else {
+                throw new Exception('Program not found');
             }
             break;
             
@@ -81,7 +124,7 @@ try {
             break;
             
         case 'submit_for_publishing':
-            $program_ids = $input['program_ids'] ?? [];
+            $program_ids = $_POST['program_ids'] ?? [];
             
             if (empty($program_ids)) {
                 throw new Exception('No programs selected');
@@ -94,8 +137,115 @@ try {
             }
             break;
             
+        // ==================== CHAPTER OPERATIONS ====================
+        
+        case 'add_chapter':
+            $program_id = intval($_POST['program_id'] ?? 0);
+            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                throw new Exception('Invalid program or no permission');
+            }
+            
+            $title = $_POST['chapter_title'] ?? 'New Chapter';
+            $content = $_POST['chapter_content'] ?? '';
+            $question = $_POST['chapter_question'] ?? '';
+            
+            $chapter_id = addChapter($conn, $program_id, $title, $content, $question);
+            if ($chapter_id) {
+                $chapters = getChapters($conn, $program_id);
+                echo json_encode([
+                    'success' => true,
+                    'chapter_id' => $chapter_id,
+                    'chapters' => $chapters,
+                    'message' => 'Chapter added successfully'
+                ]);
+            } else {
+                throw new Exception('Failed to add chapter');
+            }
+            break;
+            
+        case 'update_chapter':
+            $chapter_id = intval($_POST['chapter_id'] ?? 0);
+            $program_id = intval($_POST['program_id'] ?? 0);
+            
+            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                throw new Exception('Invalid program or no permission');
+            }
+            
+            $title = $_POST['chapter_title'] ?? '';
+            $content = $_POST['chapter_content'] ?? '';
+            $question = $_POST['chapter_question'] ?? '';
+            
+            if (updateChapter($conn, $chapter_id, $title, $content, $question)) {
+                $chapters = getChapters($conn, $program_id);
+                echo json_encode([
+                    'success' => true,
+                    'chapters' => $chapters,
+                    'message' => 'Chapter updated successfully'
+                ]);
+            } else {
+                throw new Exception('Failed to update chapter');
+            }
+            break;
+            
+        case 'delete_chapter':
+            $chapter_id = intval($_POST['chapter_id'] ?? 0);
+            $program_id = intval($_POST['program_id'] ?? 0);
+            
+            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                throw new Exception('Invalid program or no permission');
+            }
+            
+            if (deleteChapter($conn, $chapter_id)) {
+                $chapters = getChapters($conn, $program_id);
+                echo json_encode([
+                    'success' => true,
+                    'chapters' => $chapters,
+                    'message' => 'Chapter deleted successfully'
+                ]);
+            } else {
+                throw new Exception('Failed to delete chapter');
+            }
+            break;
+            
+        case 'get_chapters':
+            $program_id = intval($_POST['program_id'] ?? 0);
+            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                throw new Exception('Invalid program or no permission');
+            }
+            
+            $chapters = getChapters($conn, $program_id);
+            echo json_encode([
+                'success' => true,
+                'chapters' => $chapters
+            ]);
+            break;
+            
+        case 'get_chapter':
+            $chapter_id = intval($_POST['chapter_id'] ?? 0);
+            if (!$chapter_id) {
+                throw new Exception('Invalid chapter ID');
+            }
+            
+            $chapter = getChapter($conn, $chapter_id);
+            if ($chapter) {
+                // Verify ownership through program
+                if (!verifyProgramOwnership($conn, $chapter['program_id'], $teacher_id)) {
+                    throw new Exception('No permission to access this chapter');
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'chapter' => $chapter
+                ]);
+            } else {
+                throw new Exception('Chapter not found');
+            }
+            break;
+            
+        // ==================== VALIDATION OPERATIONS ====================
+        
         case 'validate_youtube_url':
-            $url = $input['url'] ?? '';
+            $url = $_POST['url'] ?? '';
             $is_valid = validateYouTubeUrl($url);
             $video_id = $is_valid ? getYouTubeVideoId($url) : null;
             
@@ -106,6 +256,48 @@ try {
             ]);
             break;
             
+        // ==================== STORY OPERATIONS ====================
+        
+        case 'add_story':
+            $chapter_id = intval($_POST['chapter_id'] ?? 0);
+            if (!$chapter_id) {
+                throw new Exception('Invalid chapter ID');
+            }
+            
+            // Verify chapter ownership through program
+            $chapter = getChapter($conn, $chapter_id);
+            if (!$chapter || !verifyProgramOwnership($conn, $chapter['program_id'], $teacher_id)) {
+                throw new Exception('No permission to modify this chapter');
+            }
+            
+            // For now, return success (stories table may not exist yet)
+            echo json_encode([
+                'success' => true,
+                'message' => 'Story functionality will be available soon'
+            ]);
+            break;
+            
+        // ==================== QUIZ OPERATIONS ====================
+        
+        case 'add_quiz':
+            $chapter_id = intval($_POST['chapter_id'] ?? 0);
+            if (!$chapter_id) {
+                throw new Exception('Invalid chapter ID');
+            }
+            
+            // Verify chapter ownership through program
+            $chapter = getChapter($conn, $chapter_id);
+            if (!$chapter || !verifyProgramOwnership($conn, $chapter['program_id'], $teacher_id)) {
+                throw new Exception('No permission to modify this chapter');
+            }
+            
+            // For now, return success (quiz table may not exist yet)
+            echo json_encode([
+                'success' => true,
+                'message' => 'Quiz functionality will be available soon'
+            ]);
+            break;
+            
         default:
             throw new Exception('Invalid action: ' . $action);
     }
@@ -113,59 +305,61 @@ try {
 } catch (Exception $e) {
     error_log("Program Handler Error: " . $e->getMessage());
     
-    if (isset($_POST['action'])) {
-        // Form submission - set error message and redirect
-        $_SESSION['error_message'] = $e->getMessage();
-        
-        $redirect_url = '../pages/teacher/teacher-programs-enhanced.php';
-        if (isset($_POST['program_id'])) {
-            $redirect_url .= '?action=create&program_id=' . $_POST['program_id'];
-        }
-        
-        header("Location: {$redirect_url}");
-        exit();
-    } else {
-        // AJAX request - return JSON error
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => $e->getMessage()
-        ]);
-    }
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
 }
 
-function mapDifficultyToCategory($difficulty) {
-    switch ($difficulty) {
-        case 'Student': return 'beginner';
-        case 'Aspiring': return 'intermediate';
-        case 'Master': return 'advanced';
-        default: return 'beginner';
-    }
-}
-
+/**
+ * Get draft programs for a teacher
+ */
 function getDraftPrograms($conn, $teacher_id) {
-    $stmt = $conn->prepare("SELECT programID, title, price, category FROM programs WHERE teacherID = ? AND status = 'draft'");
+    $stmt = $conn->prepare("SELECT programID, title, price, category FROM programs WHERE teacherID = ? AND status = 'draft' ORDER BY dateCreated DESC");
+    if (!$stmt) {
+        throw new Exception('Database prepare failed: ' . $conn->error);
+    }
+    
     $stmt->bind_param("i", $teacher_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    return $result->fetch_all(MYSQLI_ASSOC);
+    $programs = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    
+    return $programs;
 }
 
+/**
+ * Submit programs for publishing
+ */
 function submitForPublishing($conn, $program_ids, $teacher_id) {
     $conn->begin_transaction();
     
     try {
         foreach ($program_ids as $program_id) {
-            $stmt = $conn->prepare("UPDATE programs SET status = 'published' WHERE programID = ? AND teacherID = ?");
+            // Verify ownership before updating
+            if (!verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                throw new Exception('No permission to publish program ID: ' . $program_id);
+            }
+            
+            $stmt = $conn->prepare("UPDATE programs SET status = 'published', dateUpdated = NOW() WHERE programID = ? AND teacherID = ?");
+            if (!$stmt) {
+                throw new Exception('Database prepare failed');
+            }
+            
             $stmt->bind_param("ii", $program_id, $teacher_id);
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                throw new Exception('Failed to update program ' . $program_id);
+            }
+            $stmt->close();
         }
         
         $conn->commit();
         return true;
     } catch (Exception $e) {
         $conn->rollback();
-        return false;
+        throw $e;
     }
 }
 ?>
