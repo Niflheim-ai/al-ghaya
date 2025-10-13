@@ -1,7 +1,7 @@
 <?php
 /**
  * Google OAuth Authorization Callback Handler
- * Fixed to work independently without undefined function dependencies
+ * Fixed to work independently and allow new user registration
  */
 
 // Start session first
@@ -68,6 +68,61 @@ function getBasePath() {
     }
     
     return '';
+}
+
+/**
+ * Create new user account from Google OAuth data
+ */
+function createGoogleUser($conn, $googleEmail, $googleGivenName, $googleFamilyName, $googleName) {
+    // Default values for new Google users
+    $defaultRole = 'student'; // New users default to student role
+    $defaultPassword = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT); // Random password (OAuth users won't use it)
+    $isActive = 1;
+    $level = 1;
+    $points = 0;
+    $proficiency = 'beginner';
+    
+    // Clean up names
+    $firstName = !empty($googleGivenName) ? $googleGivenName : explode(' ', $googleName)[0] ?? 'User';
+    $lastName = !empty($googleFamilyName) ? $googleFamilyName : (explode(' ', $googleName)[1] ?? '');
+    
+    // Insert new user
+    $insertQuery = $conn->prepare("
+        INSERT INTO user (fname, lname, email, password, role, isActive, level, points, proficiency, dateCreated) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    ");
+    
+    $insertQuery->bind_param(
+        "sssssiiss", 
+        $firstName, 
+        $lastName, 
+        $googleEmail, 
+        $defaultPassword, 
+        $defaultRole, 
+        $isActive, 
+        $level, 
+        $points, 
+        $proficiency
+    );
+    
+    if ($insertQuery->execute()) {
+        $newUserID = $conn->insert_id;
+        
+        // Log the successful registration
+        error_log("New Google OAuth user registered: " . $googleEmail . " (ID: $newUserID)");
+        
+        return [
+            'userID' => $newUserID,
+            'fname' => $firstName,
+            'lname' => $lastName,
+            'role' => $defaultRole,
+            'isActive' => $isActive,
+            'level' => $level,
+            'points' => $points
+        ];
+    }
+    
+    return false;
 }
 
 try {
@@ -183,6 +238,7 @@ try {
     $userResult = $userQuery->get_result();
     
     if ($userResult->num_rows > 0) {
+        // Existing user - proceed with login
         $userData = $userResult->fetch_assoc();
         
         // Check if account is active
@@ -212,7 +268,7 @@ try {
         $updateLogin->bind_param("i", $userData['userID']);
         $updateLogin->execute();
         
-        error_log("OAuth login successful for user: " . $googleEmail);
+        error_log("OAuth login successful for existing user: " . $googleEmail);
         
         // Redirect to appropriate dashboard
         $role = $userData['role'];
@@ -226,10 +282,47 @@ try {
         exit();
         
     } else {
-        // User not found in database
-        error_log("Google account not found in database: " . $googleEmail);
-        header("Location: {$basePath}/pages/login.php?error=google_account_not_registered&email=" . urlencode($googleEmail));
-        exit();
+        // User not found in database - create new account
+        error_log("Google account not found in database, creating new user: " . $googleEmail);
+        
+        $newUserData = createGoogleUser($conn, $googleEmail, $googleGivenName, $googleFamilyName, $googleName);
+        
+        if ($newUserData) {
+            // Create session for new user
+            $_SESSION['userID'] = $newUserData['userID'];
+            $_SESSION['role'] = $newUserData['role'];
+            $_SESSION['email'] = $googleEmail;
+            $_SESSION['user_name'] = $newUserData['fname'] . ' ' . $newUserData['lname'];
+            $_SESSION['user_fname'] = $newUserData['fname'];
+            $_SESSION['user_lname'] = $newUserData['lname'];
+            $_SESSION['user_level'] = $newUserData['level'];
+            $_SESSION['user_points'] = $newUserData['points'];
+            $_SESSION['oauth_login'] = true;
+            $_SESSION['new_oauth_user'] = true; // Flag for welcome message
+            $_SESSION['last_activity'] = time();
+            
+            // Clean up OAuth session data
+            unset($_SESSION['oauth_state']);
+            unset($_SESSION['oauth_timestamp']);
+            
+            error_log("New OAuth user account created and logged in: " . $googleEmail);
+            
+            // Redirect to student dashboard with welcome message
+            $role = $newUserData['role'];
+            $redirectUrl = "{$basePath}/pages/{$role}/{$role}-dashboard.php?welcome=new_oauth_user";
+            
+            if ($appDebug) {
+                error_log("Redirecting new user to: " . $redirectUrl);
+            }
+            
+            header("Location: $redirectUrl");
+            exit();
+            
+        } else {
+            error_log("Failed to create new user account for: " . $googleEmail);
+            header("Location: {$basePath}/pages/login.php?error=account_creation_failed");
+            exit();
+        }
     }
     
 } catch (Exception $e) {
