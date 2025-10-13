@@ -7,27 +7,59 @@ $errors = [];
 $success = false;
 $tokenValid = false;
 $userEmail = '';
+$debugInfo = [];
+
+// Debug mode (remove in production)
+$debugMode = true; // Set to false in production
 
 // Validate token
 if (empty($token)) {
     $errors[] = "Reset token is missing.";
+    if ($debugMode) $debugInfo[] = "No token provided in URL";
 } else {
-    // Check if token exists and is not expired
-    $tokenQuery = $conn->prepare("
-        SELECT email, expires_at, used_at 
-        FROM password_resets 
-        WHERE token = ? AND expires_at > NOW() AND used_at IS NULL
-    ");
-    $tokenQuery->bind_param("s", $token);
-    $tokenQuery->execute();
-    $tokenResult = $tokenQuery->get_result();
+    if ($debugMode) {
+        $debugInfo[] = "Token received: " . substr($token, 0, 10) . "...";
+        $debugInfo[] = "Token length: " . strlen($token);
+    }
     
-    if ($tokenResult->num_rows > 0) {
-        $tokenData = $tokenResult->fetch_assoc();
-        $userEmail = $tokenData['email'];
-        $tokenValid = true;
+    // First, let's check if the token exists at all
+    $checkTokenQuery = $conn->prepare("SELECT email, expires_at, used_at, created_at FROM password_resets WHERE token = ?");
+    $checkTokenQuery->bind_param("s", $token);
+    $checkTokenQuery->execute();
+    $checkResult = $checkTokenQuery->get_result();
+    
+    if ($checkResult->num_rows === 0) {
+        $errors[] = "Invalid reset token. The token may have been deleted or never existed.";
+        if ($debugMode) $debugInfo[] = "Token not found in database";
     } else {
-        $errors[] = "Invalid or expired reset token. Please request a new password reset.";
+        $tokenData = $checkResult->fetch_assoc();
+        $userEmail = $tokenData['email'];
+        
+        if ($debugMode) {
+            $debugInfo[] = "Token found for email: " . $userEmail;
+            $debugInfo[] = "Token created: " . $tokenData['created_at'];
+            $debugInfo[] = "Token expires: " . $tokenData['expires_at'];
+            $debugInfo[] = "Token used: " . ($tokenData['used_at'] ?? 'No');
+            $debugInfo[] = "Current time: " . date('Y-m-d H:i:s');
+        }
+        
+        // Check if token is already used
+        if ($tokenData['used_at'] !== null) {
+            $errors[] = "This reset link has already been used. Please request a new password reset.";
+            if ($debugMode) $debugInfo[] = "Token already used at: " . $tokenData['used_at'];
+        }
+        // Check if token is expired
+        else if (strtotime($tokenData['expires_at']) < time()) {
+            $errors[] = "This reset link has expired. Please request a new password reset.";
+            if ($debugMode) {
+                $debugInfo[] = "Token expired. Expires: " . strtotime($tokenData['expires_at']) . ", Current: " . time();
+                $debugInfo[] = "Time difference: " . (time() - strtotime($tokenData['expires_at'])) . " seconds";
+            }
+        }
+        else {
+            $tokenValid = true;
+            if ($debugMode) $debugInfo[] = "Token is valid and not expired";
+        }
     }
 }
 
@@ -62,8 +94,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['newPassword']) && $to
             $markUsedQuery->execute();
             
             // Clear any existing sessions for this user for security
-            session_destroy();
-            session_start();
+            if (isset($_SESSION['userID'])) {
+                session_destroy();
+                session_start();
+            }
             
             $success = true;
             $successMessage = "Your password has been successfully updated! You can now log in with your new password.";
@@ -72,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['newPassword']) && $to
             error_log("Password successfully reset for user: " . $userEmail);
         } else {
             $errors[] = "Failed to update password. Please try again or contact support.";
+            if ($debugMode) $debugInfo[] = "Database update failed or no user found with email: " . $userEmail;
         }
     }
 }
@@ -104,6 +139,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['newPassword']) && $to
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
                 <p class="text-gray-600">Enter your new password below</p>
             </div>
+
+            <?php if ($debugMode && !empty($debugInfo)): ?>
+                <!-- Debug Information (Remove in Production) -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <h4 class="text-sm font-bold text-yellow-800 mb-2">Debug Information:</h4>
+                    <ul class="text-xs text-yellow-700 space-y-1">
+                        <?php foreach ($debugInfo as $info): ?>
+                            <li><?= htmlspecialchars($info) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
 
             <?php if (!empty($errors) || !$tokenValid): ?>
                 <!-- Error Message -->
@@ -287,10 +334,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['newPassword']) && $to
             const password = document.getElementById('newPassword').value;
             const strengthBar = document.getElementById('passwordStrength');
             const strengthText = document.getElementById('strengthText');
-            const submitBtn = document.getElementById('submitBtn');
             
             let strength = 0;
-            let feedback = [];
             
             // Check requirements
             const requirements = [
