@@ -13,6 +13,13 @@
     $studentID = $_SESSION['userID'];
     $gamification = new GamificationSystem($conn);
 
+    // Check for new OAuth user welcome
+    $showWelcomeMessage = false;
+    if (isset($_GET['welcome']) && $_GET['welcome'] === 'new_oauth_user' && isset($_SESSION['new_oauth_user'])) {
+        $showWelcomeMessage = true;
+        unset($_SESSION['new_oauth_user']); // Clear the flag
+    }
+
     // Get user stats and information
     $stmt = $conn->prepare("SELECT * FROM user WHERE userID = ?");
     $stmt->bind_param("i", $studentID);
@@ -389,8 +396,70 @@
     </div>
 </div>
 
+<!-- Include SweetAlert2 for welcome message -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <!-- JavaScript for interactive elements -->
 <script>
+// Show welcome message for new OAuth users
+<?php if ($showWelcomeMessage): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    Swal.fire({
+        title: 'Welcome to Al-Ghaya! 🎉',
+        html: `
+            <div class="text-left space-y-4">
+                <p><strong>Your account has been created successfully!</strong></p>
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm font-medium text-blue-800 mb-2">🎓 Getting Started:</p>
+                    <ul class="text-sm text-blue-700 space-y-1">
+                        <li>✓ Your account is set up as a Student</li>
+                        <li>✓ You start at Level 1 with 0 points</li>
+                        <li>✓ Browse programs to begin learning</li>
+                        <li>✓ Earn points and achievements as you progress</li>
+                    </ul>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <p class="text-sm font-medium text-green-800 mb-2">🎆 Next Steps:</p>
+                    <ul class="text-sm text-green-700 space-y-1">
+                        <li>1. Update your profile with your preferences</li>
+                        <li>2. Explore our Arabic learning programs</li>
+                        <li>3. Join your first program to start learning</li>
+                        <li>4. Complete daily challenges to earn points</li>
+                    </ul>
+                </div>
+                <p class="text-sm text-gray-600">You can update your profile and preferences anytime from the navigation menu.</p>
+            </div>
+        `,
+        icon: 'success',
+        confirmButtonText: 'Start Learning!',
+        confirmButtonColor: '#2563eb',
+        allowOutsideClick: false,
+        customClass: {
+            popup: 'swal2-popup-welcome',
+            title: 'swal2-title-welcome'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show quick tutorial or profile setup prompt
+            Swal.fire({
+                title: 'Quick Setup',
+                text: 'Would you like to update your profile now to personalize your learning experience?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Update Profile',
+                cancelButtonText: 'Maybe Later',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#6b7280'
+            }).then((setupResult) => {
+                if (setupResult.isConfirmed) {
+                    window.location.href = 'student-profile-enhanced.php';
+                }
+            });
+        }
+    });
+});
+<?php endif; ?>
+
 // Auto-hide daily bonus notification
 setTimeout(() => {
     const dailyBonus = document.getElementById('daily-bonus');
@@ -418,6 +487,20 @@ if (challengeForm) {
     });
 }
 </script>
+
+<style>
+.swal2-popup-welcome {
+    border-radius: 12px !important;
+    padding: 2rem !important;
+    max-width: 600px !important;
+}
+
+.swal2-title-welcome {
+    font-size: 1.75rem !important;
+    font-weight: 700 !important;
+    color: #1f2937 !important;
+}
+</style>
 
 <!-- Back to Top button -->
 <button type="button" onclick="scrollToTop()"
