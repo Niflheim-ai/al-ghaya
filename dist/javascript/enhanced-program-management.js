@@ -1,7 +1,7 @@
 /**
  * Enhanced Program Management JavaScript
  * Handles all AJAX operations and UI interactions for program creation and management
- * Compatible with existing al-ghaya schema
+ * Compatible with existing al-ghaya schema - Updated version with better error handling
  */
 
 // Global variables
@@ -22,9 +22,9 @@ document.addEventListener('DOMContentLoaded', function() {
  * Initialize all event listeners and UI components
  */
 function initializeEnhancedProgramManagement() {
-    // Get current program ID from URL or form
+    // Get current program ID from URL or form or global variable
     const urlParams = new URLSearchParams(window.location.search);
-    currentProgramId = urlParams.get('program_id') || document.querySelector('input[name="program_id"]')?.value;
+    currentProgramId = window.currentProgramId || urlParams.get('program_id') || document.querySelector('input[name="program_id"]')?.value;
     
     // Initialize UI components
     initializeFormHandlers();
@@ -33,11 +33,11 @@ function initializeEnhancedProgramManagement() {
     initializeQuizManagement();
     initializeValidationHandlers();
     
-    // Show success/error messages
+    // Display notifications if they exist
     displayNotifications();
     
     // Load initial data if editing
-    if (currentProgramId) {
+    if (currentProgramId && window.currentAction === 'create') {
         loadProgramData(currentProgramId);
     }
 }
@@ -47,9 +47,12 @@ function initializeEnhancedProgramManagement() {
  */
 function initializeFormHandlers() {
     // Program details form
-    const programForm = document.getElementById('program-form');
+    const programForm = document.querySelector('form[action*="create-program.php"]');
     if (programForm) {
-        programForm.addEventListener('submit', handleProgramSubmit);
+        programForm.addEventListener('submit', function(e) {
+            // Let the form submit naturally to PHP for now
+            return true;
+        });
     }
     
     // Thumbnail preview
@@ -72,19 +75,152 @@ function initializeChapterManagement() {
     // Add chapter button
     const addChapterBtn = document.getElementById('add-chapter-btn');
     if (addChapterBtn) {
-        addChapterBtn.addEventListener('click', showAddChapterForm);
+        addChapterBtn.addEventListener('click', showAddChapterModal);
     }
     
-    // Add chapter form submission
-    const addChapterForm = document.getElementById('add-chapter-form');
-    if (addChapterForm) {
-        addChapterForm.addEventListener('submit', handleAddChapter);
+    // Create add chapter modal if it doesn't exist
+    createAddChapterModal();
+    
+    // Event delegation for dynamically created chapter buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('edit-chapter-btn')) {
+            const chapterId = e.target.getAttribute('data-chapter-id');
+            editChapter(chapterId);
+        }
+        
+        if (e.target.classList.contains('delete-chapter-btn')) {
+            const chapterId = e.target.getAttribute('data-chapter-id');
+            confirmDeleteChapter(chapterId);
+        }
+    });
+}
+
+/**
+ * Create add chapter modal dynamically
+ */
+function createAddChapterModal() {
+    // Check if modal already exists
+    if (document.getElementById('add-chapter-modal')) {
+        return;
     }
     
-    // Cancel add chapter
-    const cancelChapterBtn = document.getElementById('cancel-chapter-btn');
-    if (cancelChapterBtn) {
-        cancelChapterBtn.addEventListener('click', hideAddChapterForm);
+    const modalHTML = `
+        <div id="add-chapter-modal" class="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 hidden z-50">
+            <div class="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                <form id="add-chapter-form" class="space-y-4">
+                    <h2 class="text-lg font-semibold mb-4">Add New Chapter</h2>
+                    
+                    <div>
+                        <label for="chapter_title" class="block text-gray-700 font-medium mb-2">Chapter Title</label>
+                        <input type="text" id="chapter_title" name="chapter_title" required 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label for="chapter_content" class="block text-gray-700 font-medium mb-2">Chapter Content</label>
+                        <textarea id="chapter_content" name="chapter_content" rows="4" 
+                                  class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label for="chapter_question" class="block text-gray-700 font-medium mb-2">Chapter Question</label>
+                        <textarea id="chapter_question" name="chapter_question" rows="2" 
+                                  class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    
+                    <div class="flex justify-end gap-4 pt-4">
+                        <button type="button" onclick="closeAddChapterModal()" 
+                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Add Chapter
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add form submit handler
+    const form = document.getElementById('add-chapter-form');
+    if (form) {
+        form.addEventListener('submit', handleAddChapter);
+    }
+}
+
+/**
+ * Show add chapter modal
+ */
+function showAddChapterModal() {
+    const modal = document.getElementById('add-chapter-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.getElementById('chapter_title')?.focus();
+    }
+}
+
+/**
+ * Close add chapter modal
+ */
+function closeAddChapterModal() {
+    const modal = document.getElementById('add-chapter-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        // Reset form
+        const form = document.getElementById('add-chapter-form');
+        if (form) {
+            form.reset();
+        }
+    }
+}
+
+/**
+ * Handle add chapter form submission
+ */
+async function handleAddChapter(e) {
+    e.preventDefault();
+    
+    if (!currentProgramId) {
+        showError('No program selected. Please save the program first.');
+        return;
+    }
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    formData.append('action', 'add_chapter');
+    formData.append('program_id', currentProgramId);
+    
+    try {
+        showLoading('Adding chapter...');
+        
+        const response = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+        
+        const data = await handleResponse(response);
+        
+        if (data.success) {
+            showSuccess('Chapter added successfully!');
+            closeAddChapterModal();
+            
+            // Reload the page to show the new chapter
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showError(data.message || 'Failed to add chapter');
+        }
+    } catch (error) {
+        console.error('Add chapter error:', error);
+        showError('An error occurred while adding the chapter');
+    } finally {
+        hideLoading();
     }
 }
 
@@ -92,7 +228,7 @@ function initializeChapterManagement() {
  * Initialize story management
  */
 function initializeStoryManagement() {
-    // Add story buttons (attached to chapters)
+    // Event delegation for story buttons
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('add-story-btn')) {
             const chapterId = e.target.getAttribute('data-chapter-id');
@@ -115,7 +251,7 @@ function initializeStoryManagement() {
  * Initialize quiz management
  */
 function initializeQuizManagement() {
-    // Quiz related event listeners
+    // Event delegation for quiz buttons
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('add-quiz-btn')) {
             const chapterId = e.target.getAttribute('data-chapter-id');
@@ -142,58 +278,6 @@ function initializeValidationHandlers() {
     const priceInput = document.getElementById('price');
     if (priceInput) {
         priceInput.addEventListener('input', validatePrice);
-    }
-}
-
-/**
- * Handle program form submission
- */
-async function handleProgramSubmit(e) {
-    e.preventDefault();
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    // Add action based on whether we're creating or updating
-    const action = currentProgramId ? 'update_program' : 'create_program';
-    formData.append('action', action);
-    
-    if (currentProgramId) {
-        formData.append('program_id', currentProgramId);
-    }
-    
-    try {
-        showLoading('Saving program...');
-        
-        const response = await fetch(API_ENDPOINT, {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin'
-        });
-        
-        const data = await handleResponse(response);
-        
-        if (data.success) {
-            showSuccess(data.message || 'Program saved successfully!');
-            
-            // If creating new program, update URL and set currentProgramId
-            if (!currentProgramId && data.program_id) {
-                currentProgramId = data.program_id;
-                updateURLWithProgramId(data.program_id);
-            }
-            
-            // Reload program data
-            setTimeout(() => {
-                loadProgramData(currentProgramId);
-            }, 1000);
-        } else {
-            showError(data.message || 'Failed to save program');
-        }
-    } catch (error) {
-        console.error('Program submission error:', error);
-        showError('An error occurred while saving the program');
-    } finally {
-        hideLoading();
     }
 }
 
@@ -241,7 +325,7 @@ function populateProgramForm(program) {
     if (program.thumbnail && program.thumbnail !== 'default-thumbnail.jpg') {
         const preview = document.getElementById('thumbnailPreview');
         if (preview) {
-            preview.src = `${BASE_URL}/uploads/program_thumbnails/${program.thumbnail}`;
+            preview.src = `${BASE_URL}/uploads/thumbnails/${program.thumbnail}`;
         }
     }
 }
@@ -266,7 +350,10 @@ async function loadChapters(programId) {
  */
 function renderChapters(chapters) {
     const container = document.getElementById('chapters-container');
-    if (!container) return;
+    if (!container) {
+        console.log('Chapters container not found - chapters will be handled by server-side rendering');
+        return;
+    }
     
     container.innerHTML = '';
     
@@ -307,19 +394,13 @@ function createChapterElement(chapter, index) {
                         <i class="fas fa-question mr-1"></i>Add Quiz
                     </button>
                 </div>
-                
-                <!-- Stories Container -->
-                <div id="stories-${chapter.chapter_id}" class="stories-container mt-3"></div>
-                
-                <!-- Quiz Container -->
-                <div id="quiz-${chapter.chapter_id}" class="quiz-container mt-3"></div>
             </div>
             
             <div class="flex gap-2 ml-4">
-                <button type="button" onclick="editChapter(${chapter.chapter_id})" class="text-blue-500 hover:text-blue-700">
+                <button type="button" class="edit-chapter-btn text-blue-500 hover:text-blue-700" data-chapter-id="${chapter.chapter_id}">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button type="button" onclick="confirmDeleteChapter(${chapter.chapter_id})" class="text-red-500 hover:text-red-700">
+                <button type="button" class="delete-chapter-btn text-red-500 hover:text-red-700" data-chapter-id="${chapter.chapter_id}">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -327,65 +408,6 @@ function createChapterElement(chapter, index) {
     `;
     
     return div;
-}
-
-/**
- * Show add chapter form
- */
-function showAddChapterForm() {
-    const form = document.getElementById('add-chapter-form');
-    if (form) {
-        form.style.display = 'block';
-        document.getElementById('chapter_title').focus();
-    }
-}
-
-/**
- * Hide add chapter form
- */
-function hideAddChapterForm() {
-    const form = document.getElementById('add-chapter-form');
-    if (form) {
-        form.style.display = 'none';
-        form.reset();
-    }
-}
-
-/**
- * Handle add chapter form submission
- */
-async function handleAddChapter(e) {
-    e.preventDefault();
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    formData.append('action', 'add_chapter');
-    formData.append('program_id', currentProgramId);
-    
-    try {
-        showLoading('Adding chapter...');
-        
-        const response = await fetch(API_ENDPOINT, {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin'
-        });
-        
-        const data = await handleResponse(response);
-        
-        if (data.success) {
-            showSuccess('Chapter added successfully!');
-            hideAddChapterForm();
-            loadChapters(currentProgramId);
-        } else {
-            showError(data.message || 'Failed to add chapter');
-        }
-    } catch (error) {
-        console.error('Add chapter error:', error);
-        showError('An error occurred while adding the chapter');
-    } finally {
-        hideLoading();
-    }
 }
 
 /**
@@ -443,7 +465,10 @@ async function deleteChapter(chapterId) {
         
         if (response.success) {
             showSuccess('Chapter deleted successfully!');
-            loadChapters(currentProgramId);
+            // Reload page to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } else {
             showError(response.message || 'Failed to delete chapter');
         }
@@ -582,16 +607,7 @@ async function handleResponse(response) {
  * Display notifications on page load
  */
 function displayNotifications() {
-    const successElement = document.getElementById('success-message');
-    const errorElement = document.getElementById('error-message');
-    
-    if (successElement && successElement.value) {
-        showSuccess(successElement.value);
-    }
-    
-    if (errorElement && errorElement.value) {
-        showError(errorElement.value);
-    }
+    // These are handled by PHP and SweetAlert in the page template
 }
 
 /**
@@ -674,16 +690,6 @@ function hideValidationError(input) {
 }
 
 /**
- * Update URL with program ID
- */
-function updateURLWithProgramId(programId) {
-    const url = new URL(window.location);
-    url.searchParams.set('program_id', programId);
-    url.searchParams.set('action', 'create');
-    window.history.pushState({ programId }, '', url);
-}
-
-/**
  * Escape HTML to prevent XSS
  */
 function escapeHtml(text) {
@@ -697,9 +703,32 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
+// Stub functions for story and quiz management (to be implemented)
+function showAddStoryForm(chapterId) {
+    showError('Story management feature coming soon!');
+}
+
+function editStory(storyId) {
+    showError('Story editing feature coming soon!');
+}
+
+function confirmDeleteStory(storyId) {
+    showError('Story deletion feature coming soon!');
+}
+
+function showAddQuizForm(chapterId) {
+    showError('Quiz management feature coming soon!');
+}
+
+function showAddQuestionForm(quizId) {
+    showError('Quiz question management feature coming soon!');
+}
+
+function showEditChapterModal(chapter) {
+    showError('Chapter editing modal coming soon!');
+}
+
 // Export functions for global access (backward compatibility)
 window.previewThumbnail = previewThumbnail;
-window.editChapter = editChapter;
-window.confirmDeleteChapter = confirmDeleteChapter;
-window.showAddChapterForm = showAddChapterForm;
-window.hideAddChapterForm = hideAddChapterForm;
+window.showAddChapterModal = showAddChapterModal;
+window.closeAddChapterModal = closeAddChapterModal;
