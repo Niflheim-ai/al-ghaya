@@ -1,22 +1,19 @@
 <?php
 // Enhanced create-program.php - Compatible with existing schema
-require '../php/dbConnection.php';
-require '../php/functions.php';
-require '../php/enhanced-program-functions.php';
+require_once __DIR__ . '/dbConnection.php';
+require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/program-helpers.php';
 session_start();
 
 // Check if user is logged in and is a teacher
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
-    // Handle AJAX requests differently
-    if (isset($_POST['ajax_create']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
-        header('Content-Type: application/json');
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Not authorized. Please log in as a teacher.']);
-        exit();
-    } else {
+    if (($_GET['flow'] ?? '') === 'redirect') {
         header("Location: ../pages/login.php");
         exit();
     }
+    http_response_code(403);
+    echo 'Forbidden';
+    exit();
 }
 
 $user_id = $_SESSION['userID'];
@@ -24,8 +21,13 @@ $user_id = $_SESSION['userID'];
 // Get teacher ID from user ID
 $teacher_id = getTeacherIdFromSession($conn, $user_id);
 if (!$teacher_id) {
-    $_SESSION['error_message'] = 'Teacher profile not found.';
-    header("Location: ../pages/teacher/teacher-programs.php");
+    if (($_GET['flow'] ?? '') === 'redirect') {
+        $_SESSION['error_message'] = 'Teacher profile not found.';
+        header("Location: ../pages/teacher/teacher-programs.php");
+        exit();
+    }
+    http_response_code(403);
+    echo 'Teacher profile not found.';
     exit();
 }
 
@@ -34,8 +36,33 @@ if (!isset($_SESSION['temp_chapters'])) {
     $_SESSION['temp_chapters'] = [];
 }
 
+// Handle redirect flow for Quick Access button
+if (($_GET['flow'] ?? '') === 'redirect') {
+    // Create simple draft program and redirect to builder
+    $data = [
+        'teacherID' => $teacher_id,
+        'title' => 'New Program',
+        'description' => '',
+        'category' => 'beginner',
+        'price' => 0.00,
+        'status' => 'draft',
+        'thumbnail' => 'default-thumbnail.jpg'
+    ];
+    
+    $program_id = createProgram($conn, $data);
+    if ($program_id) {
+        header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
+        exit();
+    } else {
+        $_SESSION['error_message'] = 'Failed to create program.';
+        header("Location: ../pages/teacher/teacher-programs.php");
+        exit();
+    }
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
     // Create new program
     if (isset($_POST['create_program'])) {
         $data = [
@@ -43,11 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'title' => $_POST['title'] ?? 'New Program',
             'description' => $_POST['description'] ?? '',
             'category' => $_POST['category'] ?? 'beginner',
-            'difficulty_level' => $_POST['difficulty_level'] ?? 'Student',
-            'price' => floatval($_POST['price'] ?? 500.00),
-            'overview_video_url' => $_POST['overview_video_url'] ?? $_POST['video_link'] ?? '',
+            'price' => floatval($_POST['price'] ?? 0.00),
             'status' => $_POST['status'] ?? 'draft',
-            'currency' => 'PHP',
             'thumbnail' => 'default-thumbnail.jpg'
         ];
 
@@ -68,12 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             unset($_SESSION['temp_chapters']); // Clear temp chapters
             $_SESSION['success_message'] = "Program and chapters created successfully!";
             
-            // Redirect to enhanced programs page if it exists, otherwise use existing page
-            if (file_exists('../pages/teacher/teacher-programs.php')) {
-                header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
-            } else {
-                header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
-            }
+            header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
             exit();
         } else {
             $_SESSION['error_message'] = "Error creating program.";
@@ -81,9 +100,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
     }
+    
     // Update existing program
     elseif (isset($_POST['update_program'])) {
-        $program_id = $_POST['program_id'];
+        $program_id = intval($_POST['program_id'] ?? 0);
         
         // Verify ownership
         if (!verifyProgramOwnership($conn, $program_id, $teacher_id)) {
@@ -97,30 +117,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'title' => $_POST['title'],
             'description' => $_POST['description'],
             'category' => $_POST['category'],
-            'difficulty_level' => $_POST['difficulty_level'] ?? mapCategoryToDifficulty($_POST['category']),
             'price' => floatval($_POST['price']),
-            'overview_video_url' => $_POST['overview_video_url'] ?? $_POST['video_link'] ?? '',
             'status' => $_POST['status']
         ];
 
         $updated = updateProgram($conn, $program_id, $data);
         if ($updated) {
             $_SESSION['success_message'] = "Program updated successfully!";
-            header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
-            exit();
         } else {
             $_SESSION['error_message'] = "No changes made or error updating program.";
-            header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
-            exit();
         }
+        
+        header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
+        exit();
     }
+    
     // Add chapter
     elseif (isset($_POST['add_chapter'])) {
-        $program_id = $_POST['program_id'];
-        $chapter_title = $_POST['chapter_title'];
-        $chapter_content = $_POST['chapter_content'];
-        $chapter_question = $_POST['chapter_question'];
+        $program_id = intval($_POST['program_id'] ?? 0);
+        $chapter_title = $_POST['chapter_title'] ?? 'New Chapter';
+        $chapter_content = $_POST['chapter_content'] ?? '';
+        $chapter_question = $_POST['chapter_question'] ?? '';
 
+        header('Content-Type: application/json');
+        
         if ($program_id && verifyProgramOwnership($conn, $program_id, $teacher_id)) {
             $chapter_id = addChapter($conn, $program_id, $chapter_title, $chapter_content, $chapter_question);
             if ($chapter_id) {
@@ -128,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 echo json_encode([
                     'success' => true,
                     'message' => "Chapter added successfully!",
+                    'chapter_id' => $chapter_id,
                     'chapters' => $chapters
                 ]);
             } else {
@@ -152,14 +173,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit();
     }
+    
     // Update chapter
     elseif (isset($_POST['update_chapter'])) {
-        $chapter_id = $_POST['chapter_id'];
-        $program_id = $_POST['program_id'];
-        $chapter_title = $_POST['chapter_title'];
-        $chapter_content = $_POST['chapter_content'];
-        $chapter_question = $_POST['chapter_question'];
+        $chapter_id = intval($_POST['chapter_id'] ?? 0);
+        $program_id = intval($_POST['program_id'] ?? 0);
+        $chapter_title = $_POST['chapter_title'] ?? '';
+        $chapter_content = $_POST['chapter_content'] ?? '';
+        $chapter_question = $_POST['chapter_question'] ?? '';
 
+        header('Content-Type: application/json');
+        
         if (!verifyProgramOwnership($conn, $program_id, $teacher_id)) {
             echo json_encode(['success' => false, 'message' => "You don't have permission to edit chapters in this program."]);
             exit();
@@ -174,11 +198,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit();
     }
+    
     // Delete chapter
     elseif (isset($_POST['delete_chapter'])) {
         $chapter_index = $_POST['delete_chapter'];
-        $program_id = $_POST['program_id'];
+        $program_id = intval($_POST['program_id'] ?? 0);
 
+        header('Content-Type: application/json');
+        
         if ($program_id && verifyProgramOwnership($conn, $program_id, $teacher_id)) {
             $deleted = deleteChapter($conn, $chapter_index);
             if ($deleted) {
@@ -210,11 +237,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_simple') {
             'title' => 'New Program',
             'description' => 'Program description',
             'category' => 'beginner',
-            'difficulty_level' => 'Student',
-            'price' => 500.00,
-            'overview_video_url' => '',
+            'price' => 0.00,
             'status' => 'draft',
-            'currency' => 'PHP',
             'thumbnail' => 'default-thumbnail.jpg'
         ];
         
@@ -243,21 +267,5 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_simple') {
 if (isset($_GET['back'])) {
     header("Location: ../pages/teacher/teacher-programs.php");
     exit();
-}
-
-/**
- * Helper function to map category to difficulty level
- */
-function mapCategoryToDifficulty($category) {
-    switch ($category) {
-        case 'beginner':
-            return 'Student';
-        case 'intermediate':
-            return 'Aspiring';
-        case 'advanced':
-            return 'Master';
-        default:
-            return 'Student';
-    }
 }
 ?>
