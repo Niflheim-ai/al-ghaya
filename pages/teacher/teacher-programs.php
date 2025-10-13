@@ -3,8 +3,30 @@ session_start();
 $current_page = "teacher-programs";
 $page_title = "My Programs";
 
-// Check if user is logged in and is a teacher
-if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
+// Debug mode - set to false in production
+$debug_mode = false;
+
+if ($debug_mode) {
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+    echo '<div style="background: #f0f0f0; padding: 10px; margin: 10px; border: 1px solid #ccc;">';
+    echo '<h4>Debug Info:</h4>';
+    echo '<p><strong>Session Data:</strong></p>';
+    echo '<pre>'; print_r($_SESSION); echo '</pre>';
+    echo '</div>';
+}
+
+// Check if user is logged in
+if (!isset($_SESSION['userID'])) {
+    $_SESSION['error_message'] = 'Please log in to access this page.';
+    header("Location: ../login.php");
+    exit();
+}
+
+// Check if user has teacher role
+if (($_SESSION['role'] ?? '') !== 'teacher') {
+    $_SESSION['error_message'] = 'Access denied. Teacher role required.';
     header("Location: ../login.php");
     exit();
 }
@@ -14,43 +36,104 @@ require '../../php/dbConnection.php';
 require '../../php/functions.php';
 require '../../php/program-helpers.php';
 
-$teacher_id = $_SESSION['userID'];
+$user_id = (int)$_SESSION['userID'];
 $action = $_GET['action'] ?? 'list';
 $program_id = $_GET['program_id'] ?? null;
 $chapter_id = $_GET['chapter_id'] ?? null;
 $story_id = $_GET['story_id'] ?? null;
 
-// Get teacher ID from session
-$actual_teacher_id = getTeacherIdFromSession($conn, $teacher_id);
+// Get teacher ID from session with better error handling
+$actual_teacher_id = getTeacherIdFromSession($conn, $user_id);
+
 if (!$actual_teacher_id) {
-    $_SESSION['error_message'] = 'Teacher profile not found.';
-    header("Location: ../login.php");
-    exit();
+    // More detailed error message
+    $error_details = '';
+    if ($debug_mode) {
+        $error_details = " (User ID: {$user_id}, Role: {$_SESSION['role']})";
+        
+        // Check if user exists in teacher table
+        $check_query = "SELECT * FROM teacher WHERE userID = ? AND isActive = 1";
+        $stmt = $conn->prepare($check_query);
+        $stmt->bind_param('i', $user_id);
+        $stmt->execute();
+        $teacher_check = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        
+        if ($teacher_check) {
+            $error_details .= " - Teacher record found but function failed";
+        } else {
+            $error_details .= " - No teacher record found in database";
+        }
+    }
+    
+    $_SESSION['error_message'] = 'Teacher profile not found or inactive.' . $error_details;
+    
+    // In debug mode, don't redirect so user can see the error
+    if ($debug_mode) {
+        echo '<div style="background: #ffe6e6; padding: 20px; margin: 20px; border: 2px solid #ff0000; border-radius: 5px;">';
+        echo '<h3>Authentication Error</h3>';
+        echo '<p><strong>Error:</strong> ' . $_SESSION['error_message'] . '</p>';
+        echo '<p><strong>Possible solutions:</strong></p>';
+        echo '<ul>';
+        echo '<li>Run the fix script: <a href="../../sql/fix-teacher-mapping.php">../../sql/fix-teacher-mapping.php</a></li>';
+        echo '<li>Check if your user account has role = "teacher" in the user table</li>';
+        echo '<li>Verify there is a corresponding record in the teacher table</li>';
+        echo '</ul>';
+        echo '<p><a href="../../sql/fix-teacher-mapping.php" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">→ Run Fix Script</a></p>';
+        echo '</div>';
+        exit();
+    } else {
+        header("Location: ../teacher-dashboard.php");
+        exit();
+    }
+}
+
+if ($debug_mode) {
+    echo '<div style="background: #e6ffe6; padding: 10px; margin: 10px; border: 1px solid #00aa00;">';
+    echo "<p><strong>✅ Authentication successful!</strong></p>";
+    echo "<p>User ID: {$user_id} | Teacher ID: {$actual_teacher_id} | Action: {$action}</p>";
+    echo '</div>';
 }
 
 // Handle different actions
 switch ($action) {
     case 'create':
         $pageContent = 'program_details';
-        $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
+        $program = null;
+        
+        if ($program_id) {
+            $program = getProgram($conn, $program_id, $actual_teacher_id);
+            
+            if (!$program && $debug_mode) {
+                echo '<div style="background: #fff3cd; padding: 10px; margin: 10px; border: 1px solid #ffc107;">';
+                echo "<p><strong>⚠️ Program not found or access denied</strong></p>";
+                echo "<p>Program ID: {$program_id} | Teacher ID: {$actual_teacher_id}</p>";
+                echo "<p>This could mean the program doesn't exist or doesn't belong to you.</p>";
+                echo '</div>';
+            }
+        }
         break;
+        
     case 'edit_chapter':
         $pageContent = 'chapter_content';
         $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
         $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
         break;
+        
     case 'add_story':
         $pageContent = 'story_form';
         $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
         $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
         $story = $story_id ? getStory($conn, $story_id) : null;
         break;
+        
     case 'add_quiz':
         $pageContent = 'quiz_form';
         $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
         $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
         $quiz = $chapter_id ? getChapterQuiz($conn, $chapter_id) : null;
         break;
+        
     default:
         $pageContent = 'programs_list';
         $myPrograms = getTeacherPrograms($conn, $actual_teacher_id);
@@ -103,7 +186,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                             <?php foreach ($myPrograms as $program): ?>
                                 <div class="program-card bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                                     <div class="relative">
-                                        <img src="<?= !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
+                                        <img src="<?= !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/' . htmlspecialchars($program['thumbnail']) : '../../images/default-program.jpg' ?>" 
                                              alt="<?= htmlspecialchars($program['title']) ?>" 
                                              class="w-full h-48 object-cover rounded-t-lg">
                                         <span class="absolute top-2 right-2 px-2 py-1 text-xs rounded-full 
@@ -114,10 +197,10 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                                     </div>
                                     <div class="p-4">
                                         <h3 class="font-semibold text-lg mb-2"><?= htmlspecialchars($program['title']) ?></h3>
-                                        <p class="text-gray-600 text-sm mb-3 line-clamp-2"><?= htmlspecialchars(substr($program['description'], 0, 100)) ?>...</p>
+                                        <p class="text-gray-600 text-sm mb-3 line-clamp-2"><?= htmlspecialchars(substr($program['description'] ?? '', 0, 100)) ?>...</p>
                                         <div class="flex justify-between items-center mb-3">
                                             <span class="text-lg font-bold text-blue-600">₱<?= number_format($program['price'], 2) ?></span>
-                                            <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"><?= $program['category'] ?></span>
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"><?= htmlspecialchars($program['category']) ?></span>
                                         </div>
                                         <div class="flex justify-between items-center">
                                             <span class="text-xs text-gray-500"><?= date('M d, Y', strtotime($program['dateCreated'])) ?></span>
@@ -156,14 +239,14 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <?php foreach ($allPrograms as $program): ?>
                                 <div class="program-card-small bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                                    <img src="<?= !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
+                                    <img src="<?= !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/' . htmlspecialchars($program['thumbnail']) : '../../images/default-program.jpg' ?>" 
                                          alt="<?= htmlspecialchars($program['title']) ?>" 
                                          class="w-full h-32 object-cover rounded-t-lg">
                                     <div class="p-3">
                                         <h4 class="font-medium text-sm mb-1"><?= htmlspecialchars($program['title']) ?></h4>
                                         <div class="flex justify-between items-center">
                                             <span class="text-sm font-bold text-blue-600">₱<?= number_format($program['price'], 2) ?></span>
-                                            <span class="px-1 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"><?= $program['category'] ?></span>
+                                            <span class="px-1 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"><?= htmlspecialchars($program['category']) ?></span>
                                         </div>
                                         <button onclick="viewProgram(<?= $program['programID'] ?>)" 
                                                 class="mt-2 w-full text-center text-blue-500 hover:text-blue-700 text-xs">
