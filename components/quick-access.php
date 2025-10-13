@@ -1,4 +1,4 @@
-<!-- Quick Access Toolbar Component - Compatible with Existing Schema -->
+<!-- Quick Access Toolbar Component - Fixed to use redirect flow -->
 <div class="quick-access-card">
     <button type="button" class="group btn-blue" onclick="createNewProgram()">
         <i class="ph ph-plus-square text-[24px] group-hover:hidden"></i>
@@ -113,7 +113,7 @@
 </div>
 
 <script>
-// New Program Function - FIXED VERSION
+// FIXED: New Program Function - Using redirect flow instead of AJAX
 function createNewProgram() {
     // Show loading indicator
     const button = event.target.closest('button');
@@ -121,122 +121,87 @@ function createNewProgram() {
     button.innerHTML = '<i class="ph ph-spinner-gap animate-spin text-[24px] mr-2"></i><p class="font-medium">Creating...</p>';
     button.disabled = true;
     
-    // Determine correct endpoint path based on current page location
+    // Determine correct redirect path based on current page location
     const currentPath = window.location.pathname;
-    let endpoint;
+    let redirectUrl;
     
     if (currentPath.includes('/pages/teacher/')) {
         // Called from pages/teacher/*.php
-        endpoint = '../../php/ajax-create-program.php';
+        redirectUrl = '../../php/create-program.php?flow=redirect';
     } else if (currentPath.includes('/pages/')) {
         // Called from other pages
-        endpoint = '../php/ajax-create-program.php';
+        redirectUrl = '../php/create-program.php?flow=redirect';
     } else {
         // Called from root level
-        endpoint = 'php/ajax-create-program.php';
+        redirectUrl = 'php/create-program.php?flow=redirect';
     }
     
-    // Create new program via AJAX with proper error handling
-    fetch(endpoint, {
-        method: 'POST',
-        headers: { 
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => {
-        // Check if response is ok
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            // Response is not JSON, probably an error page
-            return response.text().then(text => {
-                throw new Error('Server returned non-JSON response: ' + (text.length > 200 ? text.substring(0, 200) + '...' : text));
-            });
-        }
-        
-        return response.json();
-    })
-    .then(data => {
-        if (data.success && data.program_id) {
-            // Determine redirect URL based on current location
-            let redirectUrl;
-            if (currentPath.includes('/pages/teacher/')) {
-                redirectUrl = `teacher-programs.php?action=create&program_id=${data.program_id}`;
-            } else {
-                redirectUrl = `pages/teacher/teacher-programs.php?action=create&program_id=${data.program_id}`;
-            }
-            
-            // Redirect to program creation page
-            window.location.href = redirectUrl;
-        } else {
-            throw new Error(data.message || 'Failed to create program - no program ID returned');
-        }
-    })
-    .catch(error => {
-        console.error('Error creating program:', error);
-        
-        // Restore button state
-        button.innerHTML = originalContent;
-        button.disabled = false;
-        
-        // Show user-friendly error message
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error Creating Program',
-                text: error.message || 'An unexpected error occurred. Please try again.',
-                confirmButtonText: 'OK'
-            });
-        } else {
-            alert('Error creating program: ' + (error.message || 'Please try again.'));
-        }
-    });
+    // Use server-side redirect flow instead of AJAX to avoid JSON/error issues
+    window.location.href = redirectUrl;
 }
 
 // Publish Modal Functions
 function openPublishModal() {
-    document.getElementById('publishModal').classList.remove('hidden');
-    loadDraftPrograms();
+    const modal = document.getElementById('publishModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        loadDraftPrograms();
+    }
 }
 
 function closePublishModal() {
-    document.getElementById('publishModal').classList.add('hidden');
+    const modal = document.getElementById('publishModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
 }
 
 function loadDraftPrograms() {
-    fetch('../../php/program-handler.php', {
+    // Determine correct API path
+    const currentPath = window.location.pathname;
+    let apiUrl;
+    
+    if (currentPath.includes('/pages/teacher/')) {
+        apiUrl = '../../php/program-handler.php';
+    } else if (currentPath.includes('/pages/')) {
+        apiUrl = '../php/program-handler.php';
+    } else {
+        apiUrl = 'php/program-handler.php';
+    }
+    
+    fetch(apiUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action: 'get_draft_programs' })
+        body: JSON.stringify({ action: 'get_draft_programs' }),
+        credentials: 'same-origin'
     })
     .then(response => response.json())
     .then(data => {
         const programsList = document.getElementById('publishProgramsList');
-        if (data.success && data.programs.length > 0) {
-            programsList.innerHTML = data.programs.map(program => `
-                <label class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
-                    <input type="checkbox" name="publish_programs[]" value="${program.programID}" class="rounded border-gray-300 text-green-600 focus:ring-green-500">
-                    <div class="flex-1">
-                        <div class="font-medium text-gray-900">${program.title}</div>
-                        <div class="text-sm text-gray-500">₱${parseFloat(program.price).toFixed(2)} • ${program.category}</div>
-                    </div>
-                </label>
-            `).join('');
-        } else {
-            programsList.innerHTML = '<p class="text-gray-500 text-center py-4">No draft programs available for publishing.</p>';
+        if (programsList) {
+            if (data.success && data.programs && data.programs.length > 0) {
+                programsList.innerHTML = data.programs.map(program => `
+                    <label class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
+                        <input type="checkbox" name="publish_programs[]" value="${program.programID}" class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900">${program.title || 'Untitled Program'}</div>
+                            <div class="text-sm text-gray-500">₱${parseFloat(program.price || 0).toFixed(2)} • ${program.category || 'beginner'}</div>
+                        </div>
+                    </label>
+                `).join('');
+            } else {
+                programsList.innerHTML = '<p class="text-gray-500 text-center py-4">No draft programs available for publishing.</p>';
+            }
         }
     })
     .catch(error => {
         console.error('Error loading draft programs:', error);
-        document.getElementById('publishProgramsList').innerHTML = '<p class="text-red-500 text-center py-4">Error loading programs.</p>';
+        const programsList = document.getElementById('publishProgramsList');
+        if (programsList) {
+            programsList.innerHTML = '<p class="text-red-500 text-center py-4">Error loading programs.</p>';
+        }
     });
 }
 
@@ -244,11 +209,31 @@ function submitForPublishing() {
     const selectedPrograms = Array.from(document.querySelectorAll('input[name="publish_programs[]"]:checked')).map(cb => cb.value);
     
     if (selectedPrograms.length === 0) {
-        alert('Please select at least one program to publish.');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Programs Selected',
+                text: 'Please select at least one program to publish.'
+            });
+        } else {
+            alert('Please select at least one program to publish.');
+        }
         return;
     }
 
-    fetch('../../php/program-handler.php', {
+    // Determine correct API path
+    const currentPath = window.location.pathname;
+    let apiUrl;
+    
+    if (currentPath.includes('/pages/teacher/')) {
+        apiUrl = '../../php/program-handler.php';
+    } else if (currentPath.includes('/pages/')) {
+        apiUrl = '../php/program-handler.php';
+    } else {
+        apiUrl = 'php/program-handler.php';
+    }
+
+    fetch(apiUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -256,58 +241,115 @@ function submitForPublishing() {
         body: JSON.stringify({ 
             action: 'submit_for_publishing', 
             program_ids: selectedPrograms 
-        })
+        }),
+        credentials: 'same-origin'
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(`${selectedPrograms.length} program(s) published successfully!`);
-            closePublishModal();
-            // Refresh the page to show updated status
-            window.location.reload();
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: `${selectedPrograms.length} program(s) published successfully!`
+                }).then(() => {
+                    closePublishModal();
+                    window.location.reload();
+                });
+            } else {
+                alert(`${selectedPrograms.length} program(s) published successfully!`);
+                closePublishModal();
+                window.location.reload();
+            }
         } else {
-            alert('Error publishing programs: ' + data.message);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error publishing programs: ' + (data.message || 'Unknown error')
+                });
+            } else {
+                alert('Error publishing programs: ' + (data.message || 'Unknown error'));
+            }
         }
     })
     .catch(error => {
         console.error('Error publishing programs:', error);
-        alert('Error publishing programs. Please try again.');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Network Error',
+                text: 'Error publishing programs. Please try again.'
+            });
+        } else {
+            alert('Error publishing programs. Please try again.');
+        }
     });
 }
 
 // Update Modal Functions
 function showUpdateOptions() {
-    document.getElementById('updateModal').classList.remove('hidden');
+    const modal = document.getElementById('updateModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
 }
 
 function closeUpdateModal() {
-    document.getElementById('updateModal').classList.add('hidden');
+    const modal = document.getElementById('updateModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
 }
 
 function bulkUpdateStatus() {
     closeUpdateModal();
-    alert('Bulk status update feature coming soon!');
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            icon: 'info',
+            title: 'Coming Soon',
+            text: 'Bulk status update feature will be available soon!'
+        });
+    } else {
+        alert('Bulk status update feature coming soon!');
+    }
 }
 
 function bulkUpdatePricing() {
     closeUpdateModal();
-    alert('Bulk pricing update feature coming soon!');
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            icon: 'info',
+            title: 'Coming Soon',
+            text: 'Bulk pricing update feature will be available soon!'
+        });
+    } else {
+        alert('Bulk pricing update feature coming soon!');
+    }
 }
 
 function bulkUpdateCategories() {
     closeUpdateModal();
-    alert('Bulk categories update feature coming soon!');
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            icon: 'info',
+            title: 'Coming Soon',
+            text: 'Bulk categories update feature will be available soon!'
+        });
+    } else {
+        alert('Bulk categories update feature coming soon!');
+    }
 }
 
-// Close modals when clicking outside
+// Close modals when clicking outside - with null checks
 document.addEventListener('click', function(event) {
     const publishModal = document.getElementById('publishModal');
     const updateModal = document.getElementById('updateModal');
     
-    if (event.target === publishModal) {
+    if (publishModal && event.target === publishModal) {
         closePublishModal();
     }
-    if (event.target === updateModal) {
+    if (updateModal && event.target === updateModal) {
         closeUpdateModal();
     }
 });
