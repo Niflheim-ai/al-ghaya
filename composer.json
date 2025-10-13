@@ -10,7 +10,7 @@
         "google/apiclient-services": "^0.340",
         "google/auth": "^1.38",
         "league/oauth2-google": "*",
-        "phpmailer/phpmailer": "^6.10"
+        "phpmailer/phpmailer": "*"
     },
     "autoload": {
         "psr-4": {

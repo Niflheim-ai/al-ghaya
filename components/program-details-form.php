@@ -34,7 +34,7 @@
                         <img id="thumbnailPreview" 
                              src="<?= $program && $program['thumbnail'] ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
                              alt="Program Thumbnail" 
-                             class="w-32 h-32 object-cover rounded-lg border-2 border-gray-200">
+                             class="w-100 aspect-video object-cover rounded-lg border-2 border-gray-200">
                     </div>
                     <div class="flex-1">
                         <label for="thumbnail" class="block text-sm font-medium text-gray-700 mb-2">

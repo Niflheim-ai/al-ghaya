@@ -4,10 +4,10 @@
     use PHPMailer\PHPMailer\PHPMailer;
     use PHPMailer\PHPMailer\Exception;
 
-    require '../../vendor/phpmailer/PHPMailer/src/Exception.php';
-    require '../../vendor/phpmailer/PHPMailer/src/PHPMailer.php';
-    require '../../vendor/phpmailer/PHPMailer/src/SMTP.php';
-    require '../../vendor/autoload.php';
+    require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/Exception.php';
+    require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/PHPMailer.php';
+    require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/SMTP.php';
+    require_once __DIR__ . '/../vendor/autoload.php';
 
     // Create Account
     function createAccount($conn) {
@@ -128,38 +128,6 @@
             }
         }
     }    
-
-    // Create Program
-    function handleCreateProgram($conn, $postData, $teacherID) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            return ['success' => false, 'message' => 'Invalid request method.'];
-        }
-    
-        // Sanitize and validate inputs
-        $title = trim($postData['title'] ?? '');
-        $category = trim($postData['category'] ?? '');
-        $description = trim($postData['description'] ?? '');
-        $price = isset($postData['price']) ? floatval($postData['price']) : 0;
-    
-        if (empty($title) || empty($category) || empty($description) || !$teacherID) {
-            return ['success' => false, 'message' => 'All fields are required.'];
-        }
-    
-        // Prepare SQL statement
-        $stmt = $conn->prepare("INSERT INTO programs (title, category, description, price, teacherID, dateCreated) VALUES (?, ?, ?, ?, ?, NOW())");
-    
-        if (!$stmt) {
-            return ['success' => false, 'message' => 'Prepare failed: ' . $conn->error];
-        }
-    
-        $stmt->bind_param("sssdi", $title, $category, $description, $price, $teacherID);
-    
-        if ($stmt->execute()) {
-            return ['success' => true, 'message' => 'Program created successfully.'];
-        } else {
-            return ['success' => false, 'message' => 'Execute failed: ' . $stmt->error];
-        }
-    }
 
     // Fetching program data
     function fetchProgramData($conn) {
@@ -319,56 +287,6 @@
         }
     }
 
-    // Create new Program
-    function createProgram($conn, $teacher_id, $title, $description, $category, $video_link, $price, $image) {
-        $stmt = $conn->prepare("INSERT INTO programs (teacherID, title, description, category, video_link, price, image, dateCreated)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
-        $stmt->bind_param("issssds", $teacher_id, $title, $description, $category, $video_link, $price, $image);
-
-        if ($stmt->execute()) {
-            $program_id = $stmt->insert_id;
-            $stmt->close();
-            return $program_id;
-        } else {
-            $error = $stmt->error;
-            $stmt->close();
-            return false;
-        }
-    }
-
-    // Update a Program
-    function updateProgram($conn, $program_id, $teacher_id, $title, $description, $category, $video_link, $price, $status = null) {
-        if ($status) {
-            $stmt = $conn->prepare("UPDATE programs SET title = ?, description = ?, category = ?, video_link = ?, price = ?, status = ?
-                                WHERE programID = ? AND teacherID = ?");
-            $stmt->bind_param("ssssdssi", $title, $description, $category, $video_link, $price, $status, $program_id, $teacher_id);
-        } else {
-            $stmt = $conn->prepare("UPDATE programs SET title = ?, description = ?, category = ?, video_link = ?, price = ?
-                                WHERE programID = ? AND teacherID = ?");
-            $stmt->bind_param("ssssdii", $title, $description, $category, $video_link, $price, $program_id, $teacher_id);
-        }
-
-        if ($stmt->execute()) {
-            $affected = $stmt->affected_rows;
-            $stmt->close();
-            return $affected > 0;
-        } else {
-            $error = $stmt->error;
-            $stmt->close();
-            return false;
-        }
-    }
-
-    // Update Program Status
-    function updateProgramStatus($conn, $program_id, $teacher_id, $status) {
-        $stmt = $conn->prepare("UPDATE programs SET status = ? WHERE programID = ? AND teacherID = ?");
-        $stmt->bind_param("sii", $status, $program_id, $teacher_id);
-        $stmt->execute();
-        $affected = $stmt->affected_rows;
-        $stmt->close();
-        return $affected > 0;
-    }
-
     // Get a Program by ID
     function getProgram($conn, $program_id, $teacher_id) {
         $stmt = $conn->prepare("SELECT * FROM programs WHERE programID = ? AND teacherID = ?");
@@ -378,17 +296,6 @@
         $program = $result->fetch_assoc();
         $stmt->close();
         return $program;
-    }
-
-    // Verify Program Ownership
-    function verifyProgramOwnership($conn, $program_id, $teacher_id) {
-        $stmt = $conn->prepare("SELECT 1 FROM programs WHERE programID = ? AND teacherID = ?");
-        $stmt->bind_param("ii", $program_id, $teacher_id);
-        $stmt->execute();
-        $stmt->store_result();
-        $exists = $stmt->num_rows > 0;
-        $stmt->close();
-        return $exists;
     }
 
     // Add a Chapter to a Program

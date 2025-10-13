@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 13, 2025 at 04:45 PM
+-- Generation Time: Oct 13, 2025 at 07:37 PM
 -- Server version: 10.4.27-MariaDB
 -- PHP Version: 8.2.0
 
@@ -88,6 +88,53 @@ CREATE TABLE `admin_sessions` (
   `expires_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `dateCreated` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chapter_quizzes`
+--
+
+CREATE TABLE `chapter_quizzes` (
+  `quiz_id` int(11) NOT NULL,
+  `chapter_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL DEFAULT 'Chapter Quiz',
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp(),
+  `dateUpdated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chapter_stories`
+--
+
+CREATE TABLE `chapter_stories` (
+  `story_id` int(11) NOT NULL,
+  `chapter_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `synopsis_arabic` text DEFAULT NULL,
+  `synopsis_english` text DEFAULT NULL,
+  `video_url` varchar(500) NOT NULL,
+  `story_order` int(11) NOT NULL DEFAULT 1,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp(),
+  `dateUpdated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `interactive_questions`
+--
+
+CREATE TABLE `interactive_questions` (
+  `question_id` int(11) NOT NULL,
+  `section_id` int(11) NOT NULL,
+  `question_text` text NOT NULL,
+  `question_type` enum('multiple_choice','fill_in_blanks','multiple_select') NOT NULL,
+  `question_order` int(11) NOT NULL DEFAULT 1,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -183,17 +230,22 @@ CREATE TABLE `programs` (
   `title` varchar(255) NOT NULL,
   `description` text DEFAULT NULL,
   `category` enum('beginner','intermediate','advanced') DEFAULT 'beginner',
+  `difficulty_label` enum('Student','Aspiring','Master') DEFAULT 'Student',
   `video_link` varchar(500) DEFAULT NULL,
+  `overview_video_url` varchar(500) DEFAULT NULL,
   `price` decimal(10,2) DEFAULT 0.00,
+  `currency` varchar(10) DEFAULT 'PHP',
   `image` varchar(255) DEFAULT NULL,
   `thumbnail` varchar(255) DEFAULT NULL,
-  `status` enum('draft','published','archived') DEFAULT 'draft',
+  `status` enum('draft','pending_review','published','rejected','archived') DEFAULT 'draft',
+  `rejection_reason` text DEFAULT NULL,
   `difficulty_level` int(1) DEFAULT 1,
   `estimated_duration` int(11) DEFAULT NULL COMMENT 'Duration in minutes',
   `prerequisites` text DEFAULT NULL,
   `learning_objectives` text DEFAULT NULL,
   `dateCreated` timestamp NOT NULL DEFAULT current_timestamp(),
-  `dateUpdated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `dateUpdated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `datePublished` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -207,6 +259,9 @@ CREATE TABLE `program_chapters` (
   `program_id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
   `content` longtext DEFAULT NULL,
+  `has_quiz` tinyint(1) DEFAULT 0,
+  `story_count` int(11) DEFAULT 0,
+  `quiz_question_count` int(11) DEFAULT 0,
   `video_url` varchar(500) DEFAULT NULL,
   `audio_url` varchar(500) DEFAULT NULL,
   `question` text DEFAULT NULL,
@@ -220,6 +275,117 @@ CREATE TABLE `program_chapters` (
   `dateUpdated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Triggers `program_chapters`
+--
+DELIMITER $$
+CREATE TRIGGER `after_chapter_insert` AFTER INSERT ON `program_chapters` FOR EACH ROW BEGIN
+  -- Only create quiz if chapter_quizzes table exists and chapter doesn't already have a quiz
+  IF (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'chapter_quizzes') > 0 THEN
+    INSERT IGNORE INTO chapter_quizzes (chapter_id, program_id, title)
+    VALUES (NEW.chapter_id, NEW.program_id, CONCAT(NEW.title, ' Quiz'));
+  END IF;
+  
+  -- Update has_quiz flag
+  UPDATE program_chapters SET has_quiz = 1 WHERE chapter_id = NEW.chapter_id;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `after_chapter_update` AFTER UPDATE ON `program_chapters` FOR EACH ROW BEGIN
+  UPDATE programs SET dateUpdated = CURRENT_TIMESTAMP WHERE programID = NEW.program_id;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `program_library`
+-- (See below for the actual view)
+--
+CREATE TABLE `program_library` (
+`programID` int(11)
+,`teacherID` int(11)
+,`title` varchar(255)
+,`description` text
+,`category` enum('beginner','intermediate','advanced')
+,`difficulty_label` enum('Student','Aspiring','Master')
+,`price` decimal(10,2)
+,`currency` varchar(10)
+,`thumbnail` varchar(255)
+,`datePublished` timestamp
+,`teacher_first_name` varchar(100)
+,`teacher_last_name` varchar(100)
+,`teacher_user_fname` varchar(100)
+,`teacher_user_lname` varchar(100)
+,`enrollment_count` bigint(21)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `program_publish_requests`
+--
+
+CREATE TABLE `program_publish_requests` (
+  `request_id` int(11) NOT NULL,
+  `program_id` int(11) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
+  `status` enum('pending','approved','rejected') DEFAULT 'pending',
+  `admin_id` int(11) DEFAULT NULL,
+  `admin_notes` text DEFAULT NULL,
+  `dateRequested` timestamp NOT NULL DEFAULT current_timestamp(),
+  `dateReviewed` timestamp NULL DEFAULT NULL,
+  `review_message` text DEFAULT NULL COMMENT 'Admin feedback on approval/rejection',
+  `reviewed_at` timestamp NULL DEFAULT NULL COMMENT 'When the request was reviewed by admin'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Triggers `program_publish_requests`
+--
+DELIMITER $$
+CREATE TRIGGER `after_publish_request_update` AFTER UPDATE ON `program_publish_requests` FOR EACH ROW BEGIN
+  -- When admin approves a pending request
+  IF NEW.status = 'approved' AND OLD.status = 'pending' THEN
+    UPDATE programs 
+    SET 
+      status = 'published',
+      datePublished = CURRENT_TIMESTAMP,
+      rejection_reason = NULL,  -- Clear any previous rejection reason
+      dateUpdated = CURRENT_TIMESTAMP
+    WHERE programID = NEW.program_id;
+    
+  -- When admin rejects a pending request
+  ELSEIF NEW.status = 'rejected' AND OLD.status = 'pending' THEN
+    UPDATE programs 
+    SET 
+      status = 'draft',
+      rejection_reason = COALESCE(NEW.review_message, 'Program rejected by admin'),  -- Store admin feedback with fallback
+      dateUpdated = CURRENT_TIMESTAMP
+    WHERE programID = NEW.program_id;
+    
+  -- When request is cancelled (teacher or admin cancellation)
+  ELSEIF NEW.status = 'cancelled' AND OLD.status = 'pending' THEN
+    UPDATE programs 
+    SET 
+      status = 'draft',
+      dateUpdated = CURRENT_TIMESTAMP
+    WHERE programID = NEW.program_id;
+  END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `set_reviewed_timestamp` BEFORE UPDATE ON `program_publish_requests` FOR EACH ROW BEGIN
+  -- Set reviewed_at timestamp when status changes from pending to approved/rejected/cancelled
+  IF OLD.status = 'pending' AND NEW.status IN ('approved', 'rejected', 'cancelled') THEN
+    SET NEW.reviewed_at = CURRENT_TIMESTAMP;
+  END IF;
+END
+$$
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -230,12 +396,162 @@ CREATE TABLE `program_statistics` (
 `programID` int(11)
 ,`title` varchar(255)
 ,`category` enum('beginner','intermediate','advanced')
-,`status` enum('draft','published','archived')
+,`status` enum('draft','pending_review','published','rejected','archived')
 ,`enrolled_students` bigint(21)
 ,`average_progress` decimal(9,6)
 ,`completed_count` bigint(21)
 ,`dateCreated` timestamp
 );
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `program_stories`
+--
+
+CREATE TABLE `program_stories` (
+  `story_id` int(11) NOT NULL,
+  `chapter_id` int(11) NOT NULL,
+  `program_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `synopsis_arabic` text DEFAULT NULL,
+  `synopsis_english` text DEFAULT NULL,
+  `video_url` varchar(500) NOT NULL COMMENT 'YouTube video URL for story progression',
+  `story_order` int(11) DEFAULT 1,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp(),
+  `dateUpdated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Triggers `program_stories`
+--
+DELIMITER $$
+CREATE TRIGGER `after_story_delete` AFTER DELETE ON `program_stories` FOR EACH ROW BEGIN
+  -- Update story count in chapter
+  UPDATE program_chapters 
+  SET story_count = (SELECT COUNT(*) FROM program_stories WHERE chapter_id = OLD.chapter_id)
+  WHERE chapter_id = OLD.chapter_id;
+  
+  -- Update program modification date
+  UPDATE programs SET dateUpdated = CURRENT_TIMESTAMP WHERE programID = OLD.program_id;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `after_story_insert` AFTER INSERT ON `program_stories` FOR EACH ROW BEGIN
+  -- Update story count in chapter
+  UPDATE program_chapters 
+  SET story_count = (SELECT COUNT(*) FROM program_stories WHERE chapter_id = NEW.chapter_id)
+  WHERE chapter_id = NEW.chapter_id;
+  
+  -- Update program modification date
+  UPDATE programs SET dateUpdated = CURRENT_TIMESTAMP WHERE programID = NEW.program_id;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `question_options`
+--
+
+CREATE TABLE `question_options` (
+  `option_id` int(11) NOT NULL,
+  `question_id` int(11) NOT NULL,
+  `option_text` text NOT NULL,
+  `is_correct` tinyint(1) DEFAULT 0,
+  `option_order` int(11) NOT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quiz_questions`
+--
+
+CREATE TABLE `quiz_questions` (
+  `quiz_question_id` int(11) NOT NULL,
+  `quiz_id` int(11) NOT NULL,
+  `question_text` text NOT NULL,
+  `question_order` int(11) NOT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Triggers `quiz_questions`
+--
+DELIMITER $$
+CREATE TRIGGER `after_quiz_question_delete` AFTER DELETE ON `quiz_questions` FOR EACH ROW BEGIN
+  DECLARE chapter_id_var INT DEFAULT NULL;
+  
+  -- Get chapter_id from quiz
+  SELECT chapter_id INTO chapter_id_var FROM chapter_quizzes WHERE quiz_id = OLD.quiz_id;
+  
+  -- Update question count if chapter found
+  IF chapter_id_var IS NOT NULL THEN
+    UPDATE program_chapters 
+    SET quiz_question_count = (
+      SELECT COUNT(*) 
+      FROM quiz_questions qq 
+      JOIN chapter_quizzes cq ON qq.quiz_id = cq.quiz_id 
+      WHERE cq.chapter_id = chapter_id_var
+    )
+    WHERE chapter_id = chapter_id_var;
+  END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `after_quiz_question_insert` AFTER INSERT ON `quiz_questions` FOR EACH ROW BEGIN
+  DECLARE chapter_id_var INT DEFAULT NULL;
+  
+  -- Get chapter_id from quiz
+  SELECT chapter_id INTO chapter_id_var FROM chapter_quizzes WHERE quiz_id = NEW.quiz_id;
+  
+  -- Update question count if chapter found
+  IF chapter_id_var IS NOT NULL THEN
+    UPDATE program_chapters 
+    SET quiz_question_count = (
+      SELECT COUNT(*) 
+      FROM quiz_questions qq 
+      JOIN chapter_quizzes cq ON qq.quiz_id = cq.quiz_id 
+      WHERE cq.chapter_id = chapter_id_var
+    )
+    WHERE chapter_id = chapter_id_var;
+  END IF;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quiz_question_options`
+--
+
+CREATE TABLE `quiz_question_options` (
+  `quiz_option_id` int(11) NOT NULL,
+  `quiz_question_id` int(11) NOT NULL,
+  `option_text` text NOT NULL,
+  `is_correct` tinyint(1) DEFAULT 0,
+  `option_order` int(11) NOT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `story_interactive_sections`
+--
+
+CREATE TABLE `story_interactive_sections` (
+  `section_id` int(11) NOT NULL,
+  `story_id` int(11) NOT NULL,
+  `section_order` int(11) NOT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -276,6 +592,21 @@ CREATE TABLE `student_dashboard_stats` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `student_enrollments`
+--
+
+CREATE TABLE `student_enrollments` (
+  `enrollment_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `program_id` int(11) NOT NULL,
+  `enrollment_date` timestamp NOT NULL DEFAULT current_timestamp(),
+  `completion_percentage` decimal(5,2) DEFAULT 0.00,
+  `last_accessed` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `student_program`
 --
 
@@ -290,6 +621,71 @@ CREATE TABLE `student_program` (
   `completedAt` timestamp NULL DEFAULT NULL,
   `lastAccessedAt` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `student_program_enrollments`
+--
+
+CREATE TABLE `student_program_enrollments` (
+  `enrollment_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL COMMENT 'References user.userID where role=student',
+  `program_id` int(11) NOT NULL,
+  `enrollment_date` timestamp NOT NULL DEFAULT current_timestamp(),
+  `completion_percentage` decimal(5,2) DEFAULT 0.00,
+  `last_accessed` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Triggers `student_program_enrollments`
+--
+DELIMITER $$
+CREATE TRIGGER `after_enrollment_delete` AFTER DELETE ON `student_program_enrollments` FOR EACH ROW BEGIN
+  -- Update program modification date when student unenrolls
+  UPDATE programs SET dateUpdated = CURRENT_TIMESTAMP WHERE programID = OLD.program_id;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `after_enrollment_insert` AFTER INSERT ON `student_program_enrollments` FOR EACH ROW BEGIN
+  -- Update program modification date when student enrolls
+  UPDATE programs SET dateUpdated = CURRENT_TIMESTAMP WHERE programID = NEW.program_id;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `student_quiz_attempts`
+--
+
+CREATE TABLE `student_quiz_attempts` (
+  `attempt_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `quiz_id` int(11) NOT NULL,
+  `score` decimal(5,2) DEFAULT NULL,
+  `max_score` decimal(5,2) DEFAULT NULL,
+  `is_passed` tinyint(1) DEFAULT 0,
+  `attempt_number` int(11) DEFAULT 1,
+  `attempt_date` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `student_story_progress`
+--
+
+CREATE TABLE `student_story_progress` (
+  `progress_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `story_id` int(11) NOT NULL,
+  `is_completed` tinyint(1) DEFAULT 0,
+  `completion_date` timestamp NULL DEFAULT NULL,
+  `last_accessed` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -349,6 +745,34 @@ CREATE TABLE `teacher` (
   `dateCreated` timestamp NOT NULL DEFAULT current_timestamp(),
   `isActive` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `teacher_program_overview`
+-- (See below for the actual view)
+--
+CREATE TABLE `teacher_program_overview` (
+`programID` int(11)
+,`teacherID` int(11)
+,`title` varchar(255)
+,`description` text
+,`category` enum('beginner','intermediate','advanced')
+,`difficulty_label` enum('Student','Aspiring','Master')
+,`price` decimal(10,2)
+,`currency` varchar(10)
+,`thumbnail` varchar(255)
+,`overview_video_url` varchar(500)
+,`status` enum('draft','pending_review','published','rejected','archived')
+,`rejection_reason` text
+,`dateCreated` timestamp
+,`dateUpdated` timestamp
+,`datePublished` timestamp
+,`chapter_count` bigint(21)
+,`story_count` bigint(21)
+,`quiz_count` bigint(21)
+,`enrollment_count` bigint(21)
+);
 
 -- --------------------------------------------------------
 
@@ -445,6 +869,15 @@ CREATE TABLE `user_streaks` (
 -- --------------------------------------------------------
 
 --
+-- Structure for view `program_library`
+--
+DROP TABLE IF EXISTS `program_library`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `program_library`  AS SELECT `p`.`programID` AS `programID`, `p`.`teacherID` AS `teacherID`, `p`.`title` AS `title`, `p`.`description` AS `description`, `p`.`category` AS `category`, `p`.`difficulty_label` AS `difficulty_label`, `p`.`price` AS `price`, `p`.`currency` AS `currency`, `p`.`thumbnail` AS `thumbnail`, `p`.`datePublished` AS `datePublished`, `t`.`fname` AS `teacher_first_name`, `t`.`lname` AS `teacher_last_name`, `u`.`fname` AS `teacher_user_fname`, `u`.`lname` AS `teacher_user_lname`, count(distinct `spe`.`student_id`) AS `enrollment_count` FROM (((`programs` `p` left join `teacher` `t` on(`p`.`teacherID` = `t`.`teacherID`)) left join `user` `u` on(`t`.`userID` = `u`.`userID`)) left join `student_program_enrollments` `spe` on(`p`.`programID` = `spe`.`program_id`)) WHERE `p`.`status` = 'published' GROUP BY `p`.`programID` ORDER BY `p`.`datePublished` AS `DESCdesc` ASC  ;
+
+-- --------------------------------------------------------
+
+--
 -- Structure for view `program_statistics`
 --
 DROP TABLE IF EXISTS `program_statistics`;
@@ -459,6 +892,15 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW 
 DROP TABLE IF EXISTS `student_dashboard_stats`;
 
 CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `student_dashboard_stats`  AS SELECT `u`.`userID` AS `userID`, `u`.`points` AS `points`, `u`.`level` AS `level`, `u`.`proficiency` AS `proficiency`, count(distinct `sp`.`programID`) AS `enrolled_programs`, count(distinct case when `sp`.`status` = 'completed' then `sp`.`programID` end) AS `completed_programs`, avg(`sp`.`progress`) AS `average_progress`, count(distinct `scp`.`chapterID`) AS `completed_chapters` FROM ((`user` `u` left join `student_program` `sp` on(`u`.`userID` = `sp`.`studentID`)) left join `student_chapter_progress` `scp` on(`u`.`userID` = `scp`.`studentID` and `scp`.`completed` = 1)) WHERE `u`.`role` = 'student' GROUP BY `u`.`userID``userID`  ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `teacher_program_overview`
+--
+DROP TABLE IF EXISTS `teacher_program_overview`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `teacher_program_overview`  AS SELECT `p`.`programID` AS `programID`, `p`.`teacherID` AS `teacherID`, `p`.`title` AS `title`, `p`.`description` AS `description`, `p`.`category` AS `category`, `p`.`difficulty_label` AS `difficulty_label`, `p`.`price` AS `price`, `p`.`currency` AS `currency`, `p`.`thumbnail` AS `thumbnail`, `p`.`overview_video_url` AS `overview_video_url`, `p`.`status` AS `status`, `p`.`rejection_reason` AS `rejection_reason`, `p`.`dateCreated` AS `dateCreated`, `p`.`dateUpdated` AS `dateUpdated`, `p`.`datePublished` AS `datePublished`, count(distinct `pc`.`chapter_id`) AS `chapter_count`, count(distinct `ps`.`story_id`) AS `story_count`, count(distinct `cq`.`quiz_id`) AS `quiz_count`, count(distinct `spe`.`student_id`) AS `enrollment_count` FROM ((((`programs` `p` left join `program_chapters` `pc` on(`p`.`programID` = `pc`.`program_id`)) left join `program_stories` `ps` on(`pc`.`chapter_id` = `ps`.`chapter_id`)) left join `chapter_quizzes` `cq` on(`pc`.`chapter_id` = `cq`.`chapter_id`)) left join `student_program_enrollments` `spe` on(`p`.`programID` = `spe`.`program_id`)) GROUP BY `p`.`programID``programID`  ;
 
 -- --------------------------------------------------------
 
@@ -498,6 +940,28 @@ ALTER TABLE `admin_sessions`
   ADD UNIQUE KEY `unique_session_token` (`session_token`),
   ADD KEY `idx_adminID` (`adminID`),
   ADD KEY `idx_expires_at` (`expires_at`);
+
+--
+-- Indexes for table `chapter_quizzes`
+--
+ALTER TABLE `chapter_quizzes`
+  ADD PRIMARY KEY (`quiz_id`),
+  ADD UNIQUE KEY `unique_chapter_quiz` (`chapter_id`);
+
+--
+-- Indexes for table `chapter_stories`
+--
+ALTER TABLE `chapter_stories`
+  ADD PRIMARY KEY (`story_id`),
+  ADD KEY `idx_chapter_order` (`chapter_id`,`story_order`);
+
+--
+-- Indexes for table `interactive_questions`
+--
+ALTER TABLE `interactive_questions`
+  ADD PRIMARY KEY (`question_id`),
+  ADD KEY `idx_section_order` (`section_id`,`question_order`),
+  ADD KEY `idx_questions_section` (`section_id`);
 
 --
 -- Indexes for table `notifications`
@@ -547,7 +1011,9 @@ ALTER TABLE `programs`
   ADD KEY `idx_category` (`category`),
   ADD KEY `idx_status` (`status`),
   ADD KEY `idx_program_created` (`dateCreated`),
-  ADD KEY `idx_program_updated` (`dateUpdated`);
+  ADD KEY `idx_program_updated` (`dateUpdated`),
+  ADD KEY `idx_programs_teacher_status` (`teacherID`,`status`),
+  ADD KEY `idx_programs_status_published` (`status`,`datePublished`);
 
 --
 -- Indexes for table `program_chapters`
@@ -557,6 +1023,54 @@ ALTER TABLE `program_chapters`
   ADD KEY `idx_program_id` (`program_id`),
   ADD KEY `idx_chapter_order` (`chapter_order`),
   ADD KEY `idx_chapter_program_order` (`program_id`,`chapter_order`);
+
+--
+-- Indexes for table `program_publish_requests`
+--
+ALTER TABLE `program_publish_requests`
+  ADD PRIMARY KEY (`request_id`),
+  ADD KEY `program_id` (`program_id`),
+  ADD KEY `idx_status` (`status`),
+  ADD KEY `idx_teacher` (`teacher_id`),
+  ADD KEY `idx_date` (`dateRequested`);
+
+--
+-- Indexes for table `program_stories`
+--
+ALTER TABLE `program_stories`
+  ADD PRIMARY KEY (`story_id`),
+  ADD KEY `idx_story_chapter` (`chapter_id`),
+  ADD KEY `idx_story_program_order` (`program_id`,`story_order`),
+  ADD KEY `idx_stories_chapter_order` (`chapter_id`,`story_order`);
+
+--
+-- Indexes for table `question_options`
+--
+ALTER TABLE `question_options`
+  ADD PRIMARY KEY (`option_id`),
+  ADD KEY `idx_question_order` (`question_id`,`option_order`);
+
+--
+-- Indexes for table `quiz_questions`
+--
+ALTER TABLE `quiz_questions`
+  ADD PRIMARY KEY (`quiz_question_id`),
+  ADD KEY `idx_quiz_order` (`quiz_id`,`question_order`);
+
+--
+-- Indexes for table `quiz_question_options`
+--
+ALTER TABLE `quiz_question_options`
+  ADD PRIMARY KEY (`quiz_option_id`),
+  ADD KEY `idx_question_order` (`quiz_question_id`,`option_order`);
+
+--
+-- Indexes for table `story_interactive_sections`
+--
+ALTER TABLE `story_interactive_sections`
+  ADD PRIMARY KEY (`section_id`),
+  ADD KEY `idx_story_order` (`story_id`,`section_order`),
+  ADD KEY `idx_interactions_story` (`story_id`);
 
 --
 -- Indexes for table `student_chapter_progress`
@@ -569,6 +1083,15 @@ ALTER TABLE `student_chapter_progress`
   ADD KEY `idx_chapterID` (`chapterID`);
 
 --
+-- Indexes for table `student_enrollments`
+--
+ALTER TABLE `student_enrollments`
+  ADD PRIMARY KEY (`enrollment_id`),
+  ADD UNIQUE KEY `unique_enrollment` (`student_id`,`program_id`),
+  ADD KEY `idx_student` (`student_id`),
+  ADD KEY `idx_program` (`program_id`);
+
+--
 -- Indexes for table `student_program`
 --
 ALTER TABLE `student_program`
@@ -578,6 +1101,32 @@ ALTER TABLE `student_program`
   ADD KEY `idx_programID` (`programID`),
   ADD KEY `idx_status` (`status`),
   ADD KEY `idx_student_progress_program` (`programID`,`progress`);
+
+--
+-- Indexes for table `student_program_enrollments`
+--
+ALTER TABLE `student_program_enrollments`
+  ADD PRIMARY KEY (`enrollment_id`),
+  ADD UNIQUE KEY `unique_student_program` (`student_id`,`program_id`),
+  ADD KEY `idx_enrollment_student` (`student_id`),
+  ADD KEY `idx_enrollment_program` (`program_id`),
+  ADD KEY `idx_enrollments_student_program` (`student_id`,`program_id`);
+
+--
+-- Indexes for table `student_quiz_attempts`
+--
+ALTER TABLE `student_quiz_attempts`
+  ADD PRIMARY KEY (`attempt_id`),
+  ADD KEY `idx_student_quiz` (`student_id`,`quiz_id`);
+
+--
+-- Indexes for table `student_story_progress`
+--
+ALTER TABLE `student_story_progress`
+  ADD PRIMARY KEY (`progress_id`),
+  ADD UNIQUE KEY `unique_progress` (`student_id`,`story_id`),
+  ADD KEY `idx_student_story` (`student_id`,`story_id`),
+  ADD KEY `idx_progress_student` (`student_id`);
 
 --
 -- Indexes for table `system_settings`
@@ -648,6 +1197,24 @@ ALTER TABLE `admin_sessions`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `chapter_quizzes`
+--
+ALTER TABLE `chapter_quizzes`
+  MODIFY `quiz_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `chapter_stories`
+--
+ALTER TABLE `chapter_stories`
+  MODIFY `story_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `interactive_questions`
+--
+ALTER TABLE `interactive_questions`
+  MODIFY `question_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
@@ -684,16 +1251,76 @@ ALTER TABLE `program_chapters`
   MODIFY `chapter_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `program_publish_requests`
+--
+ALTER TABLE `program_publish_requests`
+  MODIFY `request_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `program_stories`
+--
+ALTER TABLE `program_stories`
+  MODIFY `story_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `question_options`
+--
+ALTER TABLE `question_options`
+  MODIFY `option_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `quiz_questions`
+--
+ALTER TABLE `quiz_questions`
+  MODIFY `quiz_question_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `quiz_question_options`
+--
+ALTER TABLE `quiz_question_options`
+  MODIFY `quiz_option_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `story_interactive_sections`
+--
+ALTER TABLE `story_interactive_sections`
+  MODIFY `section_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `student_chapter_progress`
 --
 ALTER TABLE `student_chapter_progress`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `student_enrollments`
+--
+ALTER TABLE `student_enrollments`
+  MODIFY `enrollment_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `student_program`
 --
 ALTER TABLE `student_program`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `student_program_enrollments`
+--
+ALTER TABLE `student_program_enrollments`
+  MODIFY `enrollment_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `student_quiz_attempts`
+--
+ALTER TABLE `student_quiz_attempts`
+  MODIFY `attempt_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `student_story_progress`
+--
+ALTER TABLE `student_story_progress`
+  MODIFY `progress_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `system_settings`
@@ -742,6 +1369,24 @@ ALTER TABLE `admin_sessions`
   ADD CONSTRAINT `admin_sessions_ibfk_1` FOREIGN KEY (`adminID`) REFERENCES `user` (`userID`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `chapter_quizzes`
+--
+ALTER TABLE `chapter_quizzes`
+  ADD CONSTRAINT `chapter_quizzes_ibfk_1` FOREIGN KEY (`chapter_id`) REFERENCES `program_chapters` (`chapter_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `chapter_stories`
+--
+ALTER TABLE `chapter_stories`
+  ADD CONSTRAINT `chapter_stories_ibfk_1` FOREIGN KEY (`chapter_id`) REFERENCES `program_chapters` (`chapter_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `interactive_questions`
+--
+ALTER TABLE `interactive_questions`
+  ADD CONSTRAINT `interactive_questions_ibfk_1` FOREIGN KEY (`section_id`) REFERENCES `story_interactive_sections` (`section_id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `notifications`
 --
 ALTER TABLE `notifications`
@@ -773,6 +1418,43 @@ ALTER TABLE `program_chapters`
   ADD CONSTRAINT `program_chapters_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `programs` (`programID`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `program_publish_requests`
+--
+ALTER TABLE `program_publish_requests`
+  ADD CONSTRAINT `program_publish_requests_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `programs` (`programID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `program_stories`
+--
+ALTER TABLE `program_stories`
+  ADD CONSTRAINT `fk_story_chapter` FOREIGN KEY (`chapter_id`) REFERENCES `program_chapters` (`chapter_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_story_program` FOREIGN KEY (`program_id`) REFERENCES `programs` (`programID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `question_options`
+--
+ALTER TABLE `question_options`
+  ADD CONSTRAINT `question_options_ibfk_1` FOREIGN KEY (`question_id`) REFERENCES `interactive_questions` (`question_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `quiz_questions`
+--
+ALTER TABLE `quiz_questions`
+  ADD CONSTRAINT `quiz_questions_ibfk_1` FOREIGN KEY (`quiz_id`) REFERENCES `chapter_quizzes` (`quiz_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `quiz_question_options`
+--
+ALTER TABLE `quiz_question_options`
+  ADD CONSTRAINT `quiz_question_options_ibfk_1` FOREIGN KEY (`quiz_question_id`) REFERENCES `quiz_questions` (`quiz_question_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `story_interactive_sections`
+--
+ALTER TABLE `story_interactive_sections`
+  ADD CONSTRAINT `story_interactive_sections_ibfk_1` FOREIGN KEY (`story_id`) REFERENCES `chapter_stories` (`story_id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `student_chapter_progress`
 --
 ALTER TABLE `student_chapter_progress`
@@ -786,6 +1468,13 @@ ALTER TABLE `student_chapter_progress`
 ALTER TABLE `student_program`
   ADD CONSTRAINT `student_program_ibfk_1` FOREIGN KEY (`studentID`) REFERENCES `user` (`userID`) ON DELETE CASCADE,
   ADD CONSTRAINT `student_program_ibfk_2` FOREIGN KEY (`programID`) REFERENCES `programs` (`programID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `student_program_enrollments`
+--
+ALTER TABLE `student_program_enrollments`
+  ADD CONSTRAINT `fk_enrollment_program` FOREIGN KEY (`program_id`) REFERENCES `programs` (`programID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_enrollment_student` FOREIGN KEY (`student_id`) REFERENCES `user` (`userID`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `teacher`

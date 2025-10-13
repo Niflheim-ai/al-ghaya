@@ -132,7 +132,7 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
 <script src="../../dist/javascript/translate.js"></script>
 <script src="../../dist/javascript/user-dropdown.js"></script>
 <script src="../../components/navbar.js"></script>
-<script src="../../javascript/scroll-to-top.js"></script>
+<script src="../../dist/javascript/scroll-to-top.js"></script>
 <script>
     // Scroll to top function
     function scrollToTop() {

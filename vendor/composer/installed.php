@@ -3,7 +3,7 @@
         'name' => 'al-ghaya-2/project',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'a6d5cda0cad3ab1389032ff4d9f6458de6201869',
+        'reference' => '089693d344f3482326b76806abc725a07ba563a8',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'al-ghaya-2/project' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'a6d5cda0cad3ab1389032ff4d9f6458de6201869',
+            'reference' => '089693d344f3482326b76806abc725a07ba563a8',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

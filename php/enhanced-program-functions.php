@@ -147,22 +147,6 @@ function deleteProgram($conn, $program_id, $teacher_id) {
 }
 
 /**
- * Get teacher ID from user session
- */
-function getTeacherIdFromSession($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT teacherID FROM teacher WHERE userID = ? AND isActive = 1");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        return $result->fetch_assoc()['teacherID'];
-    }
-    
-    return null;
-}
-
-/**
  * Verify program ownership by teacher
  */
 function verifyProgramOwnership($conn, $program_id, $teacher_id) {
