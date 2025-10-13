@@ -75,7 +75,7 @@ function sendTeacherWelcomeEmail($email, $password, $firstName = '', $lastName =
         $mail->Subject = 'Welcome to ' . Config::get('APP_NAME', 'Al-Ghaya LMS') . ' - Your Teacher Account';
         
         $displayName = !empty($firstName) ? $firstName . ' ' . $lastName : 'Teacher';
-        $loginUrl = Config::get('APP_URL', 'https://al-ghaya.vercel.app') . '/pages/login.php';
+        $loginUrl = Config::get('APP_URL', 'localhost:8080/al-ghaya') . '/pages/login.php';
         
         $emailBody = "
         <!DOCTYPE html>

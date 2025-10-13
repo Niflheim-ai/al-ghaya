@@ -1,13 +1,7 @@
 <?php
 session_start();
 include('../php/dbConnection.php');
-
-// Check if config is available for email settings
-$emailEnabled = false;
-if (file_exists('../php/config.php')) {
-    require_once '../php/config.php';
-    $emailEnabled = Config::get('EMAIL_ENABLED', false);
-}
+require_once '../php/mail-config.php';
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resetEmail'])) {
@@ -29,6 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resetEmail'])) {
         $userQuery->execute();
         $userResult = $userQuery->get_result();
         
+        // Always show success message for security (prevent email enumeration)
+        $success = true;
+        $successMessage = "If an account with that email exists, a password reset link has been sent.";
+        
         if ($userResult->num_rows > 0) {
             $userData = $userResult->fetch_assoc();
             
@@ -48,107 +46,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resetEmail'])) {
             $tokenQuery->bind_param("sss", $resetEmail, $resetToken, $resetExpiry);
             
             if ($tokenQuery->execute()) {
-                if ($emailEnabled) {
-                    // Send email with reset link
+                // Send email using your existing mail-config.php
+                try {
+                    $mail = createMailer();
+                    $mail->addAddress($resetEmail, trim($userData['fname'] . ' ' . $userData['lname']));
+                    $mail->isHTML(true);
+                    $mail->Subject = 'Password Reset - Al-Ghaya LMS';
+                    
+                    // Build reset URL
                     $resetLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . 
                                  '://' . $_SERVER['HTTP_HOST'] . 
                                  dirname($_SERVER['REQUEST_URI']) . '/reset-password.php?token=' . $resetToken;
                     
-                    $subject = 'Password Reset - Al-Ghaya LMS';
-                    $message = generateEmailTemplate($userData['fname'], $resetLink);
-                    $headers = [
-                        'MIME-Version: 1.0',
-                        'Content-type: text/html; charset=UTF-8',
-                        'From: Al-Ghaya LMS <noreply@al-ghaya.edu>',
-                        'Reply-To: support@al-ghaya.edu',
-                        'X-Mailer: PHP/' . phpversion()
-                    ];
+                    $mail->Body = generatePasswordResetEmail($userData['fname'], $resetLink);
+                    $mail->send();
                     
-                    if (mail($resetEmail, $subject, $message, implode("\r\n", $headers))) {
-                        $success = true;
-                        $successMessage = "Password reset link has been sent to your email address.";
-                    } else {
-                        $errors[] = "Failed to send reset email. Please contact support.";
-                    }
-                } else {
-                    // For demo/development - show the reset link directly
-                    $resetLink = '/al-ghaya/pages/reset-password.php?token=' . $resetToken;
-                    $success = true;
-                    $successMessage = "Password reset token generated. Use this link: <a href='$resetLink' class='text-blue-600 underline'>Reset Password</a>";
+                } catch (Exception $e) {
+                    error_log("Failed to send password reset email: " . $e->getMessage());
+                    // Still show success message for security
                 }
-            } else {
-                $errors[] = "Failed to generate reset token. Please try again.";
             }
-        } else {
-            // Don't reveal if email exists for security reasons, but still show success message
-            $success = true;
-            $successMessage = "If an account with that email exists, a password reset link has been sent.";
         }
+        // Always show success message regardless of whether email exists
     }
 }
 
 /**
  * Generate HTML email template for password reset
  */
-function generateEmailTemplate($firstName, $resetLink) {
-    return '
+function generatePasswordResetEmail($firstName, $resetLink) {
+    $appName = Config::get('APP_NAME', 'Al-Ghaya LMS');
+    
+    return "
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Password Reset - Al-Ghaya</title>
+        <meta charset='utf-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 20px; }
-            .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e9ecef; }
-            .logo { max-width: 150px; height: auto; }
-            .title { color: #2563eb; font-size: 24px; margin: 10px 0; font-weight: bold; }
-            .content { font-size: 16px; line-height: 1.8; }
-            .button { display: inline-block; background-color: #2563eb; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; text-align: center; }
-            .button:hover { background-color: #1d4ed8; }
-            .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef; font-size: 14px; color: #666; text-align: center; }
-            .warning { background-color: #fef3cd; color: #664d03; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #f0ad4e; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #10375b 0%, #0d2a47 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; background: #10375b; color: white !important; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+            .button:hover { background: #0d2a47; }
+            .warning { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+            .link-box { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0; word-break: break-all; font-family: monospace; font-size: 14px; border: 1px solid #e9ecef; }
         </style>
     </head>
     <body>
-        <div class="container">
-            <div class="header">
-                <h1 class="title">🔐 Password Reset Request</h1>
+        <div class='container'>
+            <div class='header'>
+                <h1>🔐 Password Reset Request</h1>
+                <p>Reset your {$appName} password</p>
             </div>
-            
-            <div class="content">
-                <p>Hello <strong>' . htmlspecialchars($firstName) . '</strong>,</p>
+            <div class='content'>
+                <h2>Hello " . htmlspecialchars($firstName) . ",</h2>
                 
-                <p>We received a request to reset the password for your Al-Ghaya LMS account.</p>
+                <p>We received a request to reset the password for your {$appName} account.</p>
                 
                 <p>To reset your password, click the button below:</p>
                 
-                <p style="text-align: center;">
-                    <a href="' . $resetLink . '" class="button">Reset My Password</a>
-                </p>
+                <div style='text-align: center;'>
+                    <a href='{$resetLink}' class='button'>Reset My Password</a>
+                </div>
                 
-                <div class="warning">
-                    <strong>⚠️ Security Notice:</strong>
+                <div class='warning'>
+                    <h4>⚠️ Security Notice:</h4>
                     <ul>
-                        <li>This link will expire in 1 hour for security reasons</li>
-                        <li>If you didn\'t request this reset, please ignore this email</li>
+                        <li>This link will expire in <strong>1 hour</strong> for security reasons</li>
+                        <li>If you didn't request this reset, please ignore this email</li>
                         <li>Never share this link with anyone</li>
+                        <li>Use a strong, unique password for your account</li>
                     </ul>
                 </div>
                 
-                <p>If the button doesn\'t work, copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; font-family: monospace; background: #f8f9fa; padding: 10px; border-radius: 4px;">' . $resetLink . '</p>
-            </div>
-            
-            <div class="footer">
-                <p><strong>Al-Ghaya Learning Management System</strong></p>
-                <p>This is an automated message, please do not reply to this email.</p>
-                <p>If you need help, contact our support team.</p>
+                <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                <div class='link-box'>{$resetLink}</div>
+                
+                <div class='footer'>
+                    <p><strong>{$appName}</strong></p>
+                    <p>This is an automated message, please do not reply to this email.</p>
+                    <p>© " . date('Y') . " Al-Ghaya LMS. All rights reserved.</p>
+                </div>
             </div>
         </div>
     </body>
-    </html>';
+    </html>";
 }
 
 // Create password_resets table if it doesn't exist
@@ -182,7 +167,6 @@ try {
     <link rel="icon" type="image/x-icon" href="../images/al-ghaya_logoForPrint.svg">
     <style>
         .content { min-height: 100vh; }
-        .bg-primary { background-color: #10375b; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -284,10 +268,7 @@ try {
                     <div>
                         <h4 class="text-sm font-medium text-yellow-800">Security Notice</h4>
                         <p class="text-sm text-yellow-700 mt-1">
-                            Reset links expire in 1 hour for your security. 
-                            <?php if (!$emailEnabled): ?>
-                                <br><strong>Demo Mode:</strong> Email sending is disabled. Reset links will be displayed directly.
-                            <?php endif; ?>
+                            Reset links expire in 1 hour for your security. Check your email inbox and spam folder for the reset instructions.
                         </p>
                     </div>
                 </div>

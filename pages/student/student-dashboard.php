@@ -452,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonColor: '#6b7280'
             }).then((setupResult) => {
                 if (setupResult.isConfirmed) {
-                    window.location.href = 'student-profile-enhanced.php';
+                    window.location.href = 'student-profile.php';
                 }
             });
         }
