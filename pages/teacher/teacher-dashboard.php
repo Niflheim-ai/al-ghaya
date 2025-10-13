@@ -97,10 +97,6 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
         <section class="content-section">
             <div class="flex justify-between items-center mb-4">
                 <h1 class="section-title text-xl md:text-2xl font-bold">Quick Access Toolbar</h1>
-                <button onclick="confirmAction('quick-access', 'Are you sure you want to use this quick access tool?')"
-                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm md:text-base">
-                    Use Tool
-                </button>
             </div>
             <?php include '../../components/quick-access.php'; ?>
         </section>
@@ -109,10 +105,6 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
         <section class="content-section">
             <div class="flex justify-between items-center mb-4">
                 <h1 class="section-title text-xl md:text-2xl font-bold">Analytics Overview</h1>
-                <button onclick="confirmAction('analytics', 'Are you sure you want to generate this report?')"
-                    class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-md text-sm md:text-base">
-                    Generate Report
-                </button>
             </div>
             <div class="section-card bg-white p-4 md:p-6 rounded-lg shadow-md">
                 <p class="text-gray-600">Your analytics data will appear here.</p>

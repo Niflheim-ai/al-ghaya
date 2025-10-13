@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 12, 2025 at 07:10 PM
+-- Generation Time: Oct 13, 2025 at 04:45 PM
 -- Server version: 10.4.27-MariaDB
 -- PHP Version: 8.2.0
 
@@ -109,6 +109,28 @@ CREATE TABLE `notifications` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `password_resets`
+--
+
+CREATE TABLE `password_resets` (
+  `id` int(11) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `expires_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `used_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `password_resets`
+--
+
+INSERT INTO `password_resets` (`id`, `email`, `token`, `expires_at`, `created_at`, `used_at`) VALUES
+(1, 'faamanaois@kld.edu.ph', 'b850a9530b8098da5df61ad9120d1a87f11c392dac1ed838cfb807439997fef7', '2025-10-13 08:14:24', '2025-10-13 08:13:23', '2025-10-13 08:14:24');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `payment_transactions`
 --
 
@@ -145,7 +167,9 @@ CREATE TABLE `point_transactions` (
 --
 
 INSERT INTO `point_transactions` (`id`, `userID`, `points`, `activity_type`, `description`, `reference_id`, `dateCreated`) VALUES
-(1, 2, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-12 08:31:52');
+(1, 2, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-12 08:31:52'),
+(2, 2, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-13 04:58:56'),
+(3, 4, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-13 05:38:42');
 
 -- --------------------------------------------------------
 
@@ -358,9 +382,11 @@ CREATE TABLE `user` (
 --
 
 INSERT INTO `user` (`userID`, `email`, `password`, `fname`, `lname`, `role`, `level`, `points`, `proficiency`, `profile_picture`, `department`, `experience`, `bio`, `phone`, `gender`, `dateCreated`, `lastLogin`, `isActive`) VALUES
-(1, 'admin@al-ghaya.com', '$2y$12$jGlNxHe6LAqrhheqRezKF.DbDwmJK2EcpX.rocFGeuANbvzA05YBm', 'System', 'Administrator', 'admin', 99, 99999, 'advanced', NULL, NULL, NULL, NULL, NULL, NULL, '2025-10-12 08:11:20', '2025-10-12 16:17:56', 1),
-(2, 'faamanaois@kld.edu.ph', '$2y$10$XswmXRG/OlpBYTUGbfdfI.lsELYyBU6hGTenkO34XhW3cxoVzbj7m', 'Fred Andrei', 'Manaois', 'student', 1, 10, 'beginner', NULL, NULL, NULL, 'Testing', '', 'male', '2025-10-12 08:31:44', '2025-10-12 16:15:17', 1),
-(3, 'fmanaois4@gmail.com', '$2y$10$BeduVyu9cKm7JojZwwo4A.BkR9Ghpji94h5HQqtuF/MtkQxZPuEjK', 'Test', 'Teacher', 'teacher', 1, 0, '', NULL, 'General Studies', 'Entry Level', 'Test', '', NULL, '2025-10-12 11:14:13', '2025-10-12 16:14:31', 1);
+(1, 'admin@al-ghaya.com', '$2y$12$jGlNxHe6LAqrhheqRezKF.DbDwmJK2EcpX.rocFGeuANbvzA05YBm', 'System', 'Administrator', 'admin', 99, 99999, 'advanced', NULL, NULL, NULL, NULL, NULL, NULL, '2025-10-12 08:11:20', '2025-10-13 07:12:39', 1),
+(2, 'faamanaois@kld.edu.ph', '$2y$10$cbh7ePMq.2F4ZG1mhyzcIOshgZ8VVv.dgJwdk5ftYOMYqN7i62cuK', 'Fred Andrei', 'Manaois', 'student', 1, 20, 'beginner', NULL, NULL, NULL, 'Testing', '', 'male', '2025-10-12 08:31:44', '2025-10-13 08:14:31', 1),
+(3, 'fmanaois4@gmail.com', '$2y$10$BeduVyu9cKm7JojZwwo4A.BkR9Ghpji94h5HQqtuF/MtkQxZPuEjK', 'Test', 'Teacher', 'teacher', 1, 0, '', NULL, 'General Studies', 'Entry Level', 'Test', '', NULL, '2025-10-12 11:14:13', '2025-10-13 14:42:50', 1),
+(4, 'thegodlykali@gmail.com', '$2y$10$3XjZfzMa9.J2CZLoTS.8CuJyLkcu0LEZZ1qG0HM/GjO24cPSJoIUW', 'TheGodly', 'Kali', 'student', 1, 10, 'beginner', NULL, NULL, NULL, '', '', NULL, '2025-10-13 05:38:42', NULL, 1),
+(5, 'dlagonia@kld.edu.ph', '$2y$12$sAk6fU51wzigS0wdS7ejCehnJkX6H4o477K9xiK7L636BWy2tlNKu', 'David', 'Agonia', 'teacher', 1, 0, '', NULL, NULL, NULL, NULL, NULL, NULL, '2025-10-13 07:13:12', NULL, 1);
 
 -- --------------------------------------------------------
 
@@ -481,6 +507,16 @@ ALTER TABLE `notifications`
   ADD KEY `idx_userID` (`userID`),
   ADD KEY `idx_is_read` (`is_read`),
   ADD KEY `idx_type` (`type`);
+
+--
+-- Indexes for table `password_resets`
+--
+ALTER TABLE `password_resets`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `token` (`token`),
+  ADD KEY `idx_email` (`email`),
+  ADD KEY `idx_token` (`token`),
+  ADD KEY `idx_expires` (`expires_at`);
 
 --
 -- Indexes for table `payment_transactions`
@@ -618,6 +654,12 @@ ALTER TABLE `notifications`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `password_resets`
+--
+ALTER TABLE `password_resets`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `payment_transactions`
 --
 ALTER TABLE `payment_transactions`
@@ -627,7 +669,7 @@ ALTER TABLE `payment_transactions`
 -- AUTO_INCREMENT for table `point_transactions`
 --
 ALTER TABLE `point_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `programs`
@@ -669,7 +711,7 @@ ALTER TABLE `teacher`
 -- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-  MODIFY `userID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `userID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `user_achievements`
