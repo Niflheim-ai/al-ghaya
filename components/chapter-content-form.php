@@ -145,11 +145,11 @@ const programId = <?= $program_id ?>;
 const chapterId = <?= $chapter_id ?>;
 
 function goBackToProgram() {
-    window.location.href = `teacher-programs-enhanced.php?action=create&program_id=${programId}`;
+    window.location.href = `teacher-programs.php?action=create&program_id=${programId}`;
 }
 
 function addStory() {
-    window.location.href = `teacher-programs-enhanced.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}`;
+    window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}`;
 }
 
 function addQuiz() {
@@ -157,16 +157,16 @@ function addQuiz() {
         // Quiz already exists, go to edit
         editQuiz(<?= $quiz['quiz_id'] ?>);
     <?php else: ?>
-        window.location.href = `teacher-programs-enhanced.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`;
+        window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`;
     <?php endif; ?>
 }
 
 function editStory(storyId) {
-    window.location.href = `teacher-programs-enhanced.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}&story_id=${storyId}`;
+    window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}&story_id=${storyId}`;
 }
 
 function editQuiz(quizId) {
-    window.location.href = `teacher-programs-enhanced.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`;
+    window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`;
 }
 
 function deleteStory(storyId) {

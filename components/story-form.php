@@ -247,7 +247,7 @@ let sectionCount = <?= count($interactiveSections) ?>;
 
 function goBackToChapter() {
     if (confirm('Are you sure you want to go back? Any unsaved changes will be lost.')) {
-        window.location.href = `teacher-programs-enhanced.php?action=edit_chapter&program_id=${programId}&chapter_id=${chapterId}`;
+        window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${chapterId}`;
     }
 }
 

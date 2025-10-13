@@ -7,8 +7,16 @@ session_start();
 
 // Check if user is logged in and is a teacher
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
-    header("Location: ../pages/login.php");
-    exit();
+    // Handle AJAX requests differently
+    if (isset($_POST['ajax_create']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
+        header('Content-Type: application/json');
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Not authorized. Please log in as a teacher.']);
+        exit();
+    } else {
+        header("Location: ../pages/login.php");
+        exit();
+    }
 }
 
 $user_id = $_SESSION['userID'];
@@ -61,8 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['success_message'] = "Program and chapters created successfully!";
             
             // Redirect to enhanced programs page if it exists, otherwise use existing page
-            if (file_exists('../pages/teacher/teacher-programs-enhanced.php')) {
-                header("Location: ../pages/teacher/teacher-programs-enhanced.php?action=create&program_id=" . $program_id);
+            if (file_exists('../pages/teacher/teacher-programs.php')) {
+                header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
             } else {
                 header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $program_id);
             }
