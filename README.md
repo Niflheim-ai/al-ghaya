@@ -8,7 +8,7 @@
 
 Al-Ghaya is a comprehensive, gamified Learning Management System designed specifically for Arabic language learning and Islamic studies. The platform provides an engaging, interactive learning experience through storytelling, gamification, and personalized progress tracking.
 
-## 🚀 Recent Enhancements (AI Development Branch)
+## 🚀 Recent Enhancements
 
 This development branch includes significant improvements and new features:
 
