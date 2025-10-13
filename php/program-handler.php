@@ -1,6 +1,6 @@
 <?php
 /**
- * Enhanced Program Handler
+ * Enhanced Program Handler - Compatible with Existing Schema
  * Processes all program-related operations including creation, updates, chapters, stories, quizzes, etc.
  */
 
@@ -14,11 +14,18 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
     exit(json_encode(['success' => false, 'message' => 'Unauthorized access']));
 }
 
-$teacher_id = $_SESSION['userID'];
+$user_id = $_SESSION['userID'];
+$teacher_id = getTeacherIdFromSession($conn, $user_id);
+
+if (!$teacher_id) {
+    header('HTTP/1.1 403 Forbidden');
+    exit(json_encode(['success' => false, 'message' => 'Teacher profile not found']));
+}
+
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 // Handle JSON requests
-if ($_SERVER['CONTENT_TYPE'] === 'application/json') {
+if (isset($_SERVER['CONTENT_TYPE']) && $_SERVER['CONTENT_TYPE'] === 'application/json') {
     $input = json_decode(file_get_contents('php://input'), true);
     $action = $input['action'] ?? '';
 } else {
@@ -38,11 +45,12 @@ try {
                 'teacherID' => $teacher_id,
                 'title' => $input['title'] ?? '',
                 'description' => $input['description'] ?? '',
-                'category' => $input['difficulty_level'] ?? '',
+                'category' => mapDifficultyToCategory($input['difficulty_level'] ?? 'Student'),
+                'difficulty_level' => $input['difficulty_level'] ?? 'Student',
                 'price' => floatval($input['price'] ?? 0),
                 'overview_video_url' => $input['overview_video_url'] ?? '',
-                'difficulty_level' => $input['difficulty_level'] ?? '',
                 'status' => $input['status'] ?? 'draft',
+                'currency' => 'PHP',
                 'thumbnail' => 'default-thumbnail.jpg'
             ];
             
@@ -67,288 +75,6 @@ try {
             }
             break;
             
-        case 'update_program':
-            $program_id = intval($input['program_id'] ?? 0);
-            
-            // Verify ownership
-            $existing_program = getProgram($conn, $program_id, $teacher_id);
-            if (!$existing_program) {
-                throw new Exception('Program not found or access denied');
-            }
-            
-            $data = [
-                'teacherID' => $teacher_id,
-                'title' => $input['title'] ?? '',
-                'description' => $input['description'] ?? '',
-                'category' => $input['difficulty_level'] ?? '',
-                'price' => floatval($input['price'] ?? 0),
-                'overview_video_url' => $input['overview_video_url'] ?? '',
-                'difficulty_level' => $input['difficulty_level'] ?? '',
-                'status' => $input['status'] ?? 'draft'
-            ];
-            
-            if (updateProgram($conn, $program_id, $data)) {
-                $_SESSION['success_message'] = 'Program updated successfully!';
-                if (isset($_POST['action'])) {
-                    header("Location: ../pages/teacher/teacher-programs-enhanced.php?action=create&program_id={$program_id}");
-                    exit();
-                }
-                echo json_encode(['success' => true]);
-            } else {
-                throw new Exception('Failed to update program');
-            }
-            break;
-            
-        case 'delete_program':
-            $program_id = intval($input['program_id'] ?? 0);
-            
-            if (deleteProgram($conn, $program_id, $teacher_id)) {
-                echo json_encode(['success' => true, 'message' => 'Program deleted successfully']);
-            } else {
-                throw new Exception('Failed to delete program');
-            }
-            break;
-            
-        // ==================== CHAPTER OPERATIONS ====================
-        
-        case 'create_chapter':
-            $program_id = intval($input['program_id'] ?? 0);
-            $title = $input['title'] ?? '';
-            
-            // Verify program ownership
-            $program = getProgram($conn, $program_id, $teacher_id);
-            if (!$program) {
-                throw new Exception('Program not found or access denied');
-            }
-            
-            $chapter_id = createChapter($conn, $program_id, $title);
-            if ($chapter_id) {
-                echo json_encode(['success' => true, 'chapter_id' => $chapter_id]);
-            } else {
-                throw new Exception('Failed to create chapter');
-            }
-            break;
-            
-        case 'update_chapter':
-            $chapter_id = intval($input['chapter_id'] ?? 0);
-            $title = $input['title'] ?? '';
-            
-            if (updateChapter($conn, $chapter_id, $title)) {
-                echo json_encode(['success' => true, 'message' => 'Chapter updated successfully']);
-            } else {
-                throw new Exception('Failed to update chapter');
-            }
-            break;
-            
-        case 'delete_chapter':
-            $chapter_id = intval($input['chapter_id'] ?? 0);
-            
-            if (deleteChapter($conn, $chapter_id)) {
-                echo json_encode(['success' => true, 'message' => 'Chapter deleted successfully']);
-            } else {
-                throw new Exception('Failed to delete chapter');
-            }
-            break;
-            
-        // ==================== STORY OPERATIONS ====================
-        
-        case 'create_story':
-            $data = [
-                'chapter_id' => intval($input['chapter_id'] ?? 0),
-                'title' => $input['title'] ?? '',
-                'synopsis_arabic' => $input['synopsis_arabic'] ?? '',
-                'synopsis_english' => $input['synopsis_english'] ?? '',
-                'video_url' => $input['video_url'] ?? ''
-            ];
-            
-            // Validate YouTube URL
-            if (!validateYouTubeUrl($data['video_url'])) {
-                throw new Exception('Please provide a valid YouTube URL');
-            }
-            
-            $story_id = createStory($conn, $data);
-            if ($story_id) {
-                $_SESSION['success_message'] = 'Story created successfully!';
-                if (isset($_POST['action'])) {
-                    $program_id = $input['program_id'];
-                    $chapter_id = $input['chapter_id'];
-                    header("Location: ../pages/teacher/teacher-programs-enhanced.php?action=add_story&program_id={$program_id}&chapter_id={$chapter_id}&story_id={$story_id}");
-                    exit();
-                }
-                echo json_encode(['success' => true, 'story_id' => $story_id]);
-            } else {
-                throw new Exception('Failed to create story');
-            }
-            break;
-            
-        case 'update_story':
-            $story_id = intval($input['story_id'] ?? 0);
-            $data = [
-                'title' => $input['title'] ?? '',
-                'synopsis_arabic' => $input['synopsis_arabic'] ?? '',
-                'synopsis_english' => $input['synopsis_english'] ?? '',
-                'video_url' => $input['video_url'] ?? ''
-            ];
-            
-            // Validate YouTube URL
-            if (!validateYouTubeUrl($data['video_url'])) {
-                throw new Exception('Please provide a valid YouTube URL');
-            }
-            
-            if (updateStory($conn, $story_id, $data)) {
-                $_SESSION['success_message'] = 'Story updated successfully!';
-                if (isset($_POST['action'])) {
-                    $program_id = $input['program_id'];
-                    $chapter_id = $input['chapter_id'];
-                    header("Location: ../pages/teacher/teacher-programs-enhanced.php?action=edit_chapter&program_id={$program_id}&chapter_id={$chapter_id}");
-                    exit();
-                }
-                echo json_encode(['success' => true]);
-            } else {
-                throw new Exception('Failed to update story');
-            }
-            break;
-            
-        case 'delete_story':
-            $story_id = intval($input['story_id'] ?? 0);
-            
-            if (deleteStory($conn, $story_id)) {
-                echo json_encode(['success' => true, 'message' => 'Story deleted successfully']);
-            } else {
-                throw new Exception('Failed to delete story');
-            }
-            break;
-            
-        // ==================== INTERACTIVE SECTION OPERATIONS ====================
-        
-        case 'create_interactive_section':
-            $story_id = intval($input['story_id'] ?? 0);
-            
-            $section_id = createInteractiveSection($conn, $story_id);
-            if ($section_id) {
-                echo json_encode(['success' => true, 'section_id' => $section_id]);
-            } else {
-                throw new Exception('Failed to create interactive section or maximum limit reached');
-            }
-            break;
-            
-        case 'delete_interactive_section':
-            $section_id = intval($input['section_id'] ?? 0);
-            
-            $stmt = $conn->prepare("DELETE FROM story_interactive_sections WHERE section_id = ?");
-            $stmt->bind_param("i", $section_id);
-            
-            if ($stmt->execute()) {
-                echo json_encode(['success' => true, 'message' => 'Interactive section deleted successfully']);
-            } else {
-                throw new Exception('Failed to delete interactive section');
-            }
-            break;
-            
-        // ==================== QUESTION OPERATIONS ====================
-        
-        case 'create_question':
-            $section_id = intval($input['section_id'] ?? 0);
-            $question_text = $input['question_text'] ?? '';
-            $question_type = $input['question_type'] ?? '';
-            $options = $input['options'] ?? [];
-            
-            if (empty($question_text) || empty($question_type)) {
-                throw new Exception('Question text and type are required');
-            }
-            
-            $question_id = createQuestion($conn, $section_id, $question_text, $question_type);
-            if ($question_id) {
-                // Add options if provided
-                if (!empty($options)) {
-                    foreach ($options as $option_text) {
-                        if (!empty(trim($option_text))) {
-                            addQuestionOption($conn, $question_id, trim($option_text));
-                        }
-                    }
-                }
-                echo json_encode(['success' => true, 'question_id' => $question_id]);
-            } else {
-                throw new Exception('Failed to create question');
-            }
-            break;
-            
-        case 'delete_question':
-            $question_id = intval($input['question_id'] ?? 0);
-            
-            $stmt = $conn->prepare("DELETE FROM interactive_questions WHERE question_id = ?");
-            $stmt->bind_param("i", $question_id);
-            
-            if ($stmt->execute()) {
-                echo json_encode(['success' => true, 'message' => 'Question deleted successfully']);
-            } else {
-                throw new Exception('Failed to delete question');
-            }
-            break;
-            
-        case 'set_correct_answer':
-            $question_id = intval($input['question_id'] ?? 0);
-            $correct_option_index = intval($input['correct_option_index'] ?? 0);
-            
-            // Get all options for this question
-            $options = getQuestionOptions($conn, $question_id);
-            if (isset($options[$correct_option_index])) {
-                $option_id = $options[$correct_option_index]['option_id'];
-                if (setCorrectAnswer($conn, $question_id, $option_id)) {
-                    echo json_encode(['success' => true, 'message' => 'Answer key set successfully']);
-                } else {
-                    throw new Exception('Failed to set answer key');
-                }
-            } else {
-                throw new Exception('Invalid option index');
-            }
-            break;
-            
-        // ==================== QUIZ OPERATIONS ====================
-        
-        case 'add_quiz_question':
-            $quiz_id = intval($input['quiz_id'] ?? 0);
-            $question_text = $input['question_text'] ?? '';
-            $options = $input['options'] ?? [];
-            
-            if (empty($question_text)) {
-                throw new Exception('Question text is required');
-            }
-            
-            $question_id = addQuizQuestion($conn, $quiz_id, $question_text);
-            if ($question_id) {
-                // Add options
-                if (!empty($options)) {
-                    foreach ($options as $option_data) {
-                        $option_text = $option_data['text'] ?? '';
-                        $is_correct = $option_data['is_correct'] ?? false;
-                        
-                        if (!empty(trim($option_text))) {
-                            addQuizQuestionOption($conn, $question_id, trim($option_text), $is_correct);
-                        }
-                    }
-                }
-                echo json_encode(['success' => true, 'question_id' => $question_id]);
-            } else {
-                throw new Exception('Failed to create quiz question or maximum limit reached');
-            }
-            break;
-            
-        case 'delete_quiz_question':
-            $quiz_question_id = intval($input['quiz_question_id'] ?? 0);
-            
-            $stmt = $conn->prepare("DELETE FROM quiz_questions WHERE quiz_question_id = ?");
-            $stmt->bind_param("i", $quiz_question_id);
-            
-            if ($stmt->execute()) {
-                echo json_encode(['success' => true, 'message' => 'Quiz question deleted successfully']);
-            } else {
-                throw new Exception('Failed to delete quiz question');
-            }
-            break;
-            
-        // ==================== PUBLISHING OPERATIONS ====================
-        
         case 'get_draft_programs':
             $programs = getDraftPrograms($conn, $teacher_id);
             echo json_encode(['success' => true, 'programs' => $programs]);
@@ -368,8 +94,6 @@ try {
             }
             break;
             
-        // ==================== UTILITY OPERATIONS ====================
-        
         case 'validate_youtube_url':
             $url = $input['url'] ?? '';
             $is_valid = validateYouTubeUrl($url);
@@ -407,6 +131,41 @@ try {
             'success' => false,
             'message' => $e->getMessage()
         ]);
+    }
+}
+
+function mapDifficultyToCategory($difficulty) {
+    switch ($difficulty) {
+        case 'Student': return 'beginner';
+        case 'Aspiring': return 'intermediate';
+        case 'Master': return 'advanced';
+        default: return 'beginner';
+    }
+}
+
+function getDraftPrograms($conn, $teacher_id) {
+    $stmt = $conn->prepare("SELECT programID, title, price, category FROM programs WHERE teacherID = ? AND status = 'draft'");
+    $stmt->bind_param("i", $teacher_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+function submitForPublishing($conn, $program_ids, $teacher_id) {
+    $conn->begin_transaction();
+    
+    try {
+        foreach ($program_ids as $program_id) {
+            $stmt = $conn->prepare("UPDATE programs SET status = 'published' WHERE programID = ? AND teacherID = ?");
+            $stmt->bind_param("ii", $program_id, $teacher_id);
+            $stmt->execute();
+        }
+        
+        $conn->commit();
+        return true;
+    } catch (Exception $e) {
+        $conn->rollback();
+        return false;
     }
 }
 ?>
