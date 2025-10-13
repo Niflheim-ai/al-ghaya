@@ -19,19 +19,49 @@ if (isset($_SESSION['userID']) && isset($_SESSION['role'])) {
     exit();
 }
 
-// Handle error messages from OAuth
+// Handle error messages from OAuth and other sources
 $error = isset($_GET['error']) ? $_GET['error'] : '';
 $errorMessage = '';
-if ($error === 'account_not_found' || $error === 'google_account_not_registered') {
-    $errorMessage = 'Your Google account is not registered. Please use regular login or contact admin.';
-} elseif ($error === 'auth_failed' || $error === 'oauth_error') {
-    $errorMessage = 'Google authentication failed. Please try again.';
-} elseif ($error === 'oauth_cancelled') {
-    $errorMessage = 'Google authentication was cancelled.';
-} elseif ($error === 'csrf_validation_failed') {
-    $errorMessage = 'Security validation failed. Please try again.';
-} elseif ($error === 'session_timeout') {
-    $errorMessage = 'Your session has expired. Please login again.';
+$errorType = 'error'; // Default to error type
+
+switch ($error) {
+    case 'google_account_not_registered':
+    case 'account_not_found':
+        $errorMessage = 'Your Google account was not found in our system. Don\'t worry, you can sign up with Google and we\'ll create an account for you!';
+        $errorType = 'info';
+        break;
+    case 'account_creation_failed':
+        $errorMessage = 'Failed to create your account. Please try again or contact support.';
+        break;
+    case 'auth_failed':
+    case 'oauth_error':
+        $errorMessage = 'Google authentication failed. Please try again.';
+        break;
+    case 'oauth_cancelled':
+        $errorMessage = 'Google authentication was cancelled. You can try again anytime.';
+        $errorType = 'warning';
+        break;
+    case 'csrf_validation_failed':
+        $errorMessage = 'Security validation failed. Please try signing in again.';
+        break;
+    case 'session_timeout':
+        $errorMessage = 'Your session has expired. Please login again.';
+        break;
+    case 'account_deactivated':
+        $errorMessage = 'Your account has been deactivated. Please contact support for assistance.';
+        break;
+    case 'token_exchange_failed':
+        $errorMessage = 'Authentication failed during token exchange. Please try again.';
+        break;
+    case 'user_info_failed':
+        $errorMessage = 'Failed to retrieve your Google profile information. Please try again.';
+        break;
+    case 'oauth_processing_error':
+        $errorMessage = 'An error occurred during authentication. Please try again.';
+        break;
+    case 'invalid_oauth_response':
+        $errorMessage = 'Invalid authentication response. Please try signing in again.';
+        break;
 }
 
 // Generate secure OAuth URL
@@ -63,6 +93,7 @@ try {
     <meta name="google-signin-client_id" content="704460822405-0gjtdkl1acustankf6k9p3o3444lpb7g.apps.googleusercontent.com">
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="icon" type="image/x-icon" href="../images/al-ghaya_logoForPrint.svg">
     <title>Al-Ghaya - Login</title>
     <style>
@@ -84,14 +115,38 @@ try {
                 </svg>
             </a>
 
-            <!-- Error Message -->
+            <!-- Error/Info Message -->
             <?php if (!empty($errorMessage)): ?>
-                <div class="fixed top-4 right-4 z-50 p-4 mb-4 text-red-700 bg-red-100 rounded-lg border border-red-300 shadow-lg">
-                    <div class="flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                <div class="fixed top-4 right-4 z-50 p-4 mb-4 rounded-lg border shadow-lg max-w-md <?php 
+                    echo $errorType === 'info' ? 'text-blue-700 bg-blue-100 border-blue-300' : 
+                        ($errorType === 'warning' ? 'text-yellow-700 bg-yellow-100 border-yellow-300' : 
+                         'text-red-700 bg-red-100 border-red-300'); 
+                ?>">
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <?php if ($errorType === 'info'): ?>
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                            <?php elseif ($errorType === 'warning'): ?>
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            <?php else: ?>
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            <?php endif; ?>
                         </svg>
-                        <?= htmlspecialchars($errorMessage) ?>
+                        <div>
+                            <?= htmlspecialchars($errorMessage) ?>
+                            <?php if ($error === 'google_account_not_registered'): ?>
+                                <div class="mt-2">
+                                    <button onclick="showGoogleSignUpInfo()" class="text-blue-800 underline hover:text-blue-900 text-sm font-medium">
+                                        Learn more about Google Sign-up →
+                                    </button>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.remove()" class="ml-auto pl-3">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
             <?php endif; ?>
@@ -164,7 +219,7 @@ try {
                                 <input type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
                                 <span class="ml-2 text-sm text-gray-600">Remember me</span>
                             </label>
-                            <button type="button" onclick="toggleForgotModal(true)" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Forgot Password?</button>
+                            <a href="forgot-password.php" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Forgot Password?</a>
                         </div>
 
                         <!-- Login Button -->
@@ -219,24 +274,6 @@ try {
         </div>
     </div>
 
-    <!-- Forgot Password Modal -->
-    <div id="forgotModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-xl p-6 w-96 mx-4">
-            <h2 class="text-xl font-semibold mb-4">Reset Password</h2>
-            <p class="text-gray-600 mb-4">Enter your email address and we'll send you reset instructions.</p>
-            <form method="POST" action="forgot-password.php">
-                <input type="email" name="resetEmail" placeholder="Enter your email" 
-                       class="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="toggleForgotModal(false)"
-                        class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition duration-200">Cancel</button>
-                    <button type="submit"
-                        class="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition duration-200">Send Reset Link</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <?php
         $alertScript = '';
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -244,9 +281,9 @@ try {
             $password = $_POST['password'] ?? '';
             
             if (empty($email) || empty($password)) {
-                $alertScript = "showAlert('error', 'Login Failed', 'All fields are required.');";
+                $alertScript = "showAlert('error', 'Login Failed', 'All fields are required.');";  
             } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $alertScript = "showAlert('error', 'Login Failed', 'Invalid email format.');";
+                $alertScript = "showAlert('error', 'Login Failed', 'Invalid email format.');";  
             } else {
                 // Check unified user table first
                 $stmt = $conn->prepare("SELECT userID, email, password, role FROM user WHERE email = ? AND isActive = 1");
@@ -271,23 +308,21 @@ try {
                             $updateLogin->execute();
                             
                             $redirectPage = $role . '/' . $role . '-dashboard.php';
-                            $alertScript = "showAlert('success', 'Login Successful', 'Welcome back!', function() { window.location.href = '$redirectPage'; });";
+                            $alertScript = "showAlert('success', 'Login Successful', 'Welcome back!', function() { window.location.href = '$redirectPage'; });";  
                         } else {
-                            $alertScript = "showAlert('error', 'Login Failed', 'Invalid password.');";
+                            $alertScript = "showAlert('error', 'Login Failed', 'Invalid password.');";  
                         }
                     } else {
-                        $alertScript = "showAlert('error', 'Login Failed', 'No active account found with this email.');";
+                        $alertScript = "showAlert('error', 'Login Failed', 'No active account found with this email.');";  
                     }
                     $stmt->close();
                 } else {
-                    $alertScript = "showAlert('error', 'System Error', 'Database connection error. Please try again.');";
+                    $alertScript = "showAlert('error', 'System Error', 'Database connection error. Please try again.');";  
                 }
             }
         }
     ?>
 
-    <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         function showAlert(icon, title, text, callback) {
             Swal.fire({
@@ -298,6 +333,28 @@ try {
                 timer: icon === 'success' ? 2000 : undefined
             }).then(() => {
                 if (callback) callback();
+            });
+        }
+        
+        function showGoogleSignUpInfo() {
+            Swal.fire({
+                title: 'Google Sign-up',
+                html: `
+                    <div class="text-left space-y-3">
+                        <p><strong>🎓 New to Al-Ghaya?</strong></p>
+                        <p>When you sign in with Google for the first time, we'll automatically create a student account for you with:</p>
+                        <ul class="list-disc list-inside space-y-1 text-sm text-gray-600">
+                            <li>Your name and email from Google</li>
+                            <li>Student role to access learning materials</li>
+                            <li>Level 1 beginner status</li>
+                            <li>0 points to start your journey</li>
+                        </ul>
+                        <p class="text-sm text-gray-500 mt-4">You can update your profile and preferences after signing in.</p>
+                    </div>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Got it!',
+                confirmButtonColor: '#2563eb'
             });
         }
         
@@ -314,19 +371,15 @@ try {
             }
         }
         
-        function toggleForgotModal(show) {
-            const modal = document.getElementById('forgotModal');
-            if (show) {
-                modal.classList.remove('hidden');
-            } else {
-                modal.classList.add('hidden');
-            }
-        }
-        
-        // Close modal when clicking outside
-        document.getElementById('forgotModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                toggleForgotModal(false);
+        // Auto-dismiss error messages after 10 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const errorMessage = document.querySelector('.fixed.top-4.right-4');
+            if (errorMessage) {
+                setTimeout(() => {
+                    errorMessage.style.opacity = '0';
+                    errorMessage.style.transform = 'translateX(100%)';
+                    setTimeout(() => errorMessage.remove(), 300);
+                }, 10000);
             }
         });
     </script>
