@@ -46,24 +46,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resetEmail'])) {
             $tokenQuery->bind_param("sss", $resetEmail, $resetToken, $resetExpiry);
             
             if ($tokenQuery->execute()) {
-                // Send email using your existing mail-config.php
+                // Send email using OAuth2
+                require_once '../php/mail-config.php';
+                
                 try {
-                    $mail = createMailer();
-                    $mail->addAddress($resetEmail, trim($userData['fname'] . ' ' . $userData['lname']));
-                    $mail->isHTML(true);
-                    $mail->Subject = 'Password Reset - Al-Ghaya LMS';
-                    
-                    // Build reset URL
-                    $resetLink = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . 
-                                 '://' . $_SERVER['HTTP_HOST'] . 
-                                 dirname($_SERVER['REQUEST_URI']) . '/reset-password.php?token=' . $resetToken;
-                    
-                    $mail->Body = generatePasswordResetEmail($userData['fname'], $resetLink);
-                    $mail->send();
-                    
+                    $result = sendPasswordResetEmailOAuth2($resetEmail, $userData['fname'], $resetLink);
+                    if (!$result['success']) {
+                        error_log("OAuth2 email failed: " . $result['error']);
+                    }
                 } catch (Exception $e) {
-                    error_log("Failed to send password reset email: " . $e->getMessage());
-                    // Still show success message for security
+                    error_log("Failed to send password reset email via OAuth2: " . $e->getMessage());
                 }
             }
         }

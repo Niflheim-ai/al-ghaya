@@ -9,40 +9,56 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
-use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\OAuth;
+use League\OAuth2\Client\Provider\Google;
 
 /**
- * Create configured PHPMailer instance
- * @return PHPMailer Configured PHPMailer instance
+ * Create OAuth2 PHPMailer instance
  */
-function createMailer() {
+function createOAuth2Mailer() {
+    $mail = new PHPMailer(true);
+    
     try {
-        // Validate required email configuration
-        Config::validateRequired([
-            'MAIL_HOST',
-            'MAIL_USERNAME',
-            'MAIL_PASSWORD',
-            'MAIL_FROM_ADDRESS'
-        ]);
-        
-        $mail = new PHPMailer(true);
-        
         // Server settings
         $mail->isSMTP();
-        $mail->Host = Config::get('MAIL_HOST');
+        $mail->Host = 'smtp.gmail.com';
+        $mail->Port = 587;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->SMTPAuth = true;
-        $mail->Username = Config::get('MAIL_USERNAME');
-        $mail->Password = Config::get('MAIL_PASSWORD');
-        $mail->SMTPSecure = Config::get('MAIL_ENCRYPTION', 'tls') === 'tls' ? PHPMailer::ENCRYPTION_STARTTLS : PHPMailer::ENCRYPTION_SMTPS;
-        $mail->Port = Config::get('MAIL_PORT', 587);
+        $mail->AuthType = 'XOAUTH2';
         
-        // Default sender
-        $mail->setFrom(
-            Config::get('MAIL_FROM_ADDRESS'),
-            Config::get('MAIL_FROM_NAME', Config::get('APP_NAME', 'Al-Ghaya LMS'))
+        // OAuth2 settings
+        $clientId = Config::get('GOOGLE_CLIENT_ID');
+        $clientSecret = Config::get('GOOGLE_CLIENT_SECRET');
+        $refreshToken = Config::get('GMAIL_REFRESH_TOKEN');
+        $userEmail = Config::get('GMAIL_USER_EMAIL', Config::get('MAIL_USERNAME'));
+        
+        if (empty($refreshToken)) {
+            throw new Exception('Gmail refresh token not found. Please run the OAuth2 setup first.');
+        }
+        
+        // Create OAuth2 provider
+        $provider = new Google([
+            'clientId' => $clientId,
+            'clientSecret' => $clientSecret
+        ]);
+        
+        // Set up OAuth2
+        $mail->setOAuth(
+            new OAuth([
+                'provider' => $provider,
+                'clientId' => $clientId,
+                'clientSecret' => $clientSecret,
+                'refreshToken' => $refreshToken,
+                'userName' => $userEmail,
+            ])
         );
         
-        // Enable debug in development
+        // Set from address
+        $mail->setFrom($userEmail, Config::get('MAIL_FROM_NAME', 'Al-Ghaya LMS'));
+        $mail->CharSet = 'UTF-8';
+        
+        // Debug mode
         if (Config::get('APP_DEBUG', false)) {
             $mail->SMTPDebug = SMTP::DEBUG_SERVER;
         }
@@ -50,9 +66,92 @@ function createMailer() {
         return $mail;
         
     } catch (Exception $e) {
-        error_log("Email configuration error: " . $e->getMessage());
-        throw new Exception("Email system is not properly configured.");
+        error_log("OAuth2 Mail configuration error: " . $e->getMessage());
+        throw new Exception("OAuth2 email system configuration failed: " . $e->getMessage());
     }
+}
+
+/**
+ * Send password reset email with OAuth2
+ */
+function sendPasswordResetEmailOAuth2($email, $name, $resetLink) {
+    try {
+        $mail = createOAuth2Mailer();
+        
+        // Recipients
+        $mail->addAddress($email, $name);
+        
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = 'Password Reset - Al-Ghaya LMS';
+        $mail->Body = generatePasswordResetEmailTemplate($name, $resetLink);
+        
+        // Send email
+        $mail->send();
+        return ['success' => true, 'message' => 'Email sent successfully via OAuth2'];
+        
+    } catch (Exception $e) {
+        error_log("OAuth2 Password reset email failed: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Generate password reset email template
+ */
+function generatePasswordResetEmailTemplate($firstName, $resetLink) {
+    $appName = Config::get('APP_NAME', 'Al-Ghaya LMS');
+    
+    return "
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='utf-8'>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #10375b; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; background: #10375b; color: white !important; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+            .warning { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+        </style>
+    </head>
+    <body>
+        <div class='container'>
+            <div class='header'>
+                <h1>🔐 Password Reset</h1>
+                <p>Reset your {$appName} password</p>
+            </div>
+            <div class='content'>
+                <h2>Hello " . htmlspecialchars($firstName) . ",</h2>
+                
+                <p>We received a request to reset your password for your {$appName} account.</p>
+                
+                <p style='text-align: center;'>
+                    <a href='{$resetLink}' class='button'>Reset My Password</a>
+                </p>
+                
+                <div class='warning'>
+                    <h4>⚠️ Security Notice:</h4>
+                    <ul>
+                        <li>This link expires in <strong>1 hour</strong></li>
+                        <li>If you didn't request this, ignore this email</li>
+                        <li>Never share this link with anyone</li>
+                    </ul>
+                </div>
+                
+                <p>If the button doesn't work, copy this link:</p>
+                <p style='word-break: break-all; font-family: monospace; background: #f8f9fa; padding: 10px; border-radius: 4px;'>{$resetLink}</p>
+                
+                <div class='footer'>
+                    <p><strong>{$appName}</strong></p>
+                    <p>© " . date('Y') . " Al-Ghaya LMS</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>";
 }
 
 /**

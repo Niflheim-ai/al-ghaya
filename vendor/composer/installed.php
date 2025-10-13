@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'al-ghaya-2/project',
-        'pretty_version' => '1.0.0+no-version-set',
-        'version' => '1.0.0.0',
-        'reference' => null,
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '41a6d2d2ab8148a4c1917e707b73d775454c60d1',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -11,9 +11,9 @@
     ),
     'versions' => array(
         'al-ghaya-2/project' => array(
-            'pretty_version' => '1.0.0+no-version-set',
-            'version' => '1.0.0.0',
-            'reference' => null,
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '41a6d2d2ab8148a4c1917e707b73d775454c60d1',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -29,9 +29,9 @@
             'dev_requirement' => false,
         ),
         'google/apiclient' => array(
-            'pretty_version' => 'v2.15.4',
-            'version' => '2.15.4.0',
-            'reference' => '73fa9cf8d8886db7269bcda0457d0a251a02cfd9',
+            'pretty_version' => 'v2.15.0',
+            'version' => '2.15.0.0',
+            'reference' => '49787fa30b8d8313146a61efbf77ed1fede723c2',
             'type' => 'library',
             'install_path' => __DIR__ . '/../google/apiclient',
             'aliases' => array(),
