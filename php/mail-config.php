@@ -1,7 +1,7 @@
 <?php
 /**
  * Al-Ghaya Email Configuration
- * Secured PHPMailer setup with environment variables
+ * Clean OAuth2 implementation for Gmail
  */
 
 require_once __DIR__ . '/config.php';
@@ -13,20 +13,13 @@ use PHPMailer\PHPMailer\OAuth;
 use League\OAuth2\Client\Provider\Google;
 
 /**
- * Create OAuth2 PHPMailer instance
+ * Create OAuth2 PHPMailer instance for Gmail
+ * @return PHPMailer Configured PHPMailer instance with OAuth2
  */
 function createOAuth2Mailer() {
     $mail = new PHPMailer(true);
     
     try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';
-        $mail->Port = 587;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->SMTPAuth = true;
-        $mail->AuthType = 'XOAUTH2';
-        
         // OAuth2 settings
         $clientId = Config::get('GOOGLE_CLIENT_ID');
         $clientSecret = Config::get('GOOGLE_CLIENT_SECRET');
@@ -34,8 +27,16 @@ function createOAuth2Mailer() {
         $userEmail = Config::get('GMAIL_USER_EMAIL', Config::get('MAIL_USERNAME'));
         
         if (empty($refreshToken)) {
-            throw new Exception('Gmail refresh token not found. Please run the OAuth2 setup first.');
+            throw new Exception('Gmail refresh token not found. Please run OAuth2 setup.');
         }
+        
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->Port = 587;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->SMTPAuth = true;
+        $mail->AuthType = 'XOAUTH2';
         
         // Create OAuth2 provider
         $provider = new Google([
@@ -58,11 +59,6 @@ function createOAuth2Mailer() {
         $mail->setFrom($userEmail, Config::get('MAIL_FROM_NAME', 'Al-Ghaya LMS'));
         $mail->CharSet = 'UTF-8';
         
-        // Debug mode
-        if (Config::get('APP_DEBUG', false)) {
-            $mail->SMTPDebug = SMTP::DEBUG_SERVER;
-        }
-        
         return $mail;
         
     } catch (Exception $e) {
@@ -72,32 +68,97 @@ function createOAuth2Mailer() {
 }
 
 /**
- * Send password reset email with OAuth2
+ * Fallback SMTP mailer for environments without OAuth2
+ * @return PHPMailer Basic SMTP PHPMailer instance
  */
-function sendPasswordResetEmailOAuth2($email, $name, $resetLink) {
+function createSMTPMailer() {
+    $mail = new PHPMailer(true);
+    
     try {
-        $mail = createOAuth2Mailer();
+        $host = Config::get('MAIL_HOST', 'smtp.gmail.com');
+        $port = (int)Config::get('MAIL_PORT', 587);
+        $username = Config::get('MAIL_USERNAME', '');
+        $password = Config::get('MAIL_PASSWORD', '');
+        $encryption = strtolower(Config::get('MAIL_ENCRYPTION', 'tls'));
+        $fromAddress = Config::get('MAIL_FROM_ADDRESS', $username);
+        $fromName = Config::get('MAIL_FROM_NAME', Config::get('APP_NAME', 'Al-Ghaya LMS'));
         
-        // Recipients
+        if (empty($username) || empty($password)) {
+            throw new Exception('MAIL_USERNAME or MAIL_PASSWORD is empty.');
+        }
+        
+        $mail->isSMTP();
+        $mail->Host = $host;
+        $mail->SMTPAuth = true;
+        $mail->Username = trim($username);
+        $mail->Password = trim($password);
+        
+        if ($encryption === 'ssl' || $port == 465) {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            $mail->Port = 465;
+        } else {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port = 587;
+        }
+        
+        $mail->setFrom($fromAddress, $fromName);
+        $mail->CharSet = 'UTF-8';
+        
+        return $mail;
+        
+    } catch (Exception $e) {
+        error_log("SMTP Mail configuration error: " . $e->getMessage());
+        throw new Exception("SMTP email system configuration failed: " . $e->getMessage());
+    }
+}
+
+/**
+ * Create appropriate mailer based on configuration
+ * @return PHPMailer Configured PHPMailer instance
+ */
+function createMailer() {
+    // Try OAuth2 first, fallback to SMTP
+    if (Config::get('GMAIL_REFRESH_TOKEN')) {
+        try {
+            return createOAuth2Mailer();
+        } catch (Exception $e) {
+            error_log("OAuth2 failed, falling back to SMTP: " . $e->getMessage());
+        }
+    }
+    
+    return createSMTPMailer();
+}
+
+/**
+ * Send password reset email
+ * @param string $email Recipient email
+ * @param string $name Recipient name
+ * @param string $resetLink Password reset link
+ * @return array Result array with success status and message
+ */
+function sendPasswordResetEmail($email, $name, $resetLink) {
+    try {
+        $mail = createMailer();
+        
         $mail->addAddress($email, $name);
-        
-        // Content
         $mail->isHTML(true);
         $mail->Subject = 'Password Reset - Al-Ghaya LMS';
         $mail->Body = generatePasswordResetEmailTemplate($name, $resetLink);
         
-        // Send email
         $mail->send();
-        return ['success' => true, 'message' => 'Email sent successfully via OAuth2'];
+        return ['success' => true, 'message' => 'Password reset email sent successfully'];
         
     } catch (Exception $e) {
-        error_log("OAuth2 Password reset email failed: " . $e->getMessage());
+        error_log("Password reset email failed: " . $e->getMessage());
         return ['success' => false, 'error' => $e->getMessage()];
     }
 }
 
 /**
  * Generate password reset email template
+ * @param string $firstName Recipient's first name
+ * @param string $resetLink Password reset link
+ * @return string HTML email template
  */
 function generatePasswordResetEmailTemplate($firstName, $resetLink) {
     $appName = Config::get('APP_NAME', 'Al-Ghaya LMS');
@@ -166,33 +227,27 @@ function sendTeacherWelcomeEmail($email, $password, $firstName = '', $lastName =
     try {
         $mail = createMailer();
         
-        // Recipients
         $mail->addAddress($email, trim($firstName . ' ' . $lastName));
-        
-        // Content
         $mail->isHTML(true);
         $mail->Subject = 'Welcome to ' . Config::get('APP_NAME', 'Al-Ghaya LMS') . ' - Your Teacher Account';
         
         $displayName = !empty($firstName) ? $firstName . ' ' . $lastName : 'Teacher';
-        $loginUrl = Config::get('APP_URL', 'localhost:8080/al-ghaya') . '/pages/login.php';
+        $loginUrl = Config::get('APP_URL', 'http://localhost:8080/al-ghaya') . '/pages/login.php';
         
         $emailBody = "
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset='utf-8'>
-            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
             <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #10375b 0%, #0d2a47 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .header { background: #10375b; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
                 .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-                .credentials { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10375b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-                .button { display: inline-block; background: #10375b; color: white !important; padding: 12px 25px; text-decoration: none; border-radius: 6px; margin: 15px 0; font-weight: 500; }
-                .button:hover { background: #0d2a47; }
+                .credentials { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10375b; }
+                .button { display: inline-block; background: #10375b; color: white !important; padding: 12px 25px; text-decoration: none; border-radius: 6px; margin: 15px 0; }
                 .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
-                .security-note { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 20px 0; }
-                .code { background: #f8f9fa; padding: 8px 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 14px; border: 1px solid #e9ecef; }
+                .code { background: #f8f9fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; }
             </style>
         </head>
         <body>
@@ -203,7 +258,7 @@ function sendTeacherWelcomeEmail($email, $password, $firstName = '', $lastName =
                 </div>
                 <div class='content'>
                     <h2>Hello " . htmlspecialchars($displayName) . ",</h2>
-                    <p>Welcome to Al-Ghaya Learning Management System! An administrator has created a teacher account for you.</p>
+                    <p>Welcome to Al-Ghaya Learning Management System!</p>
                     
                     <div class='credentials'>
                         <h3>🔐 Your Login Credentials:</h3>
@@ -211,37 +266,12 @@ function sendTeacherWelcomeEmail($email, $password, $firstName = '', $lastName =
                         <p><strong>Temporary Password:</strong> <span class='code'>" . htmlspecialchars($password) . "</span></p>
                     </div>
                     
-                    <div class='security-note'>
-                        <h4>⚠️ Important Security Notes:</h4>
-                        <ul>
-                            <li>Please change your password immediately after your first login</li>
-                            <li>Do not share your login credentials with anyone</li>
-                            <li>Keep your account information secure</li>
-                            <li>Report any suspicious activity to the administrator</li>
-                        </ul>
-                    </div>
-                    
-                    <h3>📚 Getting Started:</h3>
-                    <ol>
-                        <li>Visit the Al-Ghaya LMS login page using the button below</li>
-                        <li>Sign in with the credentials provided above</li>
-                        <li>Complete your profile setup in the dashboard</li>
-                        <li>Change your password in Profile Settings</li>
-                        <li>Start creating courses and engaging with students</li>
-                    </ol>
-                    
                     <div style='text-align: center; margin: 30px 0;'>
                         <a href='$loginUrl' class='button'>🚀 Login to Al-Ghaya LMS</a>
                     </div>
                     
-                    <p>If you have any questions or need assistance, please contact our support team.</p>
-                    
                     <div class='footer'>
-                        <p>This email was sent from " . Config::get('APP_NAME', 'Al-Ghaya LMS') . "</p>
                         <p>© " . date('Y') . " Al-Ghaya LMS. All rights reserved.</p>
-                        <p style='margin-top: 10px; font-size: 12px;'>
-                            This is an automated message. Please do not reply to this email.
-                        </p>
                     </div>
                 </div>
             </div>
@@ -249,8 +279,6 @@ function sendTeacherWelcomeEmail($email, $password, $firstName = '', $lastName =
         </html>";
         
         $mail->Body = $emailBody;
-        
-        // Send email
         $mail->send();
         
         return [
@@ -263,51 +291,8 @@ function sendTeacherWelcomeEmail($email, $password, $firstName = '', $lastName =
         return [
             'success' => false,
             'message' => 'Failed to send welcome email',
-            'error' => Config::get('APP_DEBUG', false) ? $e->getMessage() : 'Email service temporarily unavailable'
+            'error' => $e->getMessage()
         ];
     }
-}
-
-/**
- * Get OAuth authorization URL with security enhancements
- * @return string Secure authorization URL
- */
-function getSecureOAuthUrl() {
-    global $client;
-    
-    // Generate CSRF state parameter
-    $state = bin2hex(random_bytes(32));
-    $_SESSION['oauth_state'] = $state;
-    $_SESSION['oauth_timestamp'] = time();
-    
-    $client->setState($state);
-    return $client->createAuthUrl();
-}
-
-/**
- * Validate OAuth callback state
- * @param string $receivedState State from OAuth callback
- * @return bool True if valid
- */
-function validateOAuthCallback($receivedState) {
-    // Check if state exists and matches
-    if (!isset($_SESSION['oauth_state']) || !hash_equals($_SESSION['oauth_state'], $receivedState)) {
-        return false;
-    }
-    
-    // Check if OAuth request is not too old (5 minutes max)
-    if (!isset($_SESSION['oauth_timestamp']) || (time() - $_SESSION['oauth_timestamp']) > 300) {
-        return false;
-    }
-    
-    return true;
-}
-
-/**
- * Clean up OAuth session data
- */
-function cleanupOAuthData() {
-    unset($_SESSION['oauth_state']);
-    unset($_SESSION['oauth_timestamp']);
 }
 ?>
