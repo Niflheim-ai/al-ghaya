@@ -10,7 +10,7 @@ $userEmail = '';
 $debugInfo = [];
 
 // Debug mode (remove in production)
-$debugMode = true; // Set to false in production
+$debugMode = false; // Set to false in production
 
 // Validate token
 if (empty($token)) {
