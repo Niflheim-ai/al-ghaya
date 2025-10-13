@@ -11,7 +11,8 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
 
 // Include required files
 require '../../php/dbConnection.php';
-require '../../php/enhanced-program-functions.php';
+require '../../php/functions.php';
+require '../../php/program-helpers.php';
 
 $teacher_id = $_SESSION['userID'];
 $action = $_GET['action'] ?? 'list';
@@ -19,33 +20,41 @@ $program_id = $_GET['program_id'] ?? null;
 $chapter_id = $_GET['chapter_id'] ?? null;
 $story_id = $_GET['story_id'] ?? null;
 
+// Get teacher ID from session
+$actual_teacher_id = getTeacherIdFromSession($conn, $teacher_id);
+if (!$actual_teacher_id) {
+    $_SESSION['error_message'] = 'Teacher profile not found.';
+    header("Location: ../login.php");
+    exit();
+}
+
 // Handle different actions
 switch ($action) {
     case 'create':
         $pageContent = 'program_details';
-        $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
+        $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
         break;
     case 'edit_chapter':
         $pageContent = 'chapter_content';
-        $program = getProgram($conn, $program_id, $teacher_id);
-        $chapter = getChapter($conn, $chapter_id);
+        $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
+        $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
         break;
     case 'add_story':
         $pageContent = 'story_form';
-        $program = getProgram($conn, $program_id, $teacher_id);
-        $chapter = getChapter($conn, $chapter_id);
+        $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
+        $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
         $story = $story_id ? getStory($conn, $story_id) : null;
         break;
     case 'add_quiz':
         $pageContent = 'quiz_form';
-        $program = getProgram($conn, $program_id, $teacher_id);
-        $chapter = getChapter($conn, $chapter_id);
-        $quiz = getChapterQuiz($conn, $chapter_id);
+        $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
+        $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
+        $quiz = $chapter_id ? getChapterQuiz($conn, $chapter_id) : null;
         break;
     default:
         $pageContent = 'programs_list';
-        $myPrograms = getTeacherPrograms($conn, $teacher_id);
-        $allPrograms = getAllPublishedPrograms($conn);
+        $myPrograms = getTeacherPrograms($conn, $actual_teacher_id);
+        $allPrograms = getPublishedPrograms($conn);
         break;
 }
 
@@ -94,7 +103,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                             <?php foreach ($myPrograms as $program): ?>
                                 <div class="program-card bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                                     <div class="relative">
-                                        <img src="<?= $program['thumbnail'] ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
+                                        <img src="<?= !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
                                              alt="<?= htmlspecialchars($program['title']) ?>" 
                                              class="w-full h-48 object-cover rounded-t-lg">
                                         <span class="absolute top-2 right-2 px-2 py-1 text-xs rounded-full 
@@ -147,7 +156,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <?php foreach ($allPrograms as $program): ?>
                                 <div class="program-card-small bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                                    <img src="<?= $program['thumbnail'] ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
+                                    <img src="<?= !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
                                          alt="<?= htmlspecialchars($program['title']) ?>" 
                                          class="w-full h-32 object-cover rounded-t-lg">
                                     <div class="p-3">
@@ -170,19 +179,147 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             
         <?php elseif ($pageContent === 'program_details'): ?>
             <!-- PROGRAM DETAILS FORM -->
-            <?php include '../../components/program-details-form.php'; ?>
+            <section class="content-section">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h1 class="section-title text-xl md:text-2xl font-bold">
+                            <?= $program ? 'Edit Program' : 'Create New Program' ?>
+                        </h1>
+                        <a href="teacher-programs.php" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm flex items-center gap-2">
+                            <i class="ph ph-arrow-left"></i>
+                            <span>Back to Programs</span>
+                        </a>
+                    </div>
+                    
+                    <form method="POST" action="../../php/create-program.php" enctype="multipart/form-data" class="space-y-6">
+                        <?php if ($program): ?>
+                            <input type="hidden" name="program_id" value="<?= $program['programID'] ?>">
+                            <input type="hidden" name="update_program" value="1">
+                        <?php else: ?>
+                            <input type="hidden" name="create_program" value="1">
+                        <?php endif; ?>
+                        
+                        <!-- Program Title -->
+                        <div>
+                            <label for="title" class="block text-gray-700 font-medium mb-2">Program Title</label>
+                            <input type="text" id="title" name="title" 
+                                   value="<?= $program ? htmlspecialchars($program['title']) : '' ?>" 
+                                   required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <!-- Program Description -->
+                        <div>
+                            <label for="description" class="block text-gray-700 font-medium mb-2">Program Description</label>
+                            <textarea id="description" name="description" rows="4" required 
+                                      class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"><?= $program ? htmlspecialchars($program['description']) : '' ?></textarea>
+                        </div>
+                        
+                        <!-- Category/Difficulty -->
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Difficulty Level</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2">
+                                    <input type="radio" name="category" value="beginner" <?= (!$program || $program['category'] === 'beginner') ? 'checked' : '' ?> required>
+                                    <span class="px-4 py-2 bg-gray-100 rounded-lg">Beginner</span>
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <input type="radio" name="category" value="intermediate" <?= ($program && $program['category'] === 'intermediate') ? 'checked' : '' ?>>
+                                    <span class="px-4 py-2 bg-gray-100 rounded-lg">Intermediate</span>
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <input type="radio" name="category" value="advanced" <?= ($program && $program['category'] === 'advanced') ? 'checked' : '' ?>>
+                                    <span class="px-4 py-2 bg-gray-100 rounded-lg">Advanced</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Program Price -->
+                        <div>
+                            <label for="price" class="block text-gray-700 font-medium mb-2">Program Price (₱)</label>
+                            <input type="number" id="price" name="price" min="0" step="0.01" 
+                                   value="<?= $program ? $program['price'] : '0.00' ?>" 
+                                   required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <!-- Program Status -->
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Program Status</label>
+                            <select name="status" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
+                                <option value="draft" <?= (!$program || $program['status'] === 'draft') ? 'selected' : '' ?>>Draft</option>
+                                <option value="published" <?= ($program && $program['status'] === 'published') ? 'selected' : '' ?>>Published</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Thumbnail Upload (only for new programs) -->
+                        <?php if (!$program): ?>
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Program Thumbnail</label>
+                                <div class="flex items-center gap-4">
+                                    <img id="thumbnailPreview" src="../../images/default-program.jpg" alt="Thumbnail Preview" 
+                                         class="w-20 h-20 object-cover border rounded">
+                                    <div>
+                                        <input type="file" name="thumbnail" id="thumbnail" accept="image/*" 
+                                               class="hidden" onchange="previewThumbnail()">
+                                        <label for="thumbnail" 
+                                               class="bg-blue-500 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-600">
+                                            Upload Image
+                                        </label>
+                                        <p class="text-sm text-gray-500 mt-1">Recommended: 400x400px, JPG/PNG</p>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <!-- Submit Buttons -->
+                        <div class="flex justify-end gap-4">
+                            <a href="teacher-programs.php" 
+                               class="px-6 py-3 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+                                Cancel
+                            </a>
+                            <button type="submit" 
+                                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                <?= $program ? 'Update Program' : 'Create Program' ?>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
             
         <?php elseif ($pageContent === 'chapter_content'): ?>
             <!-- CHAPTER CONTENT MANAGEMENT -->
-            <?php include '../../components/chapter-content-form.php'; ?>
+            <section class="content-section">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Chapter Management</h2>
+                    <p class="text-gray-600 mb-6">Advanced chapter content management will be available soon.</p>
+                    <a href="?action=create&program_id=<?= $program_id ?>" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Back to Program
+                    </a>
+                </div>
+            </section>
             
         <?php elseif ($pageContent === 'story_form'): ?>
             <!-- STORY CREATION/EDIT FORM -->
-            <?php include '../../components/story-form.php'; ?>
+            <section class="content-section">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Story Management</h2>
+                    <p class="text-gray-600 mb-6">Interactive story creation will be available soon.</p>
+                    <a href="?action=create&program_id=<?= $program_id ?>" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Back to Program
+                    </a>
+                </div>
+            </section>
             
         <?php elseif ($pageContent === 'quiz_form'): ?>
             <!-- QUIZ CREATION/EDIT FORM -->
-            <?php include '../../components/quiz-form.php'; ?>
+            <section class="content-section">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Quiz Management</h2>
+                    <p class="text-gray-600 mb-6">Interactive quiz creation will be available soon.</p>
+                    <a href="?action=create&program_id=<?= $program_id ?>" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Back to Program
+                    </a>
+                </div>
+            </section>
             
         <?php endif; ?>
         
@@ -203,6 +340,10 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 <script src="../../dist/javascript/enhanced-program-management.js"></script>
 
 <script>
+// Set global variables for JS
+const currentProgramId = <?= json_encode($program_id) ?>;
+const currentAction = <?= json_encode($action) ?>;
+
 // Display success/error messages
 <?php if ($success): ?>
     Swal.fire({
@@ -220,6 +361,20 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
     });
 <?php endif; ?>
 
+// Thumbnail preview function
+function previewThumbnail() {
+    const fileInput = document.getElementById('thumbnail');
+    const preview = document.getElementById('thumbnailPreview');
+    
+    if (fileInput && preview && fileInput.files && fileInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+    }
+}
+
 // Scroll to top functionality
 function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -227,16 +382,19 @@ function scrollToTop() {
 
 window.addEventListener('scroll', function() {
     const btn = document.getElementById('scroll-to-top');
-    if (window.pageYOffset > 300) {
-        btn.classList.remove('hidden');
-    } else {
-        btn.classList.add('hidden');
+    if (btn) {
+        if (window.pageYOffset > 300) {
+            btn.classList.remove('hidden');
+        } else {
+            btn.classList.add('hidden');
+        }
     }
 });
 
 // View program details
 function viewProgram(programId) {
-    window.open(`program-overview.php?id=${programId}`, '_blank');
+    // For now, redirect to edit page
+    window.location.href = `?action=create&program_id=${programId}`;
 }
 </script>
 
