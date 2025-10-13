@@ -113,31 +113,27 @@
 </div>
 
 <script>
-// FIXED: New Program Function - Using redirect flow instead of AJAX
 function createNewProgram() {
-    // Show loading indicator
-    const button = event.target.closest('button');
-    const originalContent = button.innerHTML;
-    button.innerHTML = '<i class="ph ph-spinner-gap animate-spin text-[24px] mr-2"></i><p class="font-medium">Creating...</p>';
-    button.disabled = true;
+    // Show loading state
+    const btn = event.target.closest('button');
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<i class="ph ph-spinner-gap animate-spin text-[24px] mr-2"></i><p class="font-medium">Creating...</p>';
+    btn.disabled = true;
     
-    // Determine correct redirect path based on current page location
+    // Determine correct path based on current location
     const currentPath = window.location.pathname;
-    let redirectUrl;
+    let redirectPath;
     
     if (currentPath.includes('/pages/teacher/')) {
-        // Called from pages/teacher/*.php
-        redirectUrl = '../../php/create-program.php?flow=redirect';
+        redirectPath = '../../php/create-program.php?action=create';
     } else if (currentPath.includes('/pages/')) {
-        // Called from other pages
-        redirectUrl = '../php/create-program.php?flow=redirect';
+        redirectPath = '../php/create-program.php?action=create';
     } else {
-        // Called from root level
-        redirectUrl = 'php/create-program.php?flow=redirect';
+        redirectPath = 'php/create-program.php?action=create';
     }
     
-    // Use server-side redirect flow instead of AJAX to avoid JSON/error issues
-    window.location.href = redirectUrl;
+    // Simple redirect - let server handle creation and redirect
+    window.location.href = redirectPath;
 }
 
 // Publish Modal Functions
