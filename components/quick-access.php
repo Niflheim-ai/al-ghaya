@@ -113,7 +113,7 @@
 </div>
 
 <script>
-// New Program Function
+// New Program Function - FIXED VERSION
 function createNewProgram() {
     // Show loading indicator
     const button = event.target.closest('button');
@@ -121,32 +121,81 @@ function createNewProgram() {
     button.innerHTML = '<i class="ph ph-spinner-gap animate-spin text-[24px] mr-2"></i><p class="font-medium">Creating...</p>';
     button.disabled = true;
     
-    // Create new program via AJAX
-    fetch('../../php/create-program.php?ajax=create_simple', {
-        method: 'GET',
+    // Determine correct endpoint path based on current page location
+    const currentPath = window.location.pathname;
+    let endpoint;
+    
+    if (currentPath.includes('/pages/teacher/')) {
+        // Called from pages/teacher/*.php
+        endpoint = '../../php/ajax-create-program.php';
+    } else if (currentPath.includes('/pages/')) {
+        // Called from other pages
+        endpoint = '../php/ajax-create-program.php';
+    } else {
+        // Called from root level
+        endpoint = 'php/ajax-create-program.php';
+    }
+    
+    // Create new program via AJAX with proper error handling
+    fetch(endpoint, {
+        method: 'POST',
+        headers: { 
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
         credentials: 'same-origin'
     })
-    .then(response => response.json())
+    .then(response => {
+        // Check if response is ok
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            // Response is not JSON, probably an error page
+            return response.text().then(text => {
+                throw new Error('Server returned non-JSON response: ' + (text.length > 200 ? text.substring(0, 200) + '...' : text));
+            });
+        }
+        
+        return response.json();
+    })
     .then(data => {
-        if (data.success) {
-            // Check if enhanced page exists, otherwise use original
-            const enhancedPageExists = true; // Assume it exists for now
-            const redirectUrl = enhancedPageExists 
-                ? `teacher-programs-enhanced.php?action=create&program_id=${data.program_id}`
-                : `teacher-programs.php?action=create&program_id=${data.program_id}`;
+        if (data.success && data.program_id) {
+            // Determine redirect URL based on current location
+            let redirectUrl;
+            if (currentPath.includes('/pages/teacher/')) {
+                redirectUrl = `teacher-programs.php?action=create&program_id=${data.program_id}`;
+            } else {
+                redirectUrl = `pages/teacher/teacher-programs.php?action=create&program_id=${data.program_id}`;
+            }
             
+            // Redirect to program creation page
             window.location.href = redirectUrl;
         } else {
-            alert('Error creating program: ' + data.message);
-            button.innerHTML = originalContent;
-            button.disabled = false;
+            throw new Error(data.message || 'Failed to create program - no program ID returned');
         }
     })
     .catch(error => {
         console.error('Error creating program:', error);
-        alert('Error creating program. Please try again.');
+        
+        // Restore button state
         button.innerHTML = originalContent;
         button.disabled = false;
+        
+        // Show user-friendly error message
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error Creating Program',
+                text: error.message || 'An unexpected error occurred. Please try again.',
+                confirmButtonText: 'OK'
+            });
+        } else {
+            alert('Error creating program: ' + (error.message || 'Please try again.'));
+        }
     });
 }
 
