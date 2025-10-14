@@ -5,7 +5,9 @@
  * Prevents function redeclaration errors and ensures database schema compatibility
  */
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'dbConnection.php';
 require_once 'functions.php';
 
@@ -341,7 +343,7 @@ function chapter_delete($conn, $chapter_id) {
         }
         
         // Delete all quizzes in this chapter
-        $stmt2 = $conn->prepare("DELETE FROM chapterquizzes WHERE chapter_id = ?");
+        $stmt2 = $conn->prepare("DELETE FROM chapter_quizzes WHERE chapter_id = ?");
         if ($stmt2) {
             $stmt2->bind_param("i", $chapter_id);
             $stmt2->execute();
@@ -450,12 +452,12 @@ function chapter_getStories($conn, $chapter_id) {
  * @return array|null Quiz data or null if not found
  */
 function chapter_getQuiz($conn, $chapter_id) {
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapterquizzes'");
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapter_quizzes'");
     if ($tableCheck->num_rows == 0) {
         return null;
     }
     
-    $stmt = $conn->prepare("SELECT * FROM chapterquizzes WHERE chapter_id = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT * FROM chapter_quizzes WHERE chapter_id = ? LIMIT 1");
     if (!$stmt) {
         error_log("chapter_getQuiz prepare failed: " . $conn->error);
         return null;
@@ -937,7 +939,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 break;
                 
             case 'update_program':
-                $program_id = intval($_POST['program_id'] ?? 0);
+                $program_id = intval($_POST['programID'] ?? 0);
                 if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) {
                     $_SESSION['error_message'] = 'Invalid program or access denied.';
                     header('Location: ../pages/teacher/teacher-programs.php');
@@ -973,7 +975,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 break;
                 
             case 'create_story':
-                $program_id = intval($_POST['program_id'] ?? 0);
+                $program_id = intval($_POST['programID'] ?? 0);
                 $chapter_id = intval($_POST['chapter_id'] ?? 0);
                 $title = trim($_POST['title'] ?? '');
                 $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? '');
@@ -1022,7 +1024,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
             
             case 'create_chapter':
                 header('Content-Type: application/json');
-                $program_id = intval($_POST['program_id'] ?? 0);
+                $program_id = intval($_POST['programID'] ?? 0);
                 $title = trim($_POST['title'] ?? 'New Chapter');
                 
                 if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) {
@@ -1035,7 +1037,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                     echo json_encode([
                         'success' => true,
                         'chapter_id' => $chapter_id,
-                        'program_id' => $program_id,
+                        'programID' => $program_id,
                         'message' => 'Chapter created successfully'
                     ]);
                 } else {
@@ -1047,7 +1049,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
             case 'delete_chapter':
                 header('Content-Type: application/json');
                 $chapter_id = intval($_POST['chapter_id'] ?? 0);
-                $program_id = intval($_POST['program_id'] ?? 0);
+                $program_id = intval($_POST['programID'] ?? 0);
                 
                 if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) {
                     echo json_encode(['success' => false, 'message' => 'Invalid program or no permission']);
@@ -1153,7 +1155,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 
             case 'get_chapters':
                 header('Content-Type: application/json');
-                $program_id = intval($_POST['program_id'] ?? 0);
+                $program_id = intval($_POST['programID'] ?? 0);
                 if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) {
                     echo json_encode(['success' => false, 'message' => 'Invalid program or no permission']);
                     exit;
