@@ -94,7 +94,7 @@ function getTeacherIdFromSession($conn, $user_id) {
  * @return int|false Program ID on success, false on failure
  */
 function program_create($conn, $data) {
-    $sql = "INSERT INTO programs (teacherID, title, description, difficultylabel, category, price, thumbnail, status, overviewvideourl, dateCreated, dateUpdated) 
+    $sql = "INSERT INTO programs (teacherID, title, description, difficulty_label, category, price, thumbnail, status, overview_video_url, dateCreated, dateUpdated) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
     
     $stmt = $conn->prepare($sql);
@@ -134,7 +134,7 @@ function program_create($conn, $data) {
  * @return bool True on success, false on failure
  */
 function program_update($conn, $program_id, $data) {
-    $sql = "UPDATE programs SET title = ?, description = ?, difficultylabel = ?, category = ?, price = ?, status = ?, overviewvideourl = ?, dateUpdated = NOW()
+    $sql = "UPDATE programs SET title = ?, description = ?, difficulty_label = ?, category = ?, price = ?, status = ?, overview_video_url = ?, dateUpdated = NOW()
             WHERE programID = ? AND teacherID = ?";
     
     $stmt = $conn->prepare($sql);
@@ -251,7 +251,7 @@ function program_verifyOwnership($conn, $program_id, $teacher_id) {
  */
 function chapter_add($conn, $program_id, $title, $content = '', $question = '') {
     // Get next chapter order
-    $stmt = $conn->prepare("SELECT MAX(chapterorder) FROM programchapters WHERE programid = ?");
+    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE program_id = ?");
     if (!$stmt) {
         error_log("chapter_add order query prepare failed: " . $conn->error);
         return false;
@@ -264,7 +264,7 @@ function chapter_add($conn, $program_id, $title, $content = '', $question = '') 
     $stmt->close();
 
     // Insert chapter
-    $stmt = $conn->prepare("INSERT INTO programchapters (programid, title, content, question, chapterorder) VALUES (?, ?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO program_chapters (program_id, title, content, question, chapter_order) VALUES (?, ?, ?, ?, ?)");
     if (!$stmt) {
         error_log("chapter_add insert prepare failed: " . $conn->error);
         return false;
@@ -294,7 +294,7 @@ function chapter_add($conn, $program_id, $title, $content = '', $question = '') 
  * @return bool True on success, false on failure
  */
 function chapter_update($conn, $chapter_id, $title, $content, $question) {
-    $stmt = $conn->prepare("UPDATE programchapters SET title = ?, content = ?, question = ? WHERE chapterid = ?");
+    $stmt = $conn->prepare("UPDATE program_chapters SET title = ?, content = ?, question = ? WHERE chapter_id = ?");
     if (!$stmt) {
         error_log("chapter_update prepare failed: " . $conn->error);
         return false;
@@ -329,11 +329,11 @@ function chapter_delete($conn, $chapter_id) {
         
         // Delete all interactive sections for each story
         foreach ($stories as $story) {
-            story_deleteInteractiveSections($conn, $story['storyid']);
+            story_deleteInteractiveSections($conn, $story['story_id']);
         }
         
         // Delete all stories in this chapter
-        $stmt1 = $conn->prepare("DELETE FROM chapterstories WHERE chapterid = ?");
+        $stmt1 = $conn->prepare("DELETE FROM chapter_stories WHERE chapter_id = ?");
         if ($stmt1) {
             $stmt1->bind_param("i", $chapter_id);
             $stmt1->execute();
@@ -341,7 +341,7 @@ function chapter_delete($conn, $chapter_id) {
         }
         
         // Delete all quizzes in this chapter
-        $stmt2 = $conn->prepare("DELETE FROM chapterquizzes WHERE chapterid = ?");
+        $stmt2 = $conn->prepare("DELETE FROM chapterquizzes WHERE chapter_id = ?");
         if ($stmt2) {
             $stmt2->bind_param("i", $chapter_id);
             $stmt2->execute();
@@ -349,7 +349,7 @@ function chapter_delete($conn, $chapter_id) {
         }
         
         // Delete the chapter itself
-        $stmt = $conn->prepare("DELETE FROM programchapters WHERE chapterid = ?");
+        $stmt = $conn->prepare("DELETE FROM program_chapters WHERE chapter_id = ?");
         if (!$stmt) {
             throw new Exception("chapter_delete prepare failed: " . $conn->error);
         }
@@ -380,7 +380,7 @@ function chapter_delete($conn, $chapter_id) {
  * @return array Array of chapters
  */
 function chapter_getByProgram($conn, $program_id) {
-    $stmt = $conn->prepare("SELECT * FROM programchapters WHERE programid = ? ORDER BY chapterorder");
+    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE program_id = ? ORDER BY chapter_order");
     if (!$stmt) {
         error_log("chapter_getByProgram prepare failed: " . $conn->error);
         return [];
@@ -401,7 +401,7 @@ function chapter_getByProgram($conn, $program_id) {
  * @return array|null Chapter data or null if not found
  */
 function chapter_getById($conn, $chapter_id) {
-    $stmt = $conn->prepare("SELECT * FROM programchapters WHERE chapterid = ?");
+    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE chapter_id = ?");
     if (!$stmt) {
         error_log("chapter_getById prepare failed: " . $conn->error);
         return null;
@@ -423,12 +423,12 @@ function chapter_getById($conn, $chapter_id) {
  * @return array Array of stories
  */
 function chapter_getStories($conn, $chapter_id) {
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapterstories'");
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapter_stories'");
     if ($tableCheck->num_rows == 0) {
         return [];
     }
     
-    $stmt = $conn->prepare("SELECT * FROM chapterstories WHERE chapterid = ? ORDER BY storyorder ASC");
+    $stmt = $conn->prepare("SELECT * FROM chapter_stories WHERE chapter_id = ? ORDER BY story_order ASC");
     if (!$stmt) {
         error_log("chapter_getStories prepare failed: " . $conn->error);
         return [];
@@ -455,7 +455,7 @@ function chapter_getQuiz($conn, $chapter_id) {
         return null;
     }
     
-    $stmt = $conn->prepare("SELECT * FROM chapterquizzes WHERE chapterid = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT * FROM chapterquizzes WHERE chapter_id = ? LIMIT 1");
     if (!$stmt) {
         error_log("chapter_getQuiz prepare failed: " . $conn->error);
         return null;
@@ -479,14 +479,14 @@ function chapter_getQuiz($conn, $chapter_id) {
  * @return int|false Story ID on success, false on failure
  */
 function story_create($conn, $data) {
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapterstories'");
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapter_stories'");
     if ($tableCheck->num_rows == 0) {
-        error_log("chapterstories table does not exist");
+        error_log("chapter_stories table does not exist");
         return false;
     }
     
     // Get the next story order for this chapter
-    $orderQuery = "SELECT COALESCE(MAX(storyorder), 0) + 1 as next_order FROM chapterstories WHERE chapterid = ?";
+    $orderQuery = "SELECT COALESCE(MAX(story_order), 0) + 1 as next_order FROM chapter_stories WHERE chapter_id = ?";
     $orderStmt = $conn->prepare($orderQuery);
     if (!$orderStmt) {
         error_log("story_create order query prepare failed: " . $conn->error);
@@ -500,7 +500,7 @@ function story_create($conn, $data) {
     $orderStmt->close();
     
     // Insert the story
-    $sql = "INSERT INTO chapterstories (chapterid, title, synopsisarabic, synopsisenglish, videourl, storyorder, dateCreated) 
+    $sql = "INSERT INTO chapter_stories (chapter_id, title, synopsisarabic, synopsisenglish, videourl, story_order, dateCreated) 
             VALUES (?, ?, ?, ?, ?, ?, NOW())";
     
     $stmt = $conn->prepare($sql);
@@ -539,7 +539,7 @@ function story_delete($conn, $story_id) {
     // First delete all related interactive sections
     story_deleteInteractiveSections($conn, $story_id);
     
-    $stmt = $conn->prepare("DELETE FROM chapterstories WHERE storyid = ?");
+    $stmt = $conn->prepare("DELETE FROM chapter_stories WHERE story_id = ?");
     if (!$stmt) {
         error_log("story_delete prepare failed: " . $conn->error);
         return false;
@@ -565,7 +565,7 @@ function story_delete($conn, $story_id) {
  * @return array|null Story data or null if not found
  */
 function story_getById($conn, $story_id) {
-    $stmt = $conn->prepare("SELECT * FROM chapterstories WHERE storyid = ?");
+    $stmt = $conn->prepare("SELECT * FROM chapter_stories WHERE story_id = ?");
     if (!$stmt) {
         error_log("story_getById prepare failed: " . $conn->error);
         return null;
@@ -592,7 +592,7 @@ function story_getInteractiveSections($conn, $story_id) {
         return [];
     }
     
-    $stmt = $conn->prepare("SELECT * FROM storyinteractivesections WHERE storyid = ? ORDER BY sectionorder ASC");
+    $stmt = $conn->prepare("SELECT * FROM storyinteractivesections WHERE story_id = ? ORDER BY sectionorder ASC");
     if (!$stmt) {
         error_log("story_getInteractiveSections prepare failed: " . $conn->error);
         return [];
@@ -653,7 +653,7 @@ function section_create($conn, $story_id) {
     }
     
     // Get the next section order
-    $orderQuery = "SELECT COALESCE(MAX(sectionorder), 0) + 1 as next_order FROM storyinteractivesections WHERE storyid = ?";
+    $orderQuery = "SELECT COALESCE(MAX(sectionorder), 0) + 1 as next_order FROM storyinteractivesections WHERE story_id = ?";
     $orderStmt = $conn->prepare($orderQuery);
     if (!$orderStmt) {
         error_log("section_create order query prepare failed: " . $conn->error);
@@ -667,7 +667,7 @@ function section_create($conn, $story_id) {
     $orderStmt->close();
     
     // Insert the section
-    $sql = "INSERT INTO storyinteractivesections (storyid, sectionorder, dateCreated) VALUES (?, ?, NOW())";
+    $sql = "INSERT INTO storyinteractivesections (story_id, sectionorder, dateCreated) VALUES (?, ?, NOW())";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("section_create prepare failed: " . $conn->error);
@@ -1077,13 +1077,13 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                     exit;
                 }
                 
-                $chapter = chapter_getById($conn, $story['chapterid']);
+                $chapter = chapter_getById($conn, $story['chapter_id']);
                 if (!$chapter || !program_verifyOwnership($conn, $chapter['programid'], $teacher_id)) {
                     echo json_encode(['success' => false, 'message' => 'Access denied']);
                     exit;
                 }
                 
-                $existingStories = chapter_getStories($conn, $story['chapterid']);
+                $existingStories = chapter_getStories($conn, $story['chapter_id']);
                 if (count($existingStories) <= 1) {
                     echo json_encode(['success' => false, 'message' => 'Cannot delete the last story. Each chapter must have at least 1 story.']);
                     exit;
@@ -1112,7 +1112,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                     exit;
                 }
                 
-                $chapter = chapter_getById($conn, $story['chapterid']);
+                $chapter = chapter_getById($conn, $story['chapter_id']);
                 if (!$chapter || !program_verifyOwnership($conn, $chapter['programid'], $teacher_id)) {
                     echo json_encode(['success' => false, 'message' => 'Access denied']);
                     exit;
@@ -1219,7 +1219,7 @@ function getChapter($conn, $chapter_id) {
     return chapter_getById($conn, $chapter_id);
 }
 
-function getChapterStories($conn, $chapter_id) {
+function getchapter_stories($conn, $chapter_id) {
     return chapter_getStories($conn, $chapter_id);
 }
 
