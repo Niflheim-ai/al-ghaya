@@ -125,11 +125,11 @@ function createNewProgram() {
     let redirectPath;
     
     if (currentPath.includes('/pages/teacher/')) {
-        redirectPath = '../../php/create-program.php?action=create';
+        redirectPath = '../../pages/teacher/teacher-programs.php?action=create';
     } else if (currentPath.includes('/pages/')) {
-        redirectPath = '../php/create-program.php?action=create';
+        redirectPath = '../teacher/teacher-programs.php?action=create';
     } else {
-        redirectPath = 'php/create-program.php?action=create';
+        redirectPath = 'pages/teacher/teacher-programs.php?action=create';
     }
     
     // Simple redirect - let server handle creation and redirect

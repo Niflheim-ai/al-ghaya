@@ -8,6 +8,11 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
     header("Location: ../login.php");
     exit();
 }
+
+require_once '../../php/dbConnection.php';
+require_once '../../php/functions.php';
+require_once '../../php/program-helpers.php';
+
 ?>
 
 <?php include '../../components/header.php'; ?>

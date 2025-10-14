@@ -13,6 +13,10 @@
     require '../../php/dbConnection.php';
     require '../../php/functions.php';
 
+    require_once '../../php/dbConnection.php';
+    require_once '../../php/functions.php';
+    require_once '../../php/program-helpers.php';
+
     // Get teacher's programs and their enrollees
     $teacher_id = $_SESSION['userID'];
     $programs = getTeacherPrograms($conn, $teacher_id);
