@@ -191,9 +191,8 @@ try {
             }
             
             // Create story record using the chapter_stories table (from database schema)
-            $story_id = createStoryRecord($conn, [
+            $story_id = createStoryRecordHandler($conn, [
                 'chapter_id' => $chapter_id,
-                'program_id' => $program_id,
                 'title' => $title,
                 'synopsis_arabic' => $synopsis_arabic,
                 'synopsis_english' => $synopsis_english,
@@ -271,14 +270,14 @@ try {
                 exit;
             }
             
-            $chapter = getChapter($conn, $story['chapter_id']);
-            if (!$chapter || !verifyProgramOwnership($conn, $chapter['program_id'], $teacher_id)) {
+            $chapter = getChapter($conn, $story['chapterid']); // Use correct column name from database
+            if (!$chapter || !verifyProgramOwnership($conn, $chapter['programid'], $teacher_id)) {
                 echo json_encode(['success' => false, 'message' => 'Access denied']);
                 exit;
             }
             
             // Check minimum story requirement (at least 1 story per chapter)
-            $existingStories = getChapterStories($conn, $story['chapter_id']);
+            $existingStories = getChapterStories($conn, $story['chapterid']);
             if (count($existingStories) <= 1) {
                 echo json_encode(['success' => false, 'message' => 'Cannot delete the last story. Each chapter must have at least 1 story.']);
                 exit;
@@ -308,8 +307,8 @@ try {
                 exit;
             }
             
-            $chapter = getChapter($conn, $story['chapter_id']);
-            if (!$chapter || !verifyProgramOwnership($conn, $chapter['program_id'], $teacher_id)) {
+            $chapter = getChapter($conn, $story['chapterid']);
+            if (!$chapter || !verifyProgramOwnership($conn, $chapter['programid'], $teacher_id)) {
                 echo json_encode(['success' => false, 'message' => 'Access denied']);
                 exit;
             }
@@ -406,6 +405,8 @@ try {
     }
 }
 
+// ==================== LOCAL FUNCTIONS (NO DUPLICATES) ====================
+
 /**
  * Map difficulty level to category
  * @param string $difficulty_level Difficulty level (Student, Aspiring, Master)
@@ -425,12 +426,12 @@ function mapDifficultyToCategory($difficulty_level) {
 }
 
 /**
- * Create a new story record using chapter_stories table (from database schema)
+ * Create a new story record using chapter_stories table (HANDLER-SPECIFIC VERSION)
  * @param object $conn Database connection
  * @param array $data Story data
  * @return int|false Story ID on success, false on failure
  */
-function createStoryRecord($conn, $data) {
+function createStoryRecordHandler($conn, $data) {
     // Check if chapter_stories table exists
     $tableCheck = $conn->query("SHOW TABLES LIKE 'chapter_stories'");
     if ($tableCheck->num_rows == 0) {
@@ -442,7 +443,7 @@ function createStoryRecord($conn, $data) {
     $orderQuery = "SELECT COALESCE(MAX(story_order), 0) + 1 as next_order FROM chapter_stories WHERE chapter_id = ?";
     $orderStmt = $conn->prepare($orderQuery);
     if (!$orderStmt) {
-        error_log("createStoryRecord order query prepare failed: " . $conn->error);
+        error_log("createStoryRecordHandler order query prepare failed: " . $conn->error);
         return false;
     }
     
@@ -458,7 +459,7 @@ function createStoryRecord($conn, $data) {
     
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
-        error_log("createStoryRecord prepare failed: " . $conn->error);
+        error_log("createStoryRecordHandler prepare failed: " . $conn->error);
         return false;
     }
     
@@ -477,13 +478,35 @@ function createStoryRecord($conn, $data) {
         return $story_id;
     }
     
-    error_log("createStoryRecord execute failed: " . $stmt->error);
+    error_log("createStoryRecordHandler execute failed: " . $stmt->error);
     $stmt->close();
     return false;
 }
 
 /**
- * Delete a story record from chapter_stories table
+ * Get story by ID from chapter_stories table (HANDLER-SPECIFIC VERSION)
+ * @param object $conn Database connection
+ * @param int $story_id Story ID
+ * @return array|null Story data or null if not found
+ */
+function getStoryById($conn, $story_id) {
+    $stmt = $conn->prepare("SELECT * FROM chapter_stories WHERE story_id = ?");
+    if (!$stmt) {
+        error_log("getStoryById prepare failed: " . $conn->error);
+        return null;
+    }
+    
+    $stmt->bind_param("i", $story_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $story = $result->fetch_assoc();
+    $stmt->close();
+    
+    return $story;
+}
+
+/**
+ * Delete a story record from chapter_stories table (HANDLER-SPECIFIC VERSION)
  * @param object $conn Database connection
  * @param int $story_id Story ID
  * @return bool True on success, false on failure
@@ -512,29 +535,7 @@ function deleteStoryRecord($conn, $story_id) {
 }
 
 /**
- * Get story by ID from chapter_stories table
- * @param object $conn Database connection
- * @param int $story_id Story ID
- * @return array|null Story data or null if not found
- */
-function getStoryById($conn, $story_id) {
-    $stmt = $conn->prepare("SELECT * FROM chapter_stories WHERE story_id = ?");
-    if (!$stmt) {
-        error_log("getStoryById prepare failed: " . $conn->error);
-        return null;
-    }
-    
-    $stmt->bind_param("i", $story_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $story = $result->fetch_assoc();
-    $stmt->close();
-    
-    return $story;
-}
-
-/**
- * Create interactive section for a story
+ * Create interactive section for a story (HANDLER-SPECIFIC VERSION)
  * @param object $conn Database connection
  * @param int $story_id Story ID
  * @return int|false Section ID on success, false on failure
@@ -583,7 +584,7 @@ function createInteractiveSection($conn, $story_id) {
 }
 
 /**
- * Delete interactive section
+ * Delete interactive section (HANDLER-SPECIFIC VERSION)
  * @param object $conn Database connection
  * @param int $section_id Section ID
  * @return bool True on success, false on failure
@@ -618,7 +619,7 @@ function deleteInteractiveSection($conn, $section_id) {
 }
 
 /**
- * Delete all interactive sections for a story
+ * Delete all interactive sections for a story (HANDLER-SPECIFIC VERSION)
  * @param object $conn Database connection
  * @param int $story_id Story ID
  * @return bool True on success, false on failure
@@ -632,85 +633,6 @@ function deleteStoryInteractiveSections($conn, $story_id) {
     }
     
     return true;
-}
-
-/**
- * Update program with support for new fields
- * @param object $conn Database connection
- * @param int $program_id Program ID
- * @param array $data Program data
- * @return bool True on success, false on failure
- */
-function updateProgram($conn, $program_id, $data) {
-    $sql = "UPDATE programs SET title = ?, description = ?, difficulty_label = ?, category = ?, price = ?, status = ?, overview_video_url = ?, dateUpdated = NOW()
-            WHERE programID = ? AND teacherID = ?";
-    
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        error_log("updateProgram prepare failed: " . $conn->error);
-        return false;
-    }
-    
-    $stmt->bind_param("ssssdssii", 
-        $data['title'],
-        $data['description'],
-        $data['difficulty_label'],
-        $data['category'],
-        $data['price'],
-        $data['status'],
-        $data['overview_video_url'],
-        $program_id,
-        $data['teacherID']
-    );
-    
-    if ($stmt->execute()) {
-        $success = $stmt->affected_rows > 0;
-        $stmt->close();
-        return $success;
-    }
-    
-    error_log("updateProgram execute failed: " . $stmt->error);
-    $stmt->close();
-    return false;
-}
-
-/**
- * Create program with support for new fields
- * @param object $conn Database connection
- * @param array $data Program data
- * @return int|false Program ID on success, false on failure
- */
-function createProgram($conn, $data) {
-    $sql = "INSERT INTO programs (teacherID, title, description, difficulty_label, category, price, thumbnail, status, overview_video_url, dateCreated, dateUpdated) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
-    
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        error_log("createProgram prepare failed: " . $conn->error);
-        return false;
-    }
-    
-    $stmt->bind_param("issssddss", 
-        $data['teacherID'],
-        $data['title'],
-        $data['description'],
-        $data['difficulty_label'],
-        $data['category'],
-        $data['price'],
-        $data['thumbnail'],
-        $data['status'],
-        $data['overview_video_url']
-    );
-    
-    if ($stmt->execute()) {
-        $program_id = $stmt->insert_id;
-        $stmt->close();
-        return $program_id;
-    }
-    
-    error_log("createProgram execute failed: " . $stmt->error);
-    $stmt->close();
-    return false;
 }
 
 ?>
