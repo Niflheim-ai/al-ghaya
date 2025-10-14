@@ -1,8 +1,8 @@
 <?php
 /**
  * Program Helper Functions - Updated for Al-Ghaya Database Schema
- * Contains all program-related functions compatible with chapter_stories table
- * Compatible with existing al-ghaya database schema
+ * Contains all program-related functions compatible with actual database schema
+ * Compatible with existing al-ghaya database schema using correct column names
  */
 
 require_once 'dbConnection.php';
@@ -123,7 +123,7 @@ function getProgram($conn, $program_id, $teacher_id) {
 }
 
 /**
- * Add a Chapter to a Program
+ * Add a Chapter to a Program - CORRECTED WITH PROPER COLUMN NAME
  * @param object $conn Database connection
  * @param int $program_id Program ID
  * @param string $title Chapter title
@@ -132,8 +132,8 @@ function getProgram($conn, $program_id, $teacher_id) {
  * @return int|false Chapter ID on success, false on failure
  */
 function addChapter($conn, $program_id, $title, $content, $question) {
-    // Get next chapter order
-    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE program_id = ?");
+    // Get next chapter order - USING CORRECT COLUMN NAME: programid (lowercase)
+    $stmt = $conn->prepare("SELECT MAX(chapterorder) FROM programchapters WHERE programid = ?");
     if (!$stmt) {
         error_log("addChapter order query prepare failed: " . $conn->error);
         return false;
@@ -145,8 +145,8 @@ function addChapter($conn, $program_id, $title, $content, $question) {
     $chapter_order = $max_order ? $max_order + 1 : 1;
     $stmt->close();
 
-    // Insert chapter
-    $stmt = $conn->prepare("INSERT INTO program_chapters (program_id, title, content, question, chapter_order)
+    // Insert chapter - USING CORRECT COLUMN NAMES FROM DATABASE SCHEMA
+    $stmt = $conn->prepare("INSERT INTO programchapters (programid, title, content, question, chapterorder)
                         VALUES (?, ?, ?, ?, ?)");
     if (!$stmt) {
         error_log("addChapter insert prepare failed: " . $conn->error);
@@ -168,7 +168,7 @@ function addChapter($conn, $program_id, $title, $content, $question) {
 }
 
 /**
- * Update a Chapter
+ * Update a Chapter - CORRECTED WITH PROPER COLUMN NAME
  * @param object $conn Database connection
  * @param int $chapter_id Chapter ID
  * @param string $title Chapter title
@@ -177,8 +177,8 @@ function addChapter($conn, $program_id, $title, $content, $question) {
  * @return bool True on success, false on failure
  */
 function updateChapter($conn, $chapter_id, $title, $content, $question) {
-    $stmt = $conn->prepare("UPDATE program_chapters SET title = ?, content = ?, question = ?
-                        WHERE chapter_id = ?");
+    $stmt = $conn->prepare("UPDATE programchapters SET title = ?, content = ?, question = ?
+                        WHERE chapterid = ?");
     if (!$stmt) {
         error_log("updateChapter prepare failed: " . $conn->error);
         return false;
@@ -199,7 +199,7 @@ function updateChapter($conn, $chapter_id, $title, $content, $question) {
 }
 
 /**
- * Delete a Chapter and all its related stories and interactive sections
+ * Delete a Chapter and all its related stories and interactive sections - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $chapter_id Chapter ID
  * @return bool True on success, false on failure
@@ -209,32 +209,32 @@ function deleteChapter($conn, $chapter_id) {
     $conn->begin_transaction();
     
     try {
-        // First, get all stories in this chapter
+        // First, get all stories in this chapter using correct table and column names
         $stories = getChapterStories($conn, $chapter_id);
         
         // Delete all interactive sections for each story
         foreach ($stories as $story) {
-            deleteStoryInteractiveSections($conn, $story['story_id']);
+            deleteStoryInteractiveSections($conn, $story['storyid']); // Use correct column name
         }
         
-        // Delete all stories in this chapter
-        $stmt1 = $conn->prepare("DELETE FROM chapter_stories WHERE chapter_id = ?");
+        // Delete all stories in this chapter - using correct table name
+        $stmt1 = $conn->prepare("DELETE FROM chapterstories WHERE chapterid = ?");
         if ($stmt1) {
             $stmt1->bind_param("i", $chapter_id);
             $stmt1->execute();
             $stmt1->close();
         }
         
-        // Delete all quizzes in this chapter
-        $stmt2 = $conn->prepare("DELETE FROM chapter_quizzes WHERE chapter_id = ?");
+        // Delete all quizzes in this chapter - using correct table name  
+        $stmt2 = $conn->prepare("DELETE FROM chapterquizzes WHERE chapterid = ?");
         if ($stmt2) {
             $stmt2->bind_param("i", $chapter_id);
             $stmt2->execute();
             $stmt2->close();
         }
         
-        // Finally, delete the chapter itself
-        $stmt = $conn->prepare("DELETE FROM program_chapters WHERE chapter_id = ?");
+        // Finally, delete the chapter itself - using correct table and column names
+        $stmt = $conn->prepare("DELETE FROM programchapters WHERE chapterid = ?");
         if (!$stmt) {
             throw new Exception("deleteChapter prepare failed: " . $conn->error);
         }
@@ -259,45 +259,44 @@ function deleteChapter($conn, $chapter_id) {
 }
 
 /**
- * Delete all interactive sections for a story
+ * Delete all interactive sections for a story - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $story_id Story ID
  * @return bool True on success, false on failure
  */
-/*
 function deleteStoryInteractiveSections($conn, $story_id) {
-    // Get all sections for this story
+    // Get all sections for this story using correct table name
     $sections = getStoryInteractiveSections($conn, $story_id);
     
     foreach ($sections as $section) {
-        // Delete all questions in this section
-        $stmt1 = $conn->prepare("DELETE FROM interactive_questions WHERE section_id = ?");
+        // Delete all questions in this section using correct table name
+        $stmt1 = $conn->prepare("DELETE FROM interactivequestions WHERE sectionid = ?");
         if ($stmt1) {
-            $stmt1->bind_param("i", $section['section_id']);
+            $stmt1->bind_param("i", $section['sectionid']); // Use correct column name
             $stmt1->execute();
             $stmt1->close();
         }
         
-        // Delete the section
-        $stmt2 = $conn->prepare("DELETE FROM story_interactive_sections WHERE section_id = ?");
+        // Delete the section using correct table name
+        $stmt2 = $conn->prepare("DELETE FROM storyinteractivesections WHERE sectionid = ?");
         if ($stmt2) {
-            $stmt2->bind_param("i", $section['section_id']);
+            $stmt2->bind_param("i", $section['sectionid']); // Use correct column name
             $stmt2->execute();
             $stmt2->close();
         }
     }
     
     return true;
-} */
+}
 
 /**
- * Get Chapters for a Program
+ * Get Chapters for a Program - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $program_id Program ID
  * @return array Array of chapters
  */
 function getChapters($conn, $program_id) {
-    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE program_id = ? ORDER BY chapter_order");
+    $stmt = $conn->prepare("SELECT * FROM programchapters WHERE programid = ? ORDER BY chapterorder");
     if (!$stmt) {
         error_log("getChapters prepare failed: " . $conn->error);
         return [];
@@ -312,19 +311,19 @@ function getChapters($conn, $program_id) {
 }
 
 /**
- * Get stories for a specific chapter using chapter_stories table
+ * Get stories for a specific chapter using chapter_stories table - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $chapter_id Chapter ID
  * @return array Array of stories
  */
 function getChapterStories($conn, $chapter_id) {
-    // Check if chapter_stories table exists
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapter_stories'");
+    // Check if chapterstories table exists (correct table name without underscore)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapterstories'");
     if ($tableCheck->num_rows == 0) {
         return []; // Return empty array if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM chapter_stories WHERE chapter_id = ? ORDER BY story_order ASC");
+    $stmt = $conn->prepare("SELECT * FROM chapterstories WHERE chapterid = ? ORDER BY storyorder ASC");
     if (!$stmt) {
         error_log("getChapterStories prepare failed: " . $conn->error);
         return [];
@@ -340,19 +339,19 @@ function getChapterStories($conn, $chapter_id) {
 }
 
 /**
- * Get quiz for a specific chapter
+ * Get quiz for a specific chapter - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $chapter_id Chapter ID
  * @return array|null Quiz data or null if not found
  */
 function getChapterQuiz($conn, $chapter_id) {
-    // Check if chapter_quizzes table exists
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapter_quizzes'");
+    // Check if chapterquizzes table exists (correct table name without underscore)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapterquizzes'");
     if ($tableCheck->num_rows == 0) {
         return null; // Return null if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM chapter_quizzes WHERE chapter_id = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT * FROM chapterquizzes WHERE chapterid = ? LIMIT 1");
     if (!$stmt) {
         error_log("getChapterQuiz prepare failed: " . $conn->error);
         return null;
@@ -368,19 +367,19 @@ function getChapterQuiz($conn, $chapter_id) {
 }
 
 /**
- * Get interactive sections for a specific story
+ * Get interactive sections for a specific story - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $story_id Story ID
  * @return array Array of interactive sections
  */
 function getStoryInteractiveSections($conn, $story_id) {
-    // Check if story_interactive_sections table exists (updated table name from database)
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'story_interactive_sections'");
+    // Check if storyinteractivesections table exists (correct table name without underscore)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'storyinteractivesections'");
     if ($tableCheck->num_rows == 0) {
         return []; // Return empty array if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM story_interactive_sections WHERE story_id = ? ORDER BY section_order ASC");
+    $stmt = $conn->prepare("SELECT * FROM storyinteractivesections WHERE storyid = ? ORDER BY sectionorder ASC");
     if (!$stmt) {
         error_log("getStoryInteractiveSections prepare failed: " . $conn->error);
         return [];
@@ -396,19 +395,19 @@ function getStoryInteractiveSections($conn, $story_id) {
 }
 
 /**
- * Get questions for a specific quiz
+ * Get questions for a specific quiz - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $quiz_id Quiz ID
  * @return array Array of quiz questions
  */
 function getQuizQuestions($conn, $quiz_id) {
-    // Check if quiz_questions table exists
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'quiz_questions'");
+    // Check if quizquestions table exists (correct table name without underscore)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'quizquestions'");
     if ($tableCheck->num_rows == 0) {
         return []; // Return empty array if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM quiz_questions WHERE quiz_id = ? ORDER BY question_order ASC");
+    $stmt = $conn->prepare("SELECT * FROM quizquestions WHERE quizid = ? ORDER BY questionorder ASC");
     if (!$stmt) {
         error_log("getQuizQuestions prepare failed: " . $conn->error);
         return [];
@@ -434,19 +433,19 @@ function getProgramChapters($conn, $program_id) {
 }
 
 /**
- * Get questions for a specific interactive section
+ * Get questions for a specific interactive section - CORRECTED SCHEMA
  * @param object $conn Database connection
- * @param int $section_id Section ID (updated from interaction_id)
+ * @param int $section_id Section ID
  * @return array Array of section questions
  */
 function getSectionQuestions($conn, $section_id) {
-    // Check if interactive_questions table exists (updated table name from database)
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'interactive_questions'");
+    // Check if interactivequestions table exists (correct table name without underscore)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'interactivequestions'");
     if ($tableCheck->num_rows == 0) {
         return []; // Return empty array if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM interactive_questions WHERE section_id = ? ORDER BY question_order ASC");
+    $stmt = $conn->prepare("SELECT * FROM interactivequestions WHERE sectionid = ? ORDER BY questionorder ASC");
     if (!$stmt) {
         error_log("getSectionQuestions prepare failed: " . $conn->error);
         return [];
@@ -462,19 +461,19 @@ function getSectionQuestions($conn, $section_id) {
 }
 
 /**
- * Get options for a specific question
+ * Get options for a specific question - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $question_id Question ID
  * @return array Array of question options
  */
 function getQuestionOptions($conn, $question_id) {
-    // Check if question_options table exists
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'question_options'");
+    // Check if questionoptions table exists (correct table name without underscore)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'questionoptions'");
     if ($tableCheck->num_rows == 0) {
         return []; // Return empty array if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM question_options WHERE question_id = ? ORDER BY option_order ASC");
+    $stmt = $conn->prepare("SELECT * FROM questionoptions WHERE questionid = ? ORDER BY optionorder ASC");
     if (!$stmt) {
         error_log("getQuestionOptions prepare failed: " . $conn->error);
         return [];
@@ -490,13 +489,13 @@ function getQuestionOptions($conn, $question_id) {
 }
 
 /**
- * Get a specific chapter by ID
+ * Get a specific chapter by ID - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $chapter_id Chapter ID
  * @return array|null Chapter data or null if not found
  */
 function getChapter($conn, $chapter_id) {
-    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE chapter_id = ?");
+    $stmt = $conn->prepare("SELECT * FROM programchapters WHERE chapterid = ?");
     if (!$stmt) {
         error_log("getChapter prepare failed: " . $conn->error);
         return null;
@@ -512,19 +511,19 @@ function getChapter($conn, $chapter_id) {
 }
 
 /**
- * Get a specific story by ID from chapter_stories table
+ * Get a specific story by ID from chapterstories table - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $story_id Story ID
  * @return array|null Story data or null if not found
  */
 function getStory($conn, $story_id) {
-    // Check if chapter_stories table exists
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapter_stories'");
+    // Check if chapterstories table exists (correct table name without underscore)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'chapterstories'");
     if ($tableCheck->num_rows == 0) {
         return null; // Return null if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM chapter_stories WHERE story_id = ?");
+    $stmt = $conn->prepare("SELECT * FROM chapterstories WHERE storyid = ?");
     if (!$stmt) {
         error_log("getStory prepare failed: " . $conn->error);
         return null;
@@ -613,7 +612,7 @@ function validateYouTubeUrl($url) {
  * @return string|false Video ID on success, false on failure
  */
 function getYouTubeVideoId($url) {
-    $pattern = '/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/ | .*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i';
+    $pattern = '/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i';
     if (preg_match($pattern, $url, $matches)) {
         return $matches[1];
     }
@@ -644,14 +643,14 @@ function verifyProgramOwnership($conn, $program_id, $teacher_id) {
 }
 
 /**
- * Create a new program with support for new fields
+ * Create a new program with support for new fields - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param array $data Program data
  * @return int|false Program ID on success, false on failure
  */
-/*
 function createProgram($conn, $data) {
-    $sql = "INSERT INTO programs (teacherID, title, description, difficulty_label, category, price, thumbnail, status, overview_video_url, dateCreated, dateUpdated) 
+    // Using correct column names from database schema
+    $sql = "INSERT INTO programs (teacherID, title, description, difficultylabel, category, price, thumbnail, status, overviewvideourl, dateCreated, dateUpdated) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
     
     $stmt = $conn->prepare($sql);
@@ -660,7 +659,7 @@ function createProgram($conn, $data) {
         return false;
     }
     
-    $stmt->bind_param("issssdss", 
+    $stmt->bind_param("issssdsss", 
         $data['teacherID'],
         $data['title'],
         $data['description'],
@@ -681,18 +680,18 @@ function createProgram($conn, $data) {
     error_log("createProgram execute failed: " . $stmt->error);
     $stmt->close();
     return false;
-} */
+}
 
 /**
- * Update an existing program with support for new fields
+ * Update an existing program with support for new fields - CORRECTED SCHEMA
  * @param object $conn Database connection
  * @param int $program_id Program ID
  * @param array $data Program data
  * @return bool True on success, false on failure
  */
-/*
 function updateProgram($conn, $program_id, $data) {
-    $sql = "UPDATE programs SET title = ?, description = ?, difficulty_label = ?, category = ?, price = ?, status = ?, overview_video_url = ?, dateUpdated = NOW()
+    // Using correct column names from database schema
+    $sql = "UPDATE programs SET title = ?, description = ?, difficultylabel = ?, category = ?, price = ?, status = ?, overviewvideourl = ?, dateUpdated = NOW()
             WHERE programID = ? AND teacherID = ?";
     
     $stmt = $conn->prepare($sql);
@@ -701,7 +700,7 @@ function updateProgram($conn, $program_id, $data) {
         return false;
     }
     
-    $stmt->bind_param("ssssdsii", 
+    $stmt->bind_param("ssssdsiii", 
         $data['title'],
         $data['description'],
         $data['difficulty_label'],
@@ -714,7 +713,7 @@ function updateProgram($conn, $program_id, $data) {
     );
     
     if ($stmt->execute()) {
-        $success = $stmt->affected_rows > 0 || $stmt->affected_rows === 0; // Include 0 for no changes made
+        $success = $stmt->affected_rows >= 0; // Include 0 for no changes made
         $stmt->close();
         return $success;
     }
@@ -722,7 +721,7 @@ function updateProgram($conn, $program_id, $data) {
     error_log("updateProgram execute failed: " . $stmt->error);
     $stmt->close();
     return false;
-} */
+}
 
 // Legacy function aliases for backward compatibility
 if (!function_exists('getChapterStories_wrapper')) {
