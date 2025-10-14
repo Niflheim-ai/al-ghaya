@@ -239,254 +239,6 @@
         }
     }
 
-    // Enhanced Teacher ID retrieval with auto-creation
-    function getTeacherIdFromSession($conn, $user_id) {
-        // First, try to get existing teacher ID
-        $stmt = $conn->prepare("SELECT teacherID FROM teacher WHERE userID = ? AND isActive = 1");
-        if (!$stmt) {
-            error_log("getTeacherIdFromSession prepare failed: " . $conn->error);
-            return null;
-        }
-        
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            $row = $result->fetch_assoc();
-            $stmt->close();
-            return (int)$row['teacherID'];
-        }
-        
-        $stmt->close();
-        
-        // If teacher record doesn't exist, create one automatically
-        $userStmt = $conn->prepare("SELECT email, fname, lname FROM user WHERE userID = ? AND role = 'teacher' AND isActive = 1");
-        if (!$userStmt) {
-            error_log("getTeacherIdFromSession user query prepare failed: " . $conn->error);
-            return null;
-        }
-        
-        $userStmt->bind_param("i", $user_id);
-        $userStmt->execute();
-        $userResult = $userStmt->get_result();
-        
-        if ($userResult->num_rows > 0) {
-            $user = $userResult->fetch_assoc();
-            $userStmt->close();
-            
-            // Create teacher record
-            $insertStmt = $conn->prepare("INSERT INTO teacher (userID, email, username, fname, lname, dateCreated, isActive) VALUES (?, ?, ?, ?, ?, NOW(), 1)");
-            if (!$insertStmt) {
-                error_log("getTeacherIdFromSession insert prepare failed: " . $conn->error);
-                return null;
-            }
-            
-            $username = $user['email']; // Use email as username
-            $insertStmt->bind_param("issss", $user_id, $user['email'], $username, $user['fname'], $user['lname']);
-            
-            if ($insertStmt->execute()) {
-                $teacher_id = $insertStmt->insert_id;
-                $insertStmt->close();
-                return $teacher_id;
-            }
-            
-            $insertStmt->close();
-        }
-        
-        $userStmt->close();
-        return null;
-    }
-
-    // Get all programs for a teacher
-    function getTeacherPrograms($conn, $teacher_id, $sortBy = 'dateCreated') {
-        // Validate $sortBy to prevent SQL injection
-        $allowedSorts = ['dateCreated', 'dateUpdated', 'title', 'price'];
-        if (!in_array($sortBy, $allowedSorts)) {
-            $sortBy = 'dateCreated'; // Default
-        }
-
-        $stmt = $conn->prepare("SELECT * FROM programs WHERE teacherID = ? ORDER BY $sortBy DESC");
-        if (!$stmt) {
-            error_log("getTeacherPrograms prepare failed: " . $conn->error);
-            return [];
-        }
-        
-        $stmt->bind_param("i", $teacher_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $programs = $result->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        return $programs;
-    }
-
-    // Create Program with Initial Chapter
-    function createProgramWithChapter($conn, $teacher_id, $title, $description, $category, $video_link, $price, $image, $status = 'draft') {
-        // Start transaction
-        $conn->begin_transaction();
-
-        try {
-            // Create program
-            $stmt = $conn->prepare("INSERT INTO programs (teacherID, title, description, category, video_link, price, image, dateCreated, status)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)");
-            $stmt->bind_param("issssdss", $teacher_id, $title, $description, $category, $video_link, $price, $image, $status);
-            $stmt->execute();
-            $program_id = $stmt->insert_id;
-            $stmt->close();
-
-            // Create initial chapter
-            $stmt = $conn->prepare("INSERT INTO program_chapters (program_id, title, content, question, chapter_order)
-                                VALUES (?, 'Introduction', '', '', 1)");
-            $stmt->bind_param("i", $program_id);
-            $stmt->execute();
-            $stmt->close();
-
-            // Commit transaction
-            $conn->commit();
-            return $program_id;
-        } catch (Exception $e) {
-            // Rollback transaction on error
-            $conn->rollback();
-            error_log("createProgramWithChapter failed: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    // Get a Program by ID
-    function getProgram($conn, $program_id, $teacher_id) {
-        $stmt = $conn->prepare("SELECT * FROM programs WHERE programID = ? AND teacherID = ?");
-        if (!$stmt) {
-            error_log("getProgram prepare failed: " . $conn->error);
-            return null;
-        }
-        
-        $stmt->bind_param("ii", $program_id, $teacher_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $program = $result->fetch_assoc();
-        $stmt->close();
-        return $program;
-    }
-
-    // Add a Chapter to a Program
-    function addChapter($conn, $program_id, $title, $content, $question) {
-        // Get next chapter order
-        $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE program_id = ?");
-        if (!$stmt) {
-            error_log("addChapter order query prepare failed: " . $conn->error);
-            return false;
-        }
-        
-        $stmt->bind_param("i", $program_id);
-        $stmt->execute();
-        $max_order = $stmt->get_result()->fetch_array()[0];
-        $chapter_order = $max_order ? $max_order + 1 : 1;
-        $stmt->close();
-
-        // Insert chapter
-        $stmt = $conn->prepare("INSERT INTO program_chapters (program_id, title, content, question, chapter_order)
-                            VALUES (?, ?, ?, ?, ?)");
-        if (!$stmt) {
-            error_log("addChapter insert prepare failed: " . $conn->error);
-            return false;
-        }
-        
-        $stmt->bind_param("isssi", $program_id, $title, $content, $question, $chapter_order);
-
-        if ($stmt->execute()) {
-            $chapter_id = $stmt->insert_id;
-            $stmt->close();
-            return $chapter_id;
-        } else {
-            $error = $stmt->error;
-            $stmt->close();
-            error_log("addChapter execute failed: " . $error);
-            return false;
-        }
-    }
-
-    // Update a Chapter
-    function updateChapter($conn, $chapter_id, $title, $content, $question) {
-        $stmt = $conn->prepare("UPDATE program_chapters SET title = ?, content = ?, question = ?
-                            WHERE chapter_id = ?");
-        if (!$stmt) {
-            error_log("updateChapter prepare failed: " . $conn->error);
-            return false;
-        }
-        
-        $stmt->bind_param("sssi", $title, $content, $question, $chapter_id);
-
-        if ($stmt->execute()) {
-            $affected = $stmt->affected_rows;
-            $stmt->close();
-            return $affected > 0;
-        } else {
-            $error = $stmt->error;
-            $stmt->close();
-            error_log("updateChapter execute failed: " . $error);
-            return false;
-        }
-    }
-
-    // Delete a Chapter
-    function deleteChapter($conn, $chapter_id) {
-        $stmt = $conn->prepare("DELETE FROM program_chapters WHERE chapter_id = ?");
-        if (!$stmt) {
-            error_log("deleteChapter prepare failed: " . $conn->error);
-            return false;
-        }
-        
-        $stmt->bind_param("i", $chapter_id);
-
-        if ($stmt->execute()) {
-            $affected = $stmt->affected_rows;
-            $stmt->close();
-            return $affected > 0;
-        } else {
-            $error = $stmt->error;
-            $stmt->close();
-            error_log("deleteChapter execute failed: " . $error);
-            return false;
-        }
-    }
-
-    // Get Chapter for a Program
-    function getChapters($conn, $program_id) {
-        $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE program_id = ? ORDER BY chapter_order");
-        if (!$stmt) {
-            error_log("getChapters prepare failed: " . $conn->error);
-            return [];
-        }
-        
-        $stmt->bind_param("i", $program_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $chapters = $result->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        return $chapters;
-    }
-
-    // Upload a file
-    function uploadFile($file, $upload_dir, $allowed_types = ['jpg', 'jpeg', 'png']) {
-        if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-
-        $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        if (!in_array($file_ext, $allowed_types)) {
-            return false;
-        }
-
-        $filename = uniqid() . '.' . $file_ext;
-        $destination = $upload_dir . $filename;
-
-        if (move_uploaded_file($file['tmp_name'], $destination)) {
-            return $filename;
-        }
-
-        return false;
-    }
-
     function getStudentPrograms($conn, $student_id) {
         $sql = "SELECT p.programID, p.title, p.description, p.price, p.category, p.image, p.dateCreated
                 FROM programs p
@@ -623,5 +375,26 @@
         $stmt->execute();
         $result = $stmt->get_result();
         return $result->fetch_all(MYSQLI_ASSOC);
+    }
+
+    // Upload a file
+    function uploadFile($file, $upload_dir, $allowed_types = ['jpg', 'jpeg', 'png']) {
+        if (!file_exists($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
+
+        $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($file_ext, $allowed_types)) {
+            return false;
+        }
+
+        $filename = uniqid() . '.' . $file_ext;
+        $destination = $upload_dir . $filename;
+
+        if (move_uploaded_file($file['tmp_name'], $destination)) {
+            return $filename;
+        }
+
+        return false;
     }
 ?>
