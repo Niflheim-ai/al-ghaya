@@ -35,12 +35,11 @@ $publishedPrograms = count(array_filter($programs, function($p) { return $p['sta
 $draftPrograms = count(array_filter($programs, function($p) { return $p['status'] === 'draft'; }));
 $totalRevenue = array_sum(array_column($programs, 'price'));
 
-// Fetch enrollees count for each program
 $programsWithEnrollees = [];
-$totalEnrollees = 0;
+    $totalEnrollees = 0;
 foreach ($programs as $program) {
     $program_id = $program['programID'];
-    $stmt = $conn->prepare("SELECT COUNT(*) as enrollees FROM student_program WHERE programID = ?");
+    $stmt = $conn->prepare("SELECT COUNT(*) as enrollees FROM student_program_enrollments WHERE program_id = ?");
     $stmt->bind_param("i", $program_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -52,18 +51,17 @@ foreach ($programs as $program) {
     $programsWithEnrollees[] = $program;
 }
 
-// Get students data with filters
+// --- Get students data with filters (This part was already correct) ---
 $programFilter = $_GET['program'] ?? 'all';
 $search = $_GET['search'] ?? '';
 $order = $_GET['order'] ?? 'asc';
 
 // Build SQL query for students
-$sql = "SELECT DISTINCT s.studentID, u.fname, u.lname, u.email, sp.programID, p.title as programTitle, sp.enrollmentDate
-        FROM user u
-        JOIN student s ON u.userID = s.userID
-        JOIN student_program sp ON s.studentID = sp.studentID
-        JOIN programs p ON sp.programID = p.programID
-        WHERE p.teacherID = ?";
+$sql = "SELECT DISTINCT u.userID, u.fname, u.lname, u.email, spe.program_id AS programID, p.title AS programTitle, spe.enrollment_date AS enrollmentDate
+    FROM user u
+    JOIN student_program_enrollments spe ON u.userID = spe.student_id
+    JOIN programs p ON spe.program_id = p.programID
+    WHERE u.role = 'student' AND p.teacherID = ?";
 
 $params = [$teacher_id];
 $types = "i";
@@ -77,10 +75,7 @@ if ($programFilter !== 'all' && !empty($programFilter)) {
 if (!empty($search)) {
     $sql .= " AND (u.fname LIKE ? OR u.lname LIKE ? OR u.email LIKE ? OR p.title LIKE ?)";
     $searchParam = "%$search%";
-    $params[] = $searchParam;
-    $params[] = $searchParam;
-    $params[] = $searchParam;
-    $params[] = $searchParam;
+    array_push($params, $searchParam, $searchParam, $searchParam, $searchParam);
     $types .= "ssss";
 }
 
@@ -95,18 +90,19 @@ if ($stmt) {
     $stmt->close();
 } else {
     $students = [];
-    error_log("Analytics query failed: " . $conn->error);
+    error_log("Analytics student query failed: " . $conn->error);
 }
 
-// Get recent activity (last 7 days)
+// --- CORRECTED: Get recent activity (last 7 days) ---
+// The query now uses the correct table 'student_program_enrollments' and its columns.
 $recentEnrollments = [];
 $activityStmt = $conn->prepare(
-    "SELECT p.title, COUNT(*) as count, DATE(sp.enrollmentDate) as date
-     FROM student_program sp
-     JOIN programs p ON sp.programID = p.programID 
-     WHERE p.teacherID = ? AND sp.enrollmentDate >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-     GROUP BY p.programID, DATE(sp.enrollmentDate)
-     ORDER BY sp.enrollmentDate DESC"
+    "SELECT p.title, COUNT(*) as count, DATE(spe.enrollment_date) as date
+     FROM student_program_enrollments spe
+     JOIN programs p ON spe.program_id = p.programID 
+     WHERE p.teacherID = ? AND spe.enrollment_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+     GROUP BY p.programID, DATE(spe.enrollment_date)
+     ORDER BY spe.enrollment_date DESC"
 );
 
 if ($activityStmt) {
@@ -115,6 +111,8 @@ if ($activityStmt) {
     $activityResult = $activityStmt->get_result();
     $recentEnrollments = $activityResult->fetch_all(MYSQLI_ASSOC);
     $activityStmt->close();
+} else {
+    error_log("Recent activity query failed: " . $conn->error);
 }
 ?>
 
@@ -144,7 +142,7 @@ if ($activityStmt) {
             </div>
 
             <!-- Analytics Overview Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
                 <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
                     <div class="flex items-center justify-between">
                         <div>
@@ -187,7 +185,7 @@ if ($activityStmt) {
             </div>
 
             <!-- Program Performance Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-2">
                 <?php foreach ($programsWithEnrollees as $program): ?>
                     <div class="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
                         <div class="flex justify-between items-start mb-4">
@@ -228,6 +226,7 @@ if ($activityStmt) {
             </div>
 
             <!-- Main Content Grid -->
+            <p class="text-neutral-500">*Only students enrolled in your programs will be displayed</p>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Students Table -->
                 <div class="lg:col-span-2 bg-white rounded-xl shadow-md p-6">
