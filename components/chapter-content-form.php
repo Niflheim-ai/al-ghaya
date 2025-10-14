@@ -15,30 +15,56 @@
     <div class="bg-white rounded-xl shadow-lg p-8">
         <!-- Chapter Header -->
         <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-2"><?= htmlspecialchars($chapter['title'] ?? '') ?></h2>
-            <div class="flex items-center gap-4 text-sm text-gray-600">
-                <span>Story Left: <span id="storyCount"><?= count(getChapterStories($conn, $chapter_id)) ?></span></span>
-                <span>Quiz Left: <span id="quizCount"><?= getChapterQuiz($conn, $chapter_id) ? '1' : '0' ?></span></span>
+            <h2 class="text-xl font-semibold mb-4"><?= htmlspecialchars($chapter['title'] ?? '') ?></h2>
+            <?php 
+            $stories = getChapterStories($conn, $chapter_id);
+            $quiz = getChapterQuiz($conn, $chapter_id);
+            $storyCount = count($stories);
+            $quizCount = $quiz ? 1 : 0;
+            ?>
+            <div class="grid grid-cols-2 gap-4 max-w-md">
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-600">Story Left:</p>
+                    <p class="text-2xl font-bold text-blue-600" id="storyCount"><?= $storyCount ?></p>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-600">Quiz Left:</p>
+                    <p class="text-2xl font-bold text-green-600" id="quizCount"><?= $quizCount ?></p>
+                </div>
             </div>
         </div>
 
         <!-- Action Buttons -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <button onclick="addStory()" 
-                    class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors group">
+            <button onclick="addStory()" id="addStoryBtn"
+                    class="<?= $storyCount >= 3 ? 'opacity-50 cursor-not-allowed' : '' ?> p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors group">
                 <div class="text-center">
                     <i class="ph ph-plus-square text-3xl text-gray-400 group-hover:text-blue-500 mb-3"></i>
                     <h3 class="font-medium text-gray-900 group-hover:text-blue-600">Add Story</h3>
-                    <p class="text-sm text-gray-500">Create a new story for this chapter</p>
+                    <p class="text-sm text-gray-500">
+                        <?php if ($storyCount >= 3): ?>
+                            Maximum stories reached (3/3)
+                        <?php elseif ($storyCount == 0): ?>
+                            Create your first story (min 1 required)
+                        <?php else: ?>
+                            Add story (<?= $storyCount ?>/3 created)
+                        <?php endif; ?>
+                    </p>
                 </div>
             </button>
             
-            <button onclick="addQuiz()" 
-                    class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors group">
+            <button onclick="addQuiz()" id="addQuizBtn"
+                    class="<?= $quizCount >= 1 ? 'opacity-50 cursor-not-allowed' : '' ?> p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors group">
                 <div class="text-center">
                     <i class="ph ph-question text-3xl text-gray-400 group-hover:text-green-500 mb-3"></i>
                     <h3 class="font-medium text-gray-900 group-hover:text-green-600">Add Quiz</h3>
-                    <p class="text-sm text-gray-500">Create chapter quiz (1 per chapter)</p>
+                    <p class="text-sm text-gray-500">
+                        <?php if ($quizCount >= 1): ?>
+                            Quiz already exists (1/1)
+                        <?php else: ?>
+                            Create chapter quiz (0/1)
+                        <?php endif; ?>
+                    </p>
                 </div>
             </button>
         </div>
@@ -47,43 +73,70 @@
 
         <!-- Stories Section -->
         <div class="mb-8">
-            <h3 class="text-lg font-semibold mb-4">Stories</h3>
-            <?php 
-            $stories = getChapterStories($conn, $chapter_id);
-            if (empty($stories)): 
-            ?>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold">Stories</h3>
+                <span class="text-sm text-gray-500"><?= $storyCount ?> of 3 stories</span>
+            </div>
+            
+            <?php if (empty($stories)): ?>
                 <div class="text-center py-8 text-gray-500">
                     <i class="ph ph-book-open text-4xl mb-4"></i>
-                    <p>No stories yet. Add your first story!</p>
+                    <p>No stories yet. Each chapter needs at least 1 story!</p>
+                    <button onclick="addStory()" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                        Add Your First Story
+                    </button>
                 </div>
             <?php else: ?>
-                <div class="space-y-4">
-                    <?php foreach ($stories as $story): ?>
-                        <div class="story-item bg-gray-50 rounded-lg p-4 border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <i class="ph ph-book-open text-xl text-blue-600"></i>
-                                    <div>
-                                        <h4 class="font-medium"><?= htmlspecialchars($story['title']) ?></h4>
-                                        <p class="text-sm text-gray-500">Story <?= $story['story_order'] ?></p>
-                                        <?php if ($story['synopsis_english']): ?>
-                                            <p class="text-sm text-gray-600 mt-1"><?= htmlspecialchars(substr($story['synopsis_english'], 0, 100)) ?>...</p>
-                                        <?php endif; ?>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <?php foreach ($stories as $index => $story): ?>
+                        <?php 
+                        $interactiveSections = getStoryInteractiveSections($conn, $story['story_id']);
+                        $sectionCount = count($interactiveSections);
+                        ?>
+                        <div class="story-card bg-white rounded-lg p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="ph ph-book-open text-xl text-blue-600"></i>
+                                        <span class="text-sm font-medium text-blue-600">Story <?= $story['story_order'] ?></span>
+                                    </div>
+                                    <h4 class="font-semibold text-gray-900 mb-2"><?= htmlspecialchars($story['title']) ?></h4>
+                                    <?php if ($story['synopsis_english']): ?>
+                                        <p class="text-sm text-gray-600 mb-3 line-clamp-2"><?= htmlspecialchars(substr($story['synopsis_english'], 0, 100)) ?>...</p>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="relative">
+                                    <button onclick="toggleStoryMenu(<?= $story['story_id'] ?>)" class="text-gray-400 hover:text-gray-600 p-1">
+                                        <i class="ph ph-dots-three-vertical"></i>
+                                    </button>
+                                    <div id="menu-<?= $story['story_id'] ?>" class="hidden absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 w-36">
+                                        <button onclick="editStory(<?= $story['story_id'] ?>)" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                            <i class="ph ph-pencil-simple mr-2"></i>Edit
+                                        </button>
+                                        <button onclick="deleteStory(<?= $story['story_id'] ?>)" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                            <i class="ph ph-trash mr-2"></i>Delete
+                                        </button>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                        <?= count(getStoryInteractiveSections($conn, $story['story_id'])) ?> Interactive Sections
-                                    </span>
-                                    <button onclick="editStory(<?= $story['story_id'] ?>)" 
-                                            class="text-blue-500 hover:text-blue-700 p-2 rounded hover:bg-blue-50">
-                                        <i class="ph ph-pencil-simple"></i>
-                                    </button>
-                                    <button onclick="deleteStory(<?= $story['story_id'] ?>)" 
-                                            class="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50">
-                                        <i class="ph ph-trash"></i>
-                                    </button>
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4 text-sm">
+                                    <div class="flex items-center gap-1">
+                                        <i class="ph ph-chat-circle-dots text-purple-600"></i>
+                                        <span class="text-gray-600"><?= $sectionCount ?> Interactive</span>
+                                    </div>
+                                    <?php if ($story['video_url']): ?>
+                                        <div class="flex items-center gap-1">
+                                            <i class="ph ph-play-circle text-red-600"></i>
+                                            <span class="text-gray-600">Video</span>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
+                                <button onclick="editStory(<?= $story['story_id'] ?>)" 
+                                        class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    Edit Content
+                                </button>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -93,33 +146,37 @@
 
         <!-- Quiz Section -->
         <div>
-            <h3 class="text-lg font-semibold mb-4">Chapter Quiz</h3>
-            <?php 
-            $quiz = getChapterQuiz($conn, $chapter_id);
-            if (!$quiz): 
-            ?>
-                <div class="text-center py-8 text-gray-500">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold">Chapter Quiz</h3>
+                <span class="text-sm text-gray-500"><?= $quizCount ?> of 1 quiz</span>
+            </div>
+            
+            <?php if (!$quiz): ?>
+                <div class="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
                     <i class="ph ph-question text-4xl mb-4"></i>
                     <p>No quiz yet. Each chapter must have exactly one quiz!</p>
+                    <button onclick="addQuiz()" class="mt-4 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors">
+                        Create Chapter Quiz
+                    </button>
                 </div>
             <?php else: ?>
                 <?php $quizQuestions = getQuizQuestions($conn, $quiz['quiz_id']); ?>
-                <div class="quiz-item bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div class="quiz-card bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <i class="ph ph-question text-xl text-green-600"></i>
+                            <i class="ph ph-question text-2xl text-green-600"></i>
                             <div>
-                                <h4 class="font-medium"><?= htmlspecialchars($quiz['title']) ?></h4>
-                                <p class="text-sm text-gray-500"><?= count($quizQuestions) ?> questions (max 30)</p>
+                                <h4 class="font-semibold text-gray-900"><?= htmlspecialchars($quiz['title']) ?></h4>
+                                <p class="text-sm text-gray-600"><?= count($quizQuestions) ?> questions • Multiple Choice</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                                Multiple Choice Only
+                                Quiz Ready
                             </span>
                             <button onclick="editQuiz(<?= $quiz['quiz_id'] ?>)" 
-                                    class="text-green-500 hover:text-green-700 p-2 rounded hover:bg-green-50">
-                                <i class="ph ph-pencil-simple"></i>
+                                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                                <i class="ph ph-pencil-simple mr-1"></i>Edit Quiz
                             </button>
                         </div>
                     </div>
@@ -130,35 +187,98 @@
         <!-- Navigation -->
         <div class="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
             <button onclick="goBackToProgram()" 
-                    class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-                <i class="ph ph-arrow-left mr-2"></i>Back to Program
+                    class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center gap-2">
+                <i class="ph ph-arrow-left"></i>Back to Program
             </button>
-            <div class="text-sm text-gray-500">
-                Chapter: <?= htmlspecialchars($chapter['title']) ?>
+            <div class="text-right">
+                <p class="text-sm text-gray-500">Chapter: <?= htmlspecialchars($chapter['title']) ?></p>
+                <?php if ($storyCount == 0): ?>
+                    <p class="text-sm text-red-600 font-medium">⚠ At least 1 story required</p>
+                <?php elseif ($storyCount < 3): ?>
+                    <p class="text-sm text-blue-600">✓ Add <?= 3 - $storyCount ?> more stories (optional)</p>
+                <?php else: ?>
+                    <p class="text-sm text-green-600">✓ Maximum stories added</p>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </section>
 
+<!-- Include SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 const programId = <?= $program_id ?>;
 const chapterId = <?= $chapter_id ?>;
+let currentStoryCount = <?= $storyCount ?>;
+let currentQuizCount = <?= $quizCount ?>;
 
 function goBackToProgram() {
     window.location.href = `teacher-programs.php?action=create&program_id=${programId}`;
 }
 
 function addStory() {
-    window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}`;
+    if (currentStoryCount >= 3) {
+        Swal.fire({
+            title: 'Maximum Stories Reached',
+            text: 'Each chapter can have a maximum of 3 stories.',
+            icon: 'warning',
+            confirmButtonColor: '#3b82f6'
+        });
+        return;
+    }
+    
+    Swal.fire({
+        title: 'Create New Story',
+        text: `You are creating story ${currentStoryCount + 1} of 3 for this chapter.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3b82f6',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Create Story',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}`;
+        }
+    });
 }
 
 function addQuiz() {
-    <?php if ($quiz): ?>
-        // Quiz already exists, go to edit
-        editQuiz(<?= $quiz['quiz_id'] ?>);
-    <?php else: ?>
-        window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`;
-    <?php endif; ?>
+    if (currentQuizCount >= 1) {
+        Swal.fire({
+            title: 'Quiz Already Exists',
+            text: 'Each chapter can have only one quiz. Would you like to edit the existing quiz?',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#3b82f6',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Edit Quiz',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                <?php if ($quiz): ?>
+                    editQuiz(<?= $quiz['quiz_id'] ?>);
+                <?php endif; ?>
+            }
+        });
+        return;
+    }
+    
+    Swal.fire({
+        title: 'Create Chapter Quiz',
+        text: 'A quiz helps assess student understanding of this chapter.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Create Quiz',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`;
+        }
+    });
 }
 
 function editStory(storyId) {
@@ -166,33 +286,160 @@ function editStory(storyId) {
 }
 
 function editQuiz(quizId) {
-    window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`;
+    window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}&quiz_id=${quizId}`;
+}
+
+function toggleStoryMenu(storyId) {
+    // Close all other menus
+    document.querySelectorAll('[id^="menu-"]').forEach(menu => {
+        if (menu.id !== `menu-${storyId}`) {
+            menu.classList.add('hidden');
+        }
+    });
+    
+    // Toggle current menu
+    const menu = document.getElementById(`menu-${storyId}`);
+    menu.classList.toggle('hidden');
 }
 
 function deleteStory(storyId) {
-    if (confirm('Are you sure you want to delete this story? This will also delete all interactive sections within the story.')) {
-        fetch('../../php/program-handler.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'delete_story',
-                story_id: storyId
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error deleting story: ' + data.message);
-            }
+    if (currentStoryCount <= 1) {
+        Swal.fire({
+            title: 'Cannot Delete',
+            text: 'Each chapter must have at least 1 story. Please add another story before deleting this one.',
+            icon: 'warning',
+            confirmButtonColor: '#3b82f6'
         });
+        return;
     }
+    
+    Swal.fire({
+        title: 'Delete Story?',
+        text: 'This will permanently delete the story and all its interactive sections.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete it',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading
+            Swal.fire({
+                title: 'Deleting Story...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            fetch('../../php/program-handler.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'delete_story',
+                    story_id: storyId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Deleted!',
+                        text: 'Story has been deleted successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#3b82f6'
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.message || 'Failed to delete story.',
+                        icon: 'error',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Network error. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#3b82f6'
+                });
+            });
+        }
+    });
 }
 
-// Update counts dynamically
-function updateCounts() {
-    // These would be updated via AJAX in a real implementation
-    // For now, we'll just reload the page to show updated counts
-}
+// Close menus when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.relative')) {
+        document.querySelectorAll('[id^="menu-"]').forEach(menu => {
+            menu.classList.add('hidden');
+        });
+    }
+});
+
+// Update button states based on counts
+document.addEventListener('DOMContentLoaded', function() {
+    const addStoryBtn = document.getElementById('addStoryBtn');
+    const addQuizBtn = document.getElementById('addQuizBtn');
+    
+    if (currentStoryCount >= 3) {
+        addStoryBtn.setAttribute('disabled', 'true');
+        addStoryBtn.onclick = function() {
+            Swal.fire({
+                title: 'Maximum Stories Reached',
+                text: 'Each chapter can have a maximum of 3 stories.',
+                icon: 'info',
+                confirmButtonColor: '#3b82f6'
+            });
+        };
+    }
+    
+    if (currentQuizCount >= 1) {
+        addQuizBtn.setAttribute('disabled', 'true');
+    }
+});
 </script>
+
+<style>
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.story-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.story-card:hover {
+    transform: translateY(-2px);
+}
+
+.quiz-card {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+    border-color: #10b981;
+}
+
+/* Button disabled states */
+button[disabled] {
+    pointer-events: none;
+}
+
+.story-card .relative {
+    position: relative;
+}
+
+.story-card .absolute {
+    position: absolute;
+    z-index: 20;
+}
+</style>
