@@ -3,18 +3,13 @@ session_start();
 $current_page = "teacher-programs";
 $page_title = "My Programs";
 
-// Debug mode - set to false in production
-$debug_mode = false;
+// Enable debugging - set to false in production
+$debug_mode = true;
 
 if ($debug_mode) {
     ini_set('display_errors', 1);
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
-    echo '<div style="background: #f0f0f0; padding: 10px; margin: 10px; border: 1px solid #ccc;">';
-    echo '<h4>Debug Info:</h4>';
-    echo '<p><strong>Session Data:</strong></p>';
-    echo '<pre>'; print_r($_SESSION); echo '</pre>';
-    echo '</div>';
 }
 
 // Check if user is logged in
@@ -31,10 +26,20 @@ if (($_SESSION['role'] ?? '') !== 'teacher') {
     exit();
 }
 
-// Include required files
-require '../../php/dbConnection.php';
-require '../../php/functions.php';
-require '../../php/program-helpers.php';
+// Include required files with proper error handling
+try {
+    require_once '../../php/dbConnection.php';
+    require_once '../../php/functions.php';
+    require_once '../../php/program-helpers.php';
+} catch (Exception $e) {
+    if ($debug_mode) {
+        die('Error including required files: ' . $e->getMessage());
+    } else {
+        $_SESSION['error_message'] = 'System error. Please contact administrator.';
+        header("Location: ../teacher-dashboard.php");
+        exit();
+    }
+}
 
 $user_id = (int)$_SESSION['userID'];
 $action = $_GET['action'] ?? 'list';
@@ -42,74 +47,148 @@ $program_id = $_GET['program_id'] ?? null;
 $chapter_id = $_GET['chapter_id'] ?? null;
 $story_id = $_GET['story_id'] ?? null;
 
-// Get teacher ID from session with better error handling
-$actual_teacher_id = getTeacherIdFromSession($conn, $user_id);
-
-if (!$actual_teacher_id) {
-    // More detailed error message
-    $error_details = '';
-    if ($debug_mode) {
-        $error_details = " (User ID: {$user_id}, Role: {$_SESSION['role']})";
-        
-        // Check if user exists in teacher table
-        $check_query = "SELECT * FROM teacher WHERE userID = ? AND isActive = 1";
-        $stmt = $conn->prepare($check_query);
-        $stmt->bind_param('i', $user_id);
-        $stmt->execute();
-        $teacher_check = $stmt->get_result()->fetch_assoc();
+// Enhanced teacher ID retrieval with auto-creation
+function getOrCreateTeacherId($conn, $user_id, $debug_mode = false) {
+    // First, try to get existing teacher ID
+    $stmt = $conn->prepare("SELECT teacherID FROM teacher WHERE userID = ? AND isActive = 1");
+    if (!$stmt) {
+        if ($debug_mode) {
+            echo "<div class='debug-error'>Prepare statement failed: " . $conn->error . "</div>";
+        }
+        return null;
+    }
+    
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
         $stmt->close();
+        return (int)$row['teacherID'];
+    }
+    
+    $stmt->close();
+    
+    if ($debug_mode) {
+        echo "<div class='debug-info'>No teacher record found for user ID: {$user_id}. Attempting to create...</div>";
+    }
+    
+    // If teacher record doesn't exist, create one
+    $userStmt = $conn->prepare("SELECT email, fname, lname FROM user WHERE userID = ? AND role = 'teacher' AND isActive = 1");
+    if (!$userStmt) {
+        if ($debug_mode) {
+            echo "<div class='debug-error'>User query prepare failed: " . $conn->error . "</div>";
+        }
+        return null;
+    }
+    
+    $userStmt->bind_param("i", $user_id);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    
+    if ($userResult->num_rows > 0) {
+        $user = $userResult->fetch_assoc();
+        $userStmt->close();
         
-        if ($teacher_check) {
-            $error_details .= " - Teacher record found but function failed";
+        if ($debug_mode) {
+            echo "<div class='debug-info'>Found user record: " . $user['email'] . ". Creating teacher record...</div>";
+        }
+        
+        // Create teacher record
+        $insertStmt = $conn->prepare("INSERT INTO teacher (userID, email, username, fname, lname, dateCreated, isActive) VALUES (?, ?, ?, ?, ?, NOW(), 1)");
+        if (!$insertStmt) {
+            if ($debug_mode) {
+                echo "<div class='debug-error'>Insert statement prepare failed: " . $conn->error . "</div>";
+            }
+            return null;
+        }
+        
+        $username = $user['email']; // Use email as username
+        $insertStmt->bind_param("issss", $user_id, $user['email'], $username, $user['fname'], $user['lname']);
+        
+        if ($insertStmt->execute()) {
+            $teacher_id = $insertStmt->insert_id;
+            $insertStmt->close();
+            
+            if ($debug_mode) {
+                echo "<div class='debug-success'>✅ Teacher record created successfully! Teacher ID: {$teacher_id}</div>";
+            }
+            
+            return $teacher_id;
         } else {
-            $error_details .= " - No teacher record found in database";
+            if ($debug_mode) {
+                echo "<div class='debug-error'>Insert execution failed: " . $insertStmt->error . "</div>";
+            }
+            $insertStmt->close();
+        }
+    } else {
+        if ($debug_mode) {
+            echo "<div class='debug-error'>No user found with ID: {$user_id} and role 'teacher'</div>";
         }
     }
     
-    $_SESSION['error_message'] = 'Teacher profile not found or inactive.' . $error_details;
-    
-    // In debug mode, don't redirect so user can see the error
+    $userStmt->close();
+    return null;
+}
+
+// Get teacher ID with better error handling
+$actual_teacher_id = getOrCreateTeacherId($conn, $user_id, $debug_mode);
+
+if (!$actual_teacher_id) {
+    $error_details = '';
     if ($debug_mode) {
+        $error_details = " (User ID: {$user_id}, Role: {$_SESSION['role']})";
         echo '<div style="background: #ffe6e6; padding: 20px; margin: 20px; border: 2px solid #ff0000; border-radius: 5px;">';
         echo '<h3>Authentication Error</h3>';
-        echo '<p><strong>Error:</strong> ' . $_SESSION['error_message'] . '</p>';
+        echo '<p><strong>Error:</strong> Teacher profile not found or could not be created.' . $error_details . '</p>';
         echo '<p><strong>Possible solutions:</strong></p>';
         echo '<ul>';
         echo '<li>Run the fix script: <a href="../../sql/fix-teacher-mapping.php">../../sql/fix-teacher-mapping.php</a></li>';
         echo '<li>Check if your user account has role = "teacher" in the user table</li>';
-        echo '<li>Verify there is a corresponding record in the teacher table</li>';
+        echo '<li>Verify database connection and table structure</li>';
         echo '</ul>';
         echo '<p><a href="../../sql/fix-teacher-mapping.php" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">→ Run Fix Script</a></p>';
         echo '</div>';
         exit();
     } else {
+        $_SESSION['error_message'] = 'Teacher profile not found or inactive.' . $error_details;
         header("Location: ../teacher-dashboard.php");
         exit();
     }
 }
 
 if ($debug_mode) {
-    echo '<div style="background: #e6ffe6; padding: 10px; margin: 10px; border: 1px solid #00aa00;">';
+    echo '<div style="background: #e6ffe6; padding: 10px; margin: 10px; border: 1px solid #00aa00; border-radius: 5px;">';
     echo "<p><strong>✅ Authentication successful!</strong></p>";
     echo "<p>User ID: {$user_id} | Teacher ID: {$actual_teacher_id} | Action: {$action}</p>";
     echo '</div>';
 }
 
-// Handle different actions
+// Handle different actions with enhanced error handling
 switch ($action) {
     case 'create':
         $pageContent = 'program_details';
         $program = null;
         
         if ($program_id) {
-            $program = getProgram($conn, $program_id, $actual_teacher_id);
-            
-            if (!$program && $debug_mode) {
-                echo '<div style="background: #fff3cd; padding: 10px; margin: 10px; border: 1px solid #ffc107;">';
-                echo "<p><strong>⚠️ Program not found or access denied</strong></p>";
-                echo "<p>Program ID: {$program_id} | Teacher ID: {$actual_teacher_id}</p>";
-                echo "<p>This could mean the program doesn't exist or doesn't belong to you.</p>";
-                echo '</div>';
+            try {
+                $program = getProgram($conn, $program_id, $actual_teacher_id);
+                
+                if (!$program && $debug_mode) {
+                    echo '<div style="background: #fff3cd; padding: 10px; margin: 10px; border: 1px solid #ffc107; border-radius: 5px;">';
+                    echo "<p><strong>⚠️ Program not found or access denied</strong></p>";
+                    echo "<p>Program ID: {$program_id} | Teacher ID: {$actual_teacher_id}</p>";
+                    echo "<p>This could mean the program doesn't exist or doesn't belong to you.</p>";
+                    echo '</div>';
+                }
+            } catch (Exception $e) {
+                if ($debug_mode) {
+                    echo '<div style="background: #ffe6e6; padding: 10px; margin: 10px; border: 1px solid #ff0000; border-radius: 5px;">';
+                    echo "<p><strong>Error loading program:</strong> " . $e->getMessage() . "</p>";
+                    echo '</div>';
+                }
+                $program = null;
             }
         }
         break;
@@ -136,8 +215,18 @@ switch ($action) {
         
     default:
         $pageContent = 'programs_list';
-        $myPrograms = getTeacherPrograms($conn, $actual_teacher_id);
-        $allPrograms = getPublishedPrograms($conn);
+        try {
+            $myPrograms = getTeacherPrograms($conn, $actual_teacher_id);
+            $allPrograms = getPublishedPrograms($conn);
+        } catch (Exception $e) {
+            if ($debug_mode) {
+                echo '<div style="background: #ffe6e6; padding: 10px; margin: 10px; border: 1px solid #ff0000; border-radius: 5px;">';
+                echo "<p><strong>Error loading programs:</strong> " . $e->getMessage() . "</p>";
+                echo '</div>';
+            }
+            $myPrograms = [];
+            $allPrograms = [];
+        }
         break;
 }
 
@@ -153,6 +242,15 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 <!-- SweetAlert2 and other dependencies -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+
+<?php if ($debug_mode): ?>
+<style>
+.debug-info { background: #e6f3ff; border: 1px solid #007cba; padding: 10px; margin: 5px 0; border-radius: 3px; }
+.debug-success { background: #e6ffe6; border: 1px solid #00aa00; padding: 10px; margin: 5px 0; border-radius: 3px; }
+.debug-error { background: #ffe6e6; border: 1px solid #ff0000; padding: 10px; margin: 5px 0; border-radius: 3px; }
+</style>
+<?php endif; ?>
 
 <div class="page-container">
     <div class="page-content">
@@ -274,7 +372,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                         </a>
                     </div>
                     
-                    <form method="POST" action="../../php/create-program.php" enctype="multipart/form-data" class="space-y-6">
+                    <form method="POST" action="../../php/create-program-fixed.php" enctype="multipart/form-data" class="space-y-6">
                         <?php if ($program): ?>
                             <input type="hidden" name="program_id" value="<?= $program['programID'] ?>">
                             <input type="hidden" name="update_program" value="1">
@@ -368,42 +466,17 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                 </div>
             </section>
             
-        <?php elseif ($pageContent === 'chapter_content'): ?>
-            <!-- CHAPTER CONTENT MANAGEMENT -->
+        <?php else: ?>
+            <!-- OTHER CONTENT SECTIONS -->
             <section class="content-section">
                 <div class="bg-white rounded-xl shadow-md p-6">
-                    <h2 class="text-xl font-bold mb-4">Chapter Management</h2>
-                    <p class="text-gray-600 mb-6">Advanced chapter content management will be available soon.</p>
-                    <a href="?action=create&program_id=<?= $program_id ?>" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                        Back to Program
+                    <h2 class="text-xl font-bold mb-4">Feature Coming Soon</h2>
+                    <p class="text-gray-600 mb-6">This feature is under development and will be available soon.</p>
+                    <a href="?action=list" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Back to Programs
                     </a>
                 </div>
             </section>
-            
-        <?php elseif ($pageContent === 'story_form'): ?>
-            <!-- STORY CREATION/EDIT FORM -->
-            <section class="content-section">
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <h2 class="text-xl font-bold mb-4">Story Management</h2>
-                    <p class="text-gray-600 mb-6">Interactive story creation will be available soon.</p>
-                    <a href="?action=create&program_id=<?= $program_id ?>" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                        Back to Program
-                    </a>
-                </div>
-            </section>
-            
-        <?php elseif ($pageContent === 'quiz_form'): ?>
-            <!-- QUIZ CREATION/EDIT FORM -->
-            <section class="content-section">
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <h2 class="text-xl font-bold mb-4">Quiz Management</h2>
-                    <p class="text-gray-600 mb-6">Interactive quiz creation will be available soon.</p>
-                    <a href="?action=create&program_id=<?= $program_id ?>" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                        Back to Program
-                    </a>
-                </div>
-            </section>
-            
         <?php endif; ?>
         
     </div>
@@ -420,7 +493,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="../../dist/javascript/user-dropdown.js"></script>
 <script src="../../components/navbar.js"></script>
-<script src="../../dist/javascript/enhanced-program-management.js"></script>
 
 <script>
 // Set global variables for JS

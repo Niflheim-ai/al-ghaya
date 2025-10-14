@@ -239,6 +239,65 @@
         }
     }
 
+    // Enhanced Teacher ID retrieval with auto-creation
+    function getTeacherIdFromSession($conn, $user_id) {
+        // First, try to get existing teacher ID
+        $stmt = $conn->prepare("SELECT teacherID FROM teacher WHERE userID = ? AND isActive = 1");
+        if (!$stmt) {
+            error_log("getTeacherIdFromSession prepare failed: " . $conn->error);
+            return null;
+        }
+        
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            $stmt->close();
+            return (int)$row['teacherID'];
+        }
+        
+        $stmt->close();
+        
+        // If teacher record doesn't exist, create one automatically
+        $userStmt = $conn->prepare("SELECT email, fname, lname FROM user WHERE userID = ? AND role = 'teacher' AND isActive = 1");
+        if (!$userStmt) {
+            error_log("getTeacherIdFromSession user query prepare failed: " . $conn->error);
+            return null;
+        }
+        
+        $userStmt->bind_param("i", $user_id);
+        $userStmt->execute();
+        $userResult = $userStmt->get_result();
+        
+        if ($userResult->num_rows > 0) {
+            $user = $userResult->fetch_assoc();
+            $userStmt->close();
+            
+            // Create teacher record
+            $insertStmt = $conn->prepare("INSERT INTO teacher (userID, email, username, fname, lname, dateCreated, isActive) VALUES (?, ?, ?, ?, ?, NOW(), 1)");
+            if (!$insertStmt) {
+                error_log("getTeacherIdFromSession insert prepare failed: " . $conn->error);
+                return null;
+            }
+            
+            $username = $user['email']; // Use email as username
+            $insertStmt->bind_param("issss", $user_id, $user['email'], $username, $user['fname'], $user['lname']);
+            
+            if ($insertStmt->execute()) {
+                $teacher_id = $insertStmt->insert_id;
+                $insertStmt->close();
+                return $teacher_id;
+            }
+            
+            $insertStmt->close();
+        }
+        
+        $userStmt->close();
+        return null;
+    }
+
     // Get all programs for a teacher
     function getTeacherPrograms($conn, $teacher_id, $sortBy = 'dateCreated') {
         // Validate $sortBy to prevent SQL injection
@@ -248,6 +307,11 @@
         }
 
         $stmt = $conn->prepare("SELECT * FROM programs WHERE teacherID = ? ORDER BY $sortBy DESC");
+        if (!$stmt) {
+            error_log("getTeacherPrograms prepare failed: " . $conn->error);
+            return [];
+        }
+        
         $stmt->bind_param("i", $teacher_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -283,6 +347,7 @@
         } catch (Exception $e) {
             // Rollback transaction on error
             $conn->rollback();
+            error_log("createProgramWithChapter failed: " . $e->getMessage());
             return false;
         }
     }
@@ -290,6 +355,11 @@
     // Get a Program by ID
     function getProgram($conn, $program_id, $teacher_id) {
         $stmt = $conn->prepare("SELECT * FROM programs WHERE programID = ? AND teacherID = ?");
+        if (!$stmt) {
+            error_log("getProgram prepare failed: " . $conn->error);
+            return null;
+        }
+        
         $stmt->bind_param("ii", $program_id, $teacher_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -302,6 +372,11 @@
     function addChapter($conn, $program_id, $title, $content, $question) {
         // Get next chapter order
         $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE program_id = ?");
+        if (!$stmt) {
+            error_log("addChapter order query prepare failed: " . $conn->error);
+            return false;
+        }
+        
         $stmt->bind_param("i", $program_id);
         $stmt->execute();
         $max_order = $stmt->get_result()->fetch_array()[0];
@@ -311,6 +386,11 @@
         // Insert chapter
         $stmt = $conn->prepare("INSERT INTO program_chapters (program_id, title, content, question, chapter_order)
                             VALUES (?, ?, ?, ?, ?)");
+        if (!$stmt) {
+            error_log("addChapter insert prepare failed: " . $conn->error);
+            return false;
+        }
+        
         $stmt->bind_param("isssi", $program_id, $title, $content, $question, $chapter_order);
 
         if ($stmt->execute()) {
@@ -320,6 +400,7 @@
         } else {
             $error = $stmt->error;
             $stmt->close();
+            error_log("addChapter execute failed: " . $error);
             return false;
         }
     }
@@ -328,6 +409,11 @@
     function updateChapter($conn, $chapter_id, $title, $content, $question) {
         $stmt = $conn->prepare("UPDATE program_chapters SET title = ?, content = ?, question = ?
                             WHERE chapter_id = ?");
+        if (!$stmt) {
+            error_log("updateChapter prepare failed: " . $conn->error);
+            return false;
+        }
+        
         $stmt->bind_param("sssi", $title, $content, $question, $chapter_id);
 
         if ($stmt->execute()) {
@@ -337,6 +423,7 @@
         } else {
             $error = $stmt->error;
             $stmt->close();
+            error_log("updateChapter execute failed: " . $error);
             return false;
         }
     }
@@ -344,6 +431,11 @@
     // Delete a Chapter
     function deleteChapter($conn, $chapter_id) {
         $stmt = $conn->prepare("DELETE FROM program_chapters WHERE chapter_id = ?");
+        if (!$stmt) {
+            error_log("deleteChapter prepare failed: " . $conn->error);
+            return false;
+        }
+        
         $stmt->bind_param("i", $chapter_id);
 
         if ($stmt->execute()) {
@@ -353,6 +445,7 @@
         } else {
             $error = $stmt->error;
             $stmt->close();
+            error_log("deleteChapter execute failed: " . $error);
             return false;
         }
     }
@@ -360,6 +453,11 @@
     // Get Chapter for a Program
     function getChapters($conn, $program_id) {
         $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE program_id = ? ORDER BY chapter_order");
+        if (!$stmt) {
+            error_log("getChapters prepare failed: " . $conn->error);
+            return [];
+        }
+        
         $stmt->bind_param("i", $program_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -395,6 +493,11 @@
                 JOIN student_program sp ON p.programID = sp.programID
                 WHERE sp.studentID = ?";
         $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log("getStudentPrograms prepare failed: " . $conn->error);
+            return [];
+        }
+        
         $stmt->bind_param("i", $student_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -404,10 +507,14 @@
     }
 
     function getPublishedPrograms($conn) {
-        $sql = "SELECT programID, title, description, price, category, image, dateCreated
+        $sql = "SELECT programID, title, description, price, category, thumbnail, dateCreated
                 FROM programs
                 WHERE status = 'published'";
         $result = $conn->query($sql);
+        if (!$result) {
+            error_log("getPublishedPrograms query failed: " . $conn->error);
+            return [];
+        }
         return $result->fetch_all(MYSQLI_ASSOC);
     }
 
@@ -440,6 +547,7 @@
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            error_log("fetchEnrolledPrograms prepare failed: " . $conn->error);
             return [];
         }
         $stmt->bind_param($types, ...$params);
@@ -474,6 +582,7 @@
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            error_log("fetchPublishedPrograms prepare failed: " . $conn->error);
             return [];
         }
         $stmt->bind_param($types, ...$params);
@@ -482,12 +591,12 @@
         return $result->fetch_all(MYSQLI_ASSOC);
     }
 
-
     // Fetch a single program
     function fetchProgram($conn, $program_id) {
         $sql = "SELECT * FROM programs WHERE programID = ?";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            error_log("fetchProgram prepare failed: " . $conn->error);
             return false;
         }
         $stmt->bind_param("i", $program_id);
@@ -499,14 +608,15 @@
     // Fetch chapters for a program
     function fetchChapters($conn, $program_id) {
         // Check if the chapters table exists
-        $tableCheck = $conn->query("SHOW TABLES LIKE 'chapters'");
+        $tableCheck = $conn->query("SHOW TABLES LIKE 'program_chapters'");
         if ($tableCheck->num_rows == 0) {
             return []; // Return empty array if the table doesn't exist
         }
 
-        $sql = "SELECT * FROM program_chapters WHERE program_id = ?";
+        $sql = "SELECT * FROM program_chapters WHERE program_id = ? ORDER BY chapter_order";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            error_log("fetchChapters prepare failed: " . $conn->error);
             return []; // Return empty array if there's an error preparing the statement
         }
         $stmt->bind_param("i", $program_id);
