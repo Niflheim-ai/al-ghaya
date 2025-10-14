@@ -253,7 +253,7 @@ function program_verifyOwnership($conn, $program_id, $teacher_id) {
  */
 function chapter_add($conn, $program_id, $title, $content = '', $question = '') {
     // Get next chapter order
-    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE program_id = ?");
+    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE programID = ?");
     if (!$stmt) {
         error_log("chapter_add order query prepare failed: " . $conn->error);
         return false;
@@ -382,7 +382,7 @@ function chapter_delete($conn, $chapter_id) {
  * @return array Array of chapters
  */
 function chapter_getByProgram($conn, $program_id) {
-    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE program_id = ? ORDER BY chapter_order");
+    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE programID = ? ORDER BY chapter_order");
     if (!$stmt) {
         error_log("chapter_getByProgram prepare failed: " . $conn->error);
         return [];
@@ -939,7 +939,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 break;
                 
             case 'update_program':
-                $program_id = intval($_POST['programID'] ?? 0);
+                $program_id = intval($_POST[programID] ?? 0);
                 if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) {
                     $_SESSION['error_message'] = 'Invalid program or access denied.';
                     header('Location: ../pages/teacher/teacher-programs.php');
@@ -1037,7 +1037,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                     echo json_encode([
                         'success' => true,
                         'chapter_id' => $chapter_id,
-                        'programID' => $program_id,
+                        programID => $program_id,
                         'message' => 'Chapter created successfully'
                     ]);
                 } else {
@@ -1080,7 +1080,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 }
                 
                 $chapter = chapter_getById($conn, $story['chapter_id']);
-                if (!$chapter || !program_verifyOwnership($conn, $chapter['programid'], $teacher_id)) {
+                if (!$chapter || !program_verifyOwnership($conn, $chapter[programID], $teacher_id)) {
                     echo json_encode(['success' => false, 'message' => 'Access denied']);
                     exit;
                 }
@@ -1115,7 +1115,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 }
                 
                 $chapter = chapter_getById($conn, $story['chapter_id']);
-                if (!$chapter || !program_verifyOwnership($conn, $chapter['programid'], $teacher_id)) {
+                if (!$chapter || !program_verifyOwnership($conn, $chapter[programID], $teacher_id)) {
                     echo json_encode(['success' => false, 'message' => 'Access denied']);
                     exit;
                 }
@@ -1155,7 +1155,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 
             case 'get_chapters':
                 header('Content-Type: application/json');
-                $program_id = intval($_POST['programID'] ?? 0);
+                $program_id = intval($_POST[programID] ?? 0);
                 if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) {
                     echo json_encode(['success' => false, 'message' => 'Invalid program or no permission']);
                     exit;
