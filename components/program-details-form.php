@@ -29,27 +29,22 @@
             <!-- Thumbnail Upload -->
             <div class="space-y-4">
                 <h3 class="text-lg font-semibold text-gray-900">Thumbnail</h3>
-                <div class="flex items-center gap-6">
-                    <div class="thumbnail-preview">
+                <div class="flex flex-col items-center gap-6 p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
+                    <div class="thumbnail-preview w-full max-w-md">
                         <img id="thumbnailPreview" 
                              src="<?= $program && $program['thumbnail'] ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
                              alt="Program Thumbnail" 
-                             class="w-100 aspect-video object-cover rounded-lg border-2 border-gray-200">
+                             class="w-full aspect-video object-cover rounded-lg border border-gray-200">
                     </div>
-                    <div class="flex-1">
-                        <label for="thumbnail" class="block text-sm font-medium text-gray-700 mb-2">
-                            Upload Program Thumbnail
+                    <div class="text-center">
+                        <input type="file" id="thumbnail" name="thumbnail" accept="image/*" 
+                               class="hidden" onchange="previewThumbnail(this)">
+                        <label for="thumbnail" 
+                               class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center gap-2">
+                            <i class="ph ph-upload-simple text-xl"></i>
+                            Upload Image
                         </label>
-                        <div class="flex items-center gap-4">
-                            <input type="file" id="thumbnail" name="thumbnail" accept="image/*" 
-                                   class="hidden" onchange="previewThumbnail(this)">
-                            <label for="thumbnail" 
-                                   class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
-                                <i class="ph ph-upload-simple mr-2"></i>
-                                Upload Image
-                            </label>
-                        </div>
-                        <p class="text-sm text-gray-500 mt-1">Recommended: 500 x 400px, JPG/PNG</p>
+                        <p class="text-sm text-gray-500 mt-2">Recommended: 500 x 400px, JPG/PNG</p>
                     </div>
                 </div>
             </div>
@@ -61,7 +56,7 @@
                 <label for="title" class="block text-sm font-medium text-gray-700">Program Title</label>
                 <input type="text" id="title" name="title" required
                        value="<?= $program ? htmlspecialchars($program['title']) : '' ?>"
-                       placeholder="e.g. [translate:الحج] (Hajj)"
+                       placeholder="e.g. Hadith (حديث)"
                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
 
@@ -69,7 +64,7 @@
             <div class="space-y-2">
                 <label for="description" class="block text-sm font-medium text-gray-700">Program Description</label>
                 <textarea id="description" name="description" rows="4" required
-                          placeholder="[translate:الحج هي الرحلة المقدسة إلى مكة المكرمة...] Hajj are the recorded accounts of the sayings, actions, silent approvals, and physical descriptions of the Prophet Muhammad (peace be upon him). They serve as the..."
+                          placeholder="Hadith are the recorded accounts of the sayings, actions, silent approvals, and physical descriptions of the Prophet Muhammad (peace be upon him). They serve as the..."
                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"><?= $program ? htmlspecialchars($program['description']) : '' ?></textarea>
             </div>
 
@@ -79,11 +74,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Student" 
-                               <?= ($program && $program['difficulty_level'] === 'Student') ? 'checked' : '' ?>
+                               <?= (!$program || $program['difficulty_label'] === 'Student') ? 'checked' : '' ?>
                                class="sr-only" required>
                         <div class="difficulty-card student-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
-                                <i class="ph-fill ph-barbell text-2xl"></i>
+                                <i class="ph-fill ph-barbell text-2xl text-gray-600"></i>
                                 <div>
                                     <h4 class="font-semibold">Student Difficulty</h4>
                                     <p class="text-sm text-gray-600">Basic level content</p>
@@ -93,11 +88,11 @@
                     </label>
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Aspiring" 
-                               <?= ($program && $program['difficulty_level'] === 'Aspiring') ? 'checked' : '' ?>
+                               <?= ($program && $program['difficulty_label'] === 'Aspiring') ? 'checked' : '' ?>
                                class="sr-only">
                         <div class="difficulty-card aspiring-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
-                                <i class="ph-fill ph-barbell text-2xl"></i>
+                                <i class="ph-fill ph-barbell text-2xl text-blue-600"></i>
                                 <div>
                                     <h4 class="font-semibold">Aspiring Difficulty</h4>
                                     <p class="text-sm text-gray-600">Intermediate level content</p>
@@ -107,11 +102,11 @@
                     </label>
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Master" 
-                               <?= ($program && $program['difficulty_level'] === 'Master') ? 'checked' : '' ?>
+                               <?= ($program && $program['difficulty_label'] === 'Master') ? 'checked' : '' ?>
                                class="sr-only">
                         <div class="difficulty-card master-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
-                                <i class="ph-fill ph-barbell text-2xl"></i>
+                                <i class="ph-fill ph-barbell text-2xl text-yellow-600"></i>
                                 <div>
                                     <h4 class="font-semibold">Master Difficulty</h4>
                                     <p class="text-sm text-gray-600">Advanced level content</p>
@@ -149,10 +144,12 @@
             <div class="space-y-6">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-900">Chapters</h3>
-                    <button type="button" onclick="showAddChapterModal()" 
-                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
-                        <i class="ph ph-plus mr-2"></i>Add Chapter
-                    </button>
+                    <?php if ($program): ?>
+                        <button type="button" onclick="showAddChapterModal()" 
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                            <i class="ph ph-plus"></i>Add Chapter
+                        </button>
+                    <?php endif; ?>
                 </div>
                 
                 <div id="chaptersContainer" class="space-y-4">
@@ -162,7 +159,7 @@
                     ?>
                         <div id="no-chapters-message" class="text-center py-8 text-gray-500">
                             <i class="ph ph-book text-4xl mb-4"></i>
-                            <p>No chapters yet. Add your first chapter to get started!</p>
+                            <p>No chapters yet. <?= $program ? 'Add your first chapter to get started!' : 'Save the program first to add chapters.' ?></p>
                         </div>
                     <?php else: ?>
                         <?php foreach ($chapters as $index => $chapter): ?>
@@ -173,11 +170,11 @@
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <button type="button" onclick="editChapter(<?= $program['programID'] ?>, <?= $chapter['chapter_id'] ?>)" 
-                                            class="text-blue-500 hover:text-blue-700 p-2 rounded hover:bg-blue-50">
-                                        <i class="ph ph-pencil-simple"></i> Edit Content
+                                            class="text-blue-500 hover:text-blue-700 p-2 rounded hover:bg-blue-50 transition-colors">
+                                        <i class="ph ph-pencil-simple"></i>
                                     </button>
                                     <button type="button" onclick="deleteChapter(<?= $program['programID'] ?>, <?= $chapter['chapter_id'] ?>)" 
-                                            class="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50">
+                                            class="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors">
                                         <i class="ph ph-trash"></i>
                                     </button>
                                 </div>
@@ -191,19 +188,19 @@
 
             <!-- Save Actions -->
             <div class="flex justify-between items-center">
-                <button type="button" onclick="goBack()" 
+                <button type="button" onclick="cancelForm()" 
                         class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
                 <div class="flex gap-3">
-                    <button type="submit" name="status" value="draft" 
-                            class="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors">
-                        <i class="ph ph-floppy-disk mr-2"></i>Save as Draft
+                    <button type="button" onclick="saveProgram('draft')" 
+                            class="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
+                        <i class="ph ph-floppy-disk"></i>Save as Draft
                     </button>
                     <?php if (!$program || $program['status'] === 'draft'): ?>
-                        <button type="submit" name="status" value="ready_for_review" 
-                                class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
-                            <i class="ph ph-check-circle mr-2"></i>Save & Continue
+                        <button type="button" onclick="saveProgram('ready_for_review')" 
+                                class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
+                            <i class="ph ph-check-circle"></i>Save & Continue
                         </button>
                     <?php endif; ?>
                 </div>
@@ -214,17 +211,34 @@
 
 <!-- Add Chapter Modal -->
 <div id="addChapterModal" class="hidden fixed inset-0 z-50 bg-gray-900 bg-opacity-50 flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h3 class="text-lg font-medium mb-4">Add New Chapter</h3>
-        <input type="text" id="newChapterTitle" placeholder="Enter chapter title" class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-medium">Add New Chapter</h3>
+            <button onclick="hideAddChapterModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="ph ph-x text-xl"></i>
+            </button>
+        </div>
+        <input type="text" id="newChapterTitle" placeholder="Enter chapter title" 
+               class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500">
         <div class="flex justify-end gap-3">
-            <button type="button" onclick="hideAddChapterModal()" class="px-4 py-2 border rounded-lg hover:bg-gray-100">Cancel</button>
-            <button type="button" onclick="submitNewChapter()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Add Chapter</button>
+            <button type="button" onclick="hideAddChapterModal()" 
+                    class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                Cancel
+            </button>
+            <button type="button" onclick="submitNewChapter()" 
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                Add Chapter
+            </button>
         </div>
     </div>
 </div>
 
+<!-- Include SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
+const programId = <?= $program['programID'] ?? 'null' ?>;
+
 // Form handling functions
 function previewThumbnail(input) {
     if (input.files && input.files[0]) {
@@ -237,30 +251,102 @@ function previewThumbnail(input) {
 }
 
 function goBack() {
-    if (confirm('Are you sure you want to go back? Any unsaved changes will be lost.')) {
-        window.location.href = 'teacher-programs.php';
-    }
+    window.location.href = 'teacher-programs.php';
+}
+
+function cancelForm() {
+    Swal.fire({
+        title: 'Cancel Changes?',
+        text: 'Any unsaved changes will be lost.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, cancel',
+        cancelButtonText: 'Keep editing'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = 'teacher-programs.php';
+        }
+    });
+}
+
+function saveProgram(status) {
+    const form = document.getElementById('programDetailsForm');
+    const statusInput = document.createElement('input');
+    statusInput.type = 'hidden';
+    statusInput.name = 'status';
+    statusInput.value = status;
+    form.appendChild(statusInput);
+    
+    // Show loading alert
+    Swal.fire({
+        title: 'Saving Program...',
+        text: 'Please wait while we save your program.',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    form.submit();
 }
 
 // Chapter functions
-
 function showAddChapterModal() {
+    if (!programId) {
+        Swal.fire({
+            title: 'Save Program First',
+            text: 'Please save the program before adding chapters.',
+            icon: 'info',
+            confirmButtonColor: '#3b82f6'
+        });
+        return;
+    }
     document.getElementById('addChapterModal').classList.remove('hidden');
     document.getElementById('newChapterTitle').focus();
 }
 
 function hideAddChapterModal() {
     document.getElementById('addChapterModal').classList.add('hidden');
-}S
+    document.getElementById('newChapterTitle').value = '';
+}
 
 function submitNewChapter() {
-    const title = document.getElementById('newChapterTitle').value;
-    const programId = <?= $program['programID'] ?? 'null' ?>;
-
-    if (!title.trim() || !programId) {
-        alert('Please enter a valid title.');
+    const title = document.getElementById('newChapterTitle').value.trim();
+    
+    if (!title) {
+        Swal.fire({
+            title: 'Missing Title',
+            text: 'Please enter a chapter title.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+        });
         return;
     }
+
+    if (!programId) {
+        Swal.fire({
+            title: 'Program Not Found',
+            text: 'Please save the program first.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+        });
+        return;
+    }
+
+    // Show loading
+    Swal.fire({
+        title: 'Creating Chapter...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
 
     fetch('../../php/program-handler.php', {
         method: 'POST',
@@ -274,14 +360,33 @@ function submitNewChapter() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // THIS IS THE FIX: Redirect to the chapter content editor
-            alert('Chapter created successfully! You will now be taken to the chapter content page.');
-            window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${data.program_id}&chapter_id=${data.chapter_id}`;
+            Swal.fire({
+                title: 'Chapter Created!',
+                text: 'Chapter created successfully. You will be redirected to add content.',
+                icon: 'success',
+                confirmButtonColor: '#3b82f6',
+                confirmButtonText: 'Continue'
+            }).then(() => {
+                window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${data.chapter_id}`;
+            });
         } else {
-            alert('Error: ' + data.message);
+            Swal.fire({
+                title: 'Error',
+                text: data.message || 'Failed to create chapter.',
+                icon: 'error',
+                confirmButtonColor: '#3b82f6'
+            });
         }
     })
-    .catch(error => console.error('Error:', error));
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: 'Error',
+            text: 'Network error. Please try again.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+        });
+    });
 }
 
 function editChapter(programId, chapterId) {
@@ -289,26 +394,83 @@ function editChapter(programId, chapterId) {
 }
 
 function deleteChapter(programId, chapterId) {
-    if (confirm('Are you sure you want to delete this chapter and all its content?')) {
-        fetch('../../php/program-handler.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'delete_chapter',
-                program_id: programId,
-                chapter_id: chapterId,
+    Swal.fire({
+        title: 'Delete Chapter?',
+        text: 'This will permanently delete the chapter and all its stories and quizzes.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete it',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading
+            Swal.fire({
+                title: 'Deleting Chapter...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            fetch('../../php/program-handler.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'delete_chapter',
+                    program_id: programId,
+                    chapter_id: chapterId,
+                })
             })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Remove the chapter element from the DOM
-                document.querySelector(`.chapter-item[data-chapter-id='${chapterId}']`).remove();
-            } else {
-                alert('Error deleting chapter: ' + data.message);
-            }
-        });
-    }
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the chapter element from the DOM
+                    const chapterElement = document.querySelector(`.chapter-item[data-chapter-id='${chapterId}']`);
+                    if (chapterElement) {
+                        chapterElement.remove();
+                    }
+                    
+                    // Check if no chapters left
+                    const remainingChapters = document.querySelectorAll('.chapter-item');
+                    if (remainingChapters.length === 0) {
+                        document.getElementById('chaptersContainer').innerHTML = `
+                            <div id="no-chapters-message" class="text-center py-8 text-gray-500">
+                                <i class="ph ph-book text-4xl mb-4"></i>
+                                <p>No chapters yet. Add your first chapter to get started!</p>
+                            </div>
+                        `;
+                    }
+                    
+                    Swal.fire({
+                        title: 'Deleted!',
+                        text: 'Chapter has been deleted.',
+                        icon: 'success',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.message || 'Failed to delete chapter.',
+                        icon: 'error',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Network error. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#3b82f6'
+                });
+            });
+        }
+    });
 }
 
 // Difficulty selection styling
@@ -337,11 +499,31 @@ document.addEventListener('DOMContentLoaded', function() {
             card.classList.add('border-blue-500', 'bg-blue-50');
         }
     });
+    
+    // Handle enter key in chapter title input
+    document.getElementById('newChapterTitle').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            submitNewChapter();
+        }
+    });
 });
 </script>
 
 <style>
 .difficulty-card.student-difficulty { color: #374151; }
-.difficulty-card.aspiring-difficulty { color: #0e487eff; }
-.difficulty-card.master-difficulty { color: #A58618; }
+.difficulty-card.aspiring-difficulty { color: #2563eb; }
+.difficulty-card.master-difficulty { color: #d97706; }
+
+.thumbnail-preview img {
+    transition: transform 0.2s;
+}
+
+.thumbnail-preview:hover img {
+    transform: scale(1.02);
+}
+
+/* Modal backdrop blur effect */
+#addChapterModal {
+    backdrop-filter: blur(2px);
+}
 </style>
