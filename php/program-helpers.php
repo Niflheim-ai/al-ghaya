@@ -264,6 +264,7 @@ function deleteChapter($conn, $chapter_id) {
  * @param int $story_id Story ID
  * @return bool True on success, false on failure
  */
+/*
 function deleteStoryInteractiveSections($conn, $story_id) {
     // Get all sections for this story
     $sections = getStoryInteractiveSections($conn, $story_id);
@@ -287,7 +288,7 @@ function deleteStoryInteractiveSections($conn, $story_id) {
     }
     
     return true;
-}
+} */
 
 /**
  * Get Chapters for a Program
@@ -648,6 +649,7 @@ function verifyProgramOwnership($conn, $program_id, $teacher_id) {
  * @param array $data Program data
  * @return int|false Program ID on success, false on failure
  */
+/*
 function createProgram($conn, $data) {
     $sql = "INSERT INTO programs (teacherID, title, description, difficulty_label, category, price, thumbnail, status, overview_video_url, dateCreated, dateUpdated) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
@@ -679,7 +681,7 @@ function createProgram($conn, $data) {
     error_log("createProgram execute failed: " . $stmt->error);
     $stmt->close();
     return false;
-}
+} */
 
 /**
  * Update an existing program with support for new fields
@@ -688,6 +690,7 @@ function createProgram($conn, $data) {
  * @param array $data Program data
  * @return bool True on success, false on failure
  */
+/*
 function updateProgram($conn, $program_id, $data) {
     $sql = "UPDATE programs SET title = ?, description = ?, difficulty_label = ?, category = ?, price = ?, status = ?, overview_video_url = ?, dateUpdated = NOW()
             WHERE programID = ? AND teacherID = ?";
@@ -719,7 +722,7 @@ function updateProgram($conn, $program_id, $data) {
     error_log("updateProgram execute failed: " . $stmt->error);
     $stmt->close();
     return false;
-}
+} */
 
 // Legacy function aliases for backward compatibility
 if (!function_exists('getChapterStories_wrapper')) {

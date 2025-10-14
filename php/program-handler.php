@@ -651,7 +651,7 @@ function updateProgram($conn, $program_id, $data) {
         return false;
     }
     
-    $stmt->bind_param("ssssdsii", 
+    $stmt->bind_param("ssssdssii", 
         $data['title'],
         $data['description'],
         $data['difficulty_label'],
@@ -690,7 +690,7 @@ function createProgram($conn, $data) {
         return false;
     }
     
-    $stmt->bind_param("issssdss", 
+    $stmt->bind_param("issssddss", 
         $data['teacherID'],
         $data['title'],
         $data['description'],
