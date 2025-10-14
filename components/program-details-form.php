@@ -149,7 +149,7 @@
             <div class="space-y-6">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-900">Chapters</h3>
-                    <button type="button" onclick="addChapter()" 
+                    <button type="button" onclick="showAddChapterModal()" 
                             class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
                         <i class="ph ph-plus mr-2"></i>Add Chapter
                     </button>
@@ -160,31 +160,26 @@
                     $chapters = $program ? getProgramChapters($conn, $program['programID']) : [];
                     if (empty($chapters)): 
                     ?>
-                        <div class="text-center py-8 text-gray-500">
+                        <div id="no-chapters-message" class="text-center py-8 text-gray-500">
                             <i class="ph ph-book text-4xl mb-4"></i>
                             <p>No chapters yet. Add your first chapter to get started!</p>
                         </div>
                     <?php else: ?>
                         <?php foreach ($chapters as $index => $chapter): ?>
-                            <div class="chapter-item bg-gray-50 rounded-lg p-4 border border-gray-200" data-chapter-id="<?= $chapter['chapter_id'] ?>">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-3">
-                                        <i class="ph ph-book text-xl text-gray-600"></i>
-                                        <div>
-                                            <h4 class="font-medium"><?= htmlspecialchars($chapter['title']) ?></h4>
-                                            <p class="text-sm text-gray-500">Chapter <?= $index + 1 ?></p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <button type="button" onclick="editChapter(<?= $chapter['chapter_id'] ?>)" 
-                                                class="text-blue-500 hover:text-blue-700 p-2 rounded hover:bg-blue-50">
-                                            <i class="ph ph-pencil-simple"></i>
-                                        </button>
-                                        <button type="button" onclick="deleteChapter(<?= $chapter['chapter_id'] ?>)" 
-                                                class="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50">
-                                            <i class="ph ph-trash"></i>
-                                        </button>
-                                    </div>
+                            <div class="chapter-item flex items-center justify-between bg-gray-50 rounded-lg p-4 border border-gray-200" data-chapter-id="<?= $chapter['chapter_id'] ?>">
+                                <div class="flex items-center gap-3">
+                                    <i class="ph ph-book text-xl text-gray-600"></i>
+                                    <span class="font-medium"><?= htmlspecialchars($chapter['title']) ?></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="editChapter(<?= $program['programID'] ?>, <?= $chapter['chapter_id'] ?>)" 
+                                            class="text-blue-500 hover:text-blue-700 p-2 rounded hover:bg-blue-50">
+                                        <i class="ph ph-pencil-simple"></i> Edit Content
+                                    </button>
+                                    <button type="button" onclick="deleteChapter(<?= $program['programID'] ?>, <?= $chapter['chapter_id'] ?>)" 
+                                            class="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50">
+                                        <i class="ph ph-trash"></i>
+                                    </button>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -217,6 +212,18 @@
     </div>
 </section>
 
+<!-- Add Chapter Modal -->
+<div id="addChapterModal" class="hidden fixed inset-0 z-50 bg-gray-900 bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 class="text-lg font-medium mb-4">Add New Chapter</h3>
+        <input type="text" id="newChapterTitle" placeholder="Enter chapter title" class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4">
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="hideAddChapterModal()" class="px-4 py-2 border rounded-lg hover:bg-gray-100">Cancel</button>
+            <button type="button" onclick="submitNewChapter()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Add Chapter</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // Form handling functions
 function previewThumbnail(input) {
@@ -235,54 +242,68 @@ function goBack() {
     }
 }
 
-function addChapter() {
-    const title = prompt('Enter chapter title:');
-    if (title) {
-        const programId = <?= $program ? $program['programID'] : 'null' ?>;
-        if (programId) {
-            // AJAX call to add chapter
-            fetch('../../php/program-handler.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'create_chapter',
-                    program_id: programId,
-                    title: title
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Error adding chapter: ' + data.message);
-                }
-            });
-        } else {
-            alert('Please save the program first before adding chapters.');
-        }
-    }
+// Chapter functions
+
+function showAddChapterModal() {
+    document.getElementById('addChapterModal').classList.remove('hidden');
+    document.getElementById('newChapterTitle').focus();
 }
 
-function editChapter(chapterId) {
-    const programId = <?= $program ? $program['programID'] : 'null' ?>;
+function hideAddChapterModal() {
+    document.getElementById('addChapterModal').classList.add('hidden');
+}S
+
+function submitNewChapter() {
+    const title = document.getElementById('newChapterTitle').value;
+    const programId = <?= $program['programID'] ?? 'null' ?>;
+
+    if (!title.trim() || !programId) {
+        alert('Please enter a valid title.');
+        return;
+    }
+
+    fetch('../../php/program-handler.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'create_chapter',
+            program_id: programId,
+            title: title
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // THIS IS THE FIX: Redirect to the chapter content editor
+            alert('Chapter created successfully! You will now be taken to the chapter content page.');
+            window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${data.program_id}&chapter_id=${data.chapter_id}`;
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function editChapter(programId, chapterId) {
     window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${chapterId}`;
 }
 
-function deleteChapter(chapterId) {
-    if (confirm('Are you sure you want to delete this chapter? This will also delete all stories and quizzes in this chapter.')) {
+function deleteChapter(programId, chapterId) {
+    if (confirm('Are you sure you want to delete this chapter and all its content?')) {
         fetch('../../php/program-handler.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 action: 'delete_chapter',
-                chapter_id: chapterId
+                program_id: programId,
+                chapter_id: chapterId,
             })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                // Remove the chapter element from the DOM
+                document.querySelector(`.chapter-item[data-chapter-id='${chapterId}']`).remove();
             } else {
                 alert('Error deleting chapter: ' + data.message);
             }
@@ -321,6 +342,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <style>
 .difficulty-card.student-difficulty { color: #374151; }
-.difficulty-card.aspiring-difficulty { color: #10375B; }
+.difficulty-card.aspiring-difficulty { color: #0e487eff; }
 .difficulty-card.master-difficulty { color: #A58618; }
 </style>
