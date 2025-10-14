@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 13, 2025 at 07:37 PM
+-- Generation Time: Oct 14, 2025 at 11:55 AM
 -- Server version: 10.4.27-MariaDB
 -- PHP Version: 8.2.0
 
@@ -216,7 +216,8 @@ CREATE TABLE `point_transactions` (
 INSERT INTO `point_transactions` (`id`, `userID`, `points`, `activity_type`, `description`, `reference_id`, `dateCreated`) VALUES
 (1, 2, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-12 08:31:52'),
 (2, 2, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-13 04:58:56'),
-(3, 4, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-13 05:38:42');
+(3, 4, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-13 05:38:42'),
+(4, 2, 10, 'daily_login', 'Daily login bonus', NULL, '2025-10-14 05:50:01');
 
 -- --------------------------------------------------------
 
@@ -248,6 +249,13 @@ CREATE TABLE `programs` (
   `datePublished` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `programs`
+--
+
+INSERT INTO `programs` (`programID`, `teacherID`, `title`, `description`, `category`, `difficulty_label`, `video_link`, `overview_video_url`, `price`, `currency`, `image`, `thumbnail`, `status`, `rejection_reason`, `difficulty_level`, `estimated_duration`, `prerequisites`, `learning_objectives`, `dateCreated`, `dateUpdated`, `datePublished`) VALUES
+(1, 1, 'awdawdwa', 'dawddawdwadwa', 'intermediate', 'Aspiring', NULL, '0', '500.00', 'PHP', NULL, 'thumb_68ee10ccbd8cc6.00469609.jpg', 'draft', NULL, 1, NULL, NULL, NULL, '2025-10-14 08:58:52', '2025-10-14 09:42:04', NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -256,7 +264,7 @@ CREATE TABLE `programs` (
 
 CREATE TABLE `program_chapters` (
   `chapter_id` int(11) NOT NULL,
-  `program_id` int(11) NOT NULL,
+  `programID` int(11) DEFAULT NULL,
   `title` varchar(255) NOT NULL,
   `content` longtext DEFAULT NULL,
   `has_quiz` tinyint(1) DEFAULT 0,
@@ -746,6 +754,14 @@ CREATE TABLE `teacher` (
   `isActive` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `teacher`
+--
+
+INSERT INTO `teacher` (`teacherID`, `userID`, `email`, `username`, `password`, `fname`, `lname`, `specialization`, `bio`, `profile_picture`, `dateCreated`, `isActive`) VALUES
+(1, 3, 'fmanaois4@gmail.com', 'fmanaois4', '$2y$10$BeduVyu9cKm7JojZwwo4A.BkR9Ghpji94h5HQqtuF/MtkQxZPuEjK', 'Test', 'Teacher', NULL, NULL, NULL, '2025-10-13 17:46:48', 1),
+(2, 5, 'dlagonia@kld.edu.ph', 'dlagonia', '$2y$12$sAk6fU51wzigS0wdS7ejCehnJkX6H4o477K9xiK7L636BWy2tlNKu', 'David', 'Agonia', NULL, NULL, NULL, '2025-10-13 17:46:48', 1);
+
 -- --------------------------------------------------------
 
 --
@@ -753,25 +769,6 @@ CREATE TABLE `teacher` (
 -- (See below for the actual view)
 --
 CREATE TABLE `teacher_program_overview` (
-`programID` int(11)
-,`teacherID` int(11)
-,`title` varchar(255)
-,`description` text
-,`category` enum('beginner','intermediate','advanced')
-,`difficulty_label` enum('Student','Aspiring','Master')
-,`price` decimal(10,2)
-,`currency` varchar(10)
-,`thumbnail` varchar(255)
-,`overview_video_url` varchar(500)
-,`status` enum('draft','pending_review','published','rejected','archived')
-,`rejection_reason` text
-,`dateCreated` timestamp
-,`dateUpdated` timestamp
-,`datePublished` timestamp
-,`chapter_count` bigint(21)
-,`story_count` bigint(21)
-,`quiz_count` bigint(21)
-,`enrollment_count` bigint(21)
 );
 
 -- --------------------------------------------------------
@@ -806,9 +803,9 @@ CREATE TABLE `user` (
 --
 
 INSERT INTO `user` (`userID`, `email`, `password`, `fname`, `lname`, `role`, `level`, `points`, `proficiency`, `profile_picture`, `department`, `experience`, `bio`, `phone`, `gender`, `dateCreated`, `lastLogin`, `isActive`) VALUES
-(1, 'admin@al-ghaya.com', '$2y$12$jGlNxHe6LAqrhheqRezKF.DbDwmJK2EcpX.rocFGeuANbvzA05YBm', 'System', 'Administrator', 'admin', 99, 99999, 'advanced', NULL, NULL, NULL, NULL, NULL, NULL, '2025-10-12 08:11:20', '2025-10-13 07:12:39', 1),
-(2, 'faamanaois@kld.edu.ph', '$2y$10$cbh7ePMq.2F4ZG1mhyzcIOshgZ8VVv.dgJwdk5ftYOMYqN7i62cuK', 'Fred Andrei', 'Manaois', 'student', 1, 20, 'beginner', NULL, NULL, NULL, 'Testing', '', 'male', '2025-10-12 08:31:44', '2025-10-13 08:14:31', 1),
-(3, 'fmanaois4@gmail.com', '$2y$10$BeduVyu9cKm7JojZwwo4A.BkR9Ghpji94h5HQqtuF/MtkQxZPuEjK', 'Test', 'Teacher', 'teacher', 1, 0, '', NULL, 'General Studies', 'Entry Level', 'Test', '', NULL, '2025-10-12 11:14:13', '2025-10-13 14:42:50', 1),
+(1, 'admin@al-ghaya.com', '$2y$12$jGlNxHe6LAqrhheqRezKF.DbDwmJK2EcpX.rocFGeuANbvzA05YBm', 'System', 'Administrator', 'admin', 99, 99999, 'advanced', NULL, NULL, NULL, NULL, NULL, NULL, '2025-10-12 08:11:20', '2025-10-14 05:50:46', 1),
+(2, 'faamanaois@kld.edu.ph', '$2y$10$cbh7ePMq.2F4ZG1mhyzcIOshgZ8VVv.dgJwdk5ftYOMYqN7i62cuK', 'Fred Andrei', 'Manaois', 'student', 1, 30, 'beginner', NULL, NULL, NULL, 'Testing', '', 'male', '2025-10-12 08:31:44', '2025-10-14 05:50:01', 1),
+(3, 'fmanaois4@gmail.com', '$2y$10$BeduVyu9cKm7JojZwwo4A.BkR9Ghpji94h5HQqtuF/MtkQxZPuEjK', 'Test', 'Teacher', 'teacher', 1, 0, '', NULL, 'General Studies', 'Entry Level', 'Test', '', NULL, '2025-10-12 11:14:13', '2025-10-14 06:00:06', 1),
 (4, 'thegodlykali@gmail.com', '$2y$10$3XjZfzMa9.J2CZLoTS.8CuJyLkcu0LEZZ1qG0HM/GjO24cPSJoIUW', 'TheGodly', 'Kali', 'student', 1, 10, 'beginner', NULL, NULL, NULL, '', '', NULL, '2025-10-13 05:38:42', NULL, 1),
 (5, 'dlagonia@kld.edu.ph', '$2y$12$sAk6fU51wzigS0wdS7ejCehnJkX6H4o477K9xiK7L636BWy2tlNKu', 'David', 'Agonia', 'teacher', 1, 0, '', NULL, NULL, NULL, NULL, NULL, NULL, '2025-10-13 07:13:12', NULL, 1);
 
@@ -1020,9 +1017,9 @@ ALTER TABLE `programs`
 --
 ALTER TABLE `program_chapters`
   ADD PRIMARY KEY (`chapter_id`),
-  ADD KEY `idx_program_id` (`program_id`),
+  ADD KEY `idx_program_id` (`programID`),
   ADD KEY `idx_chapter_order` (`chapter_order`),
-  ADD KEY `idx_chapter_program_order` (`program_id`,`chapter_order`);
+  ADD KEY `idx_chapter_program_order` (`programID`,`chapter_order`);
 
 --
 -- Indexes for table `program_publish_requests`
@@ -1236,19 +1233,19 @@ ALTER TABLE `payment_transactions`
 -- AUTO_INCREMENT for table `point_transactions`
 --
 ALTER TABLE `point_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `programs`
 --
 ALTER TABLE `programs`
-  MODIFY `programID` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `programID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `program_chapters`
 --
 ALTER TABLE `program_chapters`
-  MODIFY `chapter_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `chapter_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `program_publish_requests`
@@ -1332,7 +1329,7 @@ ALTER TABLE `system_settings`
 -- AUTO_INCREMENT for table `teacher`
 --
 ALTER TABLE `teacher`
-  MODIFY `teacherID` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `teacherID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `user`
@@ -1415,7 +1412,7 @@ ALTER TABLE `programs`
 -- Constraints for table `program_chapters`
 --
 ALTER TABLE `program_chapters`
-  ADD CONSTRAINT `program_chapters_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `programs` (`programID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `program_chapters_ibfk_1` FOREIGN KEY (`programID`) REFERENCES `programs` (`programID`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `program_publish_requests`
