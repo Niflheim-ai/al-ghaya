@@ -1,11 +1,250 @@
 <?php
 /**
- * Program Helper Functions
- * Contains all the missing functions referenced in components and pages
+ * Program Helper Functions - Consolidated Version
+ * Contains all program-related functions without duplicates
  * Compatible with existing al-ghaya database schema
  */
 
 require_once 'dbConnection.php';
+
+/**
+ * Enhanced Teacher ID retrieval with auto-creation
+ * This is the MAIN function for getting teacher IDs - no duplicate in functions.php
+ * @param object $conn Database connection
+ * @param int $user_id User ID from session
+ * @return int|null Teacher ID or null if not found
+ */
+function getTeacherIdFromSession($conn, $user_id) {
+    // First, try to get existing teacher ID
+    $stmt = $conn->prepare("SELECT teacherID FROM teacher WHERE userID = ? AND isActive = 1");
+    if (!$stmt) {
+        error_log("getTeacherIdFromSession prepare failed: " . $conn->error);
+        return null;
+    }
+    
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $stmt->close();
+        return (int)$row['teacherID'];
+    }
+    
+    $stmt->close();
+    
+    // If teacher record doesn't exist, create one automatically
+    $userStmt = $conn->prepare("SELECT email, fname, lname FROM user WHERE userID = ? AND role = 'teacher' AND isActive = 1");
+    if (!$userStmt) {
+        error_log("getTeacherIdFromSession user query prepare failed: " . $conn->error);
+        return null;
+    }
+    
+    $userStmt->bind_param("i", $user_id);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    
+    if ($userResult->num_rows > 0) {
+        $user = $userResult->fetch_assoc();
+        $userStmt->close();
+        
+        // Create teacher record
+        $insertStmt = $conn->prepare("INSERT INTO teacher (userID, email, username, fname, lname, dateCreated, isActive) VALUES (?, ?, ?, ?, ?, NOW(), 1)");
+        if (!$insertStmt) {
+            error_log("getTeacherIdFromSession insert prepare failed: " . $conn->error);
+            return null;
+        }
+        
+        $username = $user['email']; // Use email as username
+        $insertStmt->bind_param("issss", $user_id, $user['email'], $username, $user['fname'], $user['lname']);
+        
+        if ($insertStmt->execute()) {
+            $teacher_id = $insertStmt->insert_id;
+            $insertStmt->close();
+            return $teacher_id;
+        }
+        
+        $insertStmt->close();
+    }
+    
+    $userStmt->close();
+    return null;
+}
+
+/**
+ * Get all programs for a teacher
+ * @param object $conn Database connection
+ * @param int $teacher_id Teacher ID
+ * @param string $sortBy Sort by field
+ * @return array Array of programs
+ */
+function getTeacherPrograms($conn, $teacher_id, $sortBy = 'dateCreated') {
+    // Validate $sortBy to prevent SQL injection
+    $allowedSorts = ['dateCreated', 'dateUpdated', 'title', 'price'];
+    if (!in_array($sortBy, $allowedSorts)) {
+        $sortBy = 'dateCreated'; // Default
+    }
+
+    $stmt = $conn->prepare("SELECT * FROM programs WHERE teacherID = ? ORDER BY $sortBy DESC");
+    if (!$stmt) {
+        error_log("getTeacherPrograms prepare failed: " . $conn->error);
+        return [];
+    }
+    
+    $stmt->bind_param("i", $teacher_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $programs = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $programs;
+}
+
+/**
+ * Get a Program by ID (for teacher access)
+ * @param object $conn Database connection
+ * @param int $program_id Program ID
+ * @param int $teacher_id Teacher ID for ownership verification
+ * @return array|null Program data or null if not found
+ */
+function getProgram($conn, $program_id, $teacher_id) {
+    $stmt = $conn->prepare("SELECT * FROM programs WHERE programID = ? AND teacherID = ?");
+    if (!$stmt) {
+        error_log("getProgram prepare failed: " . $conn->error);
+        return null;
+    }
+    
+    $stmt->bind_param("ii", $program_id, $teacher_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $program = $result->fetch_assoc();
+    $stmt->close();
+    return $program;
+}
+
+/**
+ * Add a Chapter to a Program
+ * @param object $conn Database connection
+ * @param int $program_id Program ID
+ * @param string $title Chapter title
+ * @param string $content Chapter content
+ * @param string $question Chapter question
+ * @return int|false Chapter ID on success, false on failure
+ */
+function addChapter($conn, $program_id, $title, $content, $question) {
+    // Get next chapter order
+    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE program_id = ?");
+    if (!$stmt) {
+        error_log("addChapter order query prepare failed: " . $conn->error);
+        return false;
+    }
+    
+    $stmt->bind_param("i", $program_id);
+    $stmt->execute();
+    $max_order = $stmt->get_result()->fetch_array()[0];
+    $chapter_order = $max_order ? $max_order + 1 : 1;
+    $stmt->close();
+
+    // Insert chapter
+    $stmt = $conn->prepare("INSERT INTO program_chapters (program_id, title, content, question, chapter_order)
+                        VALUES (?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        error_log("addChapter insert prepare failed: " . $conn->error);
+        return false;
+    }
+    
+    $stmt->bind_param("isssi", $program_id, $title, $content, $question, $chapter_order);
+
+    if ($stmt->execute()) {
+        $chapter_id = $stmt->insert_id;
+        $stmt->close();
+        return $chapter_id;
+    } else {
+        $error = $stmt->error;
+        $stmt->close();
+        error_log("addChapter execute failed: " . $error);
+        return false;
+    }
+}
+
+/**
+ * Update a Chapter
+ * @param object $conn Database connection
+ * @param int $chapter_id Chapter ID
+ * @param string $title Chapter title
+ * @param string $content Chapter content
+ * @param string $question Chapter question
+ * @return bool True on success, false on failure
+ */
+function updateChapter($conn, $chapter_id, $title, $content, $question) {
+    $stmt = $conn->prepare("UPDATE program_chapters SET title = ?, content = ?, question = ?
+                        WHERE chapter_id = ?");
+    if (!$stmt) {
+        error_log("updateChapter prepare failed: " . $conn->error);
+        return false;
+    }
+    
+    $stmt->bind_param("sssi", $title, $content, $question, $chapter_id);
+
+    if ($stmt->execute()) {
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+        return $affected > 0;
+    } else {
+        $error = $stmt->error;
+        $stmt->close();
+        error_log("updateChapter execute failed: " . $error);
+        return false;
+    }
+}
+
+/**
+ * Delete a Chapter
+ * @param object $conn Database connection
+ * @param int $chapter_id Chapter ID
+ * @return bool True on success, false on failure
+ */
+function deleteChapter($conn, $chapter_id) {
+    $stmt = $conn->prepare("DELETE FROM program_chapters WHERE chapter_id = ?");
+    if (!$stmt) {
+        error_log("deleteChapter prepare failed: " . $conn->error);
+        return false;
+    }
+    
+    $stmt->bind_param("i", $chapter_id);
+
+    if ($stmt->execute()) {
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+        return $affected > 0;
+    } else {
+        $error = $stmt->error;
+        $stmt->close();
+        error_log("deleteChapter execute failed: " . $error);
+        return false;
+    }
+}
+
+/**
+ * Get Chapters for a Program
+ * @param object $conn Database connection
+ * @param int $program_id Program ID
+ * @return array Array of chapters
+ */
+function getChapters($conn, $program_id) {
+    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE program_id = ? ORDER BY chapter_order");
+    if (!$stmt) {
+        error_log("getChapters prepare failed: " . $conn->error);
+        return [];
+    }
+    
+    $stmt->bind_param("i", $program_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $chapters = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $chapters;
+}
 
 /**
  * Get stories for a specific chapter
@@ -70,13 +309,13 @@ function getChapterQuiz($conn, $chapter_id) {
  * @return array Array of interactive sections
  */
 function getStoryInteractiveSections($conn, $story_id) {
-    // Check if story_interactions table exists
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'story_interactions'");
+    // Check if story_interactive_sections table exists (updated table name from database)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'story_interactive_sections'");
     if ($tableCheck->num_rows == 0) {
         return []; // Return empty array if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM story_interactions WHERE story_id = ? ORDER BY section_order ASC");
+    $stmt = $conn->prepare("SELECT * FROM story_interactive_sections WHERE story_id = ? ORDER BY section_order ASC");
     if (!$stmt) {
         error_log("getStoryInteractiveSections prepare failed: " . $conn->error);
         return [];
@@ -120,7 +359,7 @@ function getQuizQuestions($conn, $quiz_id) {
 }
 
 /**
- * Get chapters for a specific program
+ * Get chapters for a specific program (alternative name to getChapters)
  * @param object $conn Database connection
  * @param int $program_id Program ID
  * @return array Array of program chapters
@@ -150,23 +389,23 @@ function getProgramChapters($conn, $program_id) {
 /**
  * Get questions for a specific interactive section
  * @param object $conn Database connection
- * @param int $interaction_id Interaction ID
+ * @param int $section_id Section ID (updated from interaction_id)
  * @return array Array of section questions
  */
-function getSectionQuestions($conn, $interaction_id) {
-    // Check if interaction_questions table exists
-    $tableCheck = $conn->query("SHOW TABLES LIKE 'interaction_questions'");
+function getSectionQuestions($conn, $section_id) {
+    // Check if interactive_questions table exists (updated table name from database)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'interactive_questions'");
     if ($tableCheck->num_rows == 0) {
         return []; // Return empty array if table doesn't exist
     }
     
-    $stmt = $conn->prepare("SELECT * FROM interaction_questions WHERE interaction_id = ? ORDER BY question_order ASC");
+    $stmt = $conn->prepare("SELECT * FROM interactive_questions WHERE section_id = ? ORDER BY question_order ASC");
     if (!$stmt) {
         error_log("getSectionQuestions prepare failed: " . $conn->error);
         return [];
     }
     
-    $stmt->bind_param("i", $interaction_id);
+    $stmt->bind_param("i", $section_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $questions = $result->fetch_all(MYSQLI_ASSOC);
@@ -335,33 +574,6 @@ function getYouTubeVideoId($url) {
 }
 
 /**
- * Get teacher ID from session (wrapper for existing function)
- * @param object $conn Database connection
- * @param int $user_id User ID from session
- * @return int|null Teacher ID or null if not found
- */
-function getTeacherIdFromSession($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT teacherID FROM teacher WHERE userID = ? AND isActive = 1");
-    if (!$stmt) {
-        error_log("getTeacherIdFromSession prepare failed: " . $conn->error);
-        return null;
-    }
-    
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $stmt->close();
-        return (int)$row['teacherID'];
-    }
-    
-    $stmt->close();
-    return null;
-}
-
-/**
  * Verify program ownership by teacher
  * @param object $conn Database connection
  * @param int $program_id Program ID
@@ -459,12 +671,7 @@ function updateProgram($conn, $program_id, $data) {
     return false;
 }
 
-/**
- * Safe wrapper functions for component compatibility
- * These handle cases where functions are called without connection parameter
- */
-
-// Global connection wrapper functions for backward compatibility
+// Legacy function aliases for backward compatibility
 if (!function_exists('getChapterStories_wrapper')) {
     function getChapterStories_wrapper($chapter_id) {
         global $conn;
