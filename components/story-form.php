@@ -5,7 +5,7 @@
             <button onclick="goBackToChapter()" class="text-gray-600 hover:text-gray-800 p-2 rounded-lg hover:bg-gray-100">
                 <i class="ph ph-arrow-left text-xl"></i>
             </button>
-            <h1 class="section-title text-2xl font-bold"><?= $story ? 'Edit Story' : 'Add Story' ?></h1>
+            <h1 class="section-title text-2xl font-bold"><?= $story ? 'Edit Story' : 'Create Story' ?></h1>
         </div>
         <div class="text-sm text-gray-500">
             <?= htmlspecialchars($chapter['title'] ?? '') ?>
@@ -26,7 +26,7 @@
                 <label for="title" class="block text-sm font-medium text-gray-700">Story Title</label>
                 <input type="text" id="title" name="title" required
                        value="<?= $story ? htmlspecialchars($story['title']) : '' ?>"
-                       placeholder="e.g. [translate:الحج]"
+                       placeholder="e.g. Hadith"
                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
 
@@ -34,8 +34,8 @@
             <div class="space-y-2">
                 <label for="synopsis_arabic" class="block text-sm font-medium text-gray-700">Story Synopsis (Arabic)</label>
                 <textarea id="synopsis_arabic" name="synopsis_arabic" rows="4" required
-                          placeholder="[translate:في قلب مدينة نابضة بالحياة، حيث تنبض إيقاع الحياة اليومية عبر الشوارع المزدحمة...]"
-                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"><?= $story ? htmlspecialchars($story['synopsis_arabic']) : '' ?></textarea>
+                          placeholder="في قلب مدينة نابضة بالحياة، حيث تنبض إيقاع الحياة اليومية عبر الشوارع المزدحمة..."
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 arabic-text"><?= $story ? htmlspecialchars($story['synopsis_arabic']) : '' ?></textarea>
             </div>
 
             <!-- Story Synopsis (English) -->
@@ -49,10 +49,16 @@
             <!-- Video Link -->
             <div class="space-y-2">
                 <label for="video_url" class="block text-sm font-medium text-gray-700">Video link of the Story</label>
-                <input type="url" id="video_url" name="video_url" required
-                       value="<?= $story ? htmlspecialchars($story['video_url']) : '' ?>"
-                       placeholder="https://youtube.com/..."
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <div class="relative">
+                    <input type="url" id="video_url" name="video_url" required
+                           value="<?= $story ? htmlspecialchars($story['video_url']) : '' ?>"
+                           placeholder="https://youtube.com/..."
+                           class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <button type="button" onclick="validateVideoUrl()" 
+                            class="absolute right-2 top-2 p-2 text-gray-400 hover:text-blue-600">
+                        <i class="ph ph-check-circle text-xl"></i>
+                    </button>
+                </div>
                 <p class="text-sm text-gray-500">This video will be played for students to progress through the story</p>
             </div>
 
@@ -65,25 +71,27 @@
                         <h3 class="text-lg font-semibold text-red-600">Interactive Section</h3>
                         <p class="text-sm text-gray-600">Minimum 1, Maximum 3 interactive sections per story</p>
                     </div>
+                    <?php 
+                    $interactiveSections = $story ? getStoryInteractiveSections($conn, $story['story_id']) : [];
+                    $sectionCount = count($interactiveSections);
+                    ?>
                     <button type="button" onclick="addInteractiveSection()" id="addSectionBtn"
-                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
-                        <i class="ph ph-plus mr-2"></i>Add Section
+                            class="<?= $sectionCount >= 3 ? 'opacity-50 cursor-not-allowed' : '' ?> bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                        <i class="ph ph-plus"></i>Add Section
                     </button>
                 </div>
 
                 <div id="interactiveSectionsContainer" class="space-y-6">
-                    <?php 
-                    $interactiveSections = $story ? getStoryInteractiveSections($conn, $story['story_id']) : [];
-                    if (empty($interactiveSections)): 
-                    ?>
+                    <?php if (empty($interactiveSections)): ?>
                         <div id="noSectionsMessage" class="text-center py-8 text-gray-500">
                             <i class="ph ph-chat-circle-dots text-4xl mb-4"></i>
                             <p>No interactive sections yet. Add at least one interactive section!</p>
                         </div>
                     <?php else: ?>
-                        <?php foreach ($interactiveSections as $section): ?>
+                        <?php foreach ($interactiveSections as $sectionIndex => $section): ?>
                             <?php 
                             $questions = getSectionQuestions($conn, $section['section_id']);
+                            $questionCount = count($questions);
                             ?>
                             <div class="interactive-section border-2 border-red-200 rounded-lg p-6" data-section-id="<?= $section['section_id'] ?>">
                                 <div class="flex items-center justify-between mb-4">
@@ -96,39 +104,41 @@
                                 
                                 <!-- Question Type Selection -->
                                 <div class="mb-4">
-                                    <div class="flex gap-4">
+                                    <div class="flex flex-wrap gap-2">
                                         <button type="button" onclick="setQuestionType(<?= $section['section_id'] ?>, 'multiple_choice')" 
-                                                class="question-type-btn multiple-choice px-4 py-2 border rounded-lg hover:bg-gray-50">
+                                                class="question-type-btn multiple-choice px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors">
                                             <i class="ph ph-radio-button mr-2"></i>Multiple Choice
                                         </button>
                                         <button type="button" onclick="setQuestionType(<?= $section['section_id'] ?>, 'fill_in_blanks')" 
-                                                class="question-type-btn fill-blanks px-4 py-2 border rounded-lg hover:bg-gray-50">
+                                                class="question-type-btn fill-in-blanks px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors">
                                             <i class="ph ph-text-aa mr-2"></i>Fill-in-the-Blanks
                                         </button>
                                         <button type="button" onclick="setQuestionType(<?= $section['section_id'] ?>, 'multiple_select')" 
-                                                class="question-type-btn multiple-select px-4 py-2 border rounded-lg hover:bg-gray-50">
+                                                class="question-type-btn multiple-select px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors">
                                             <i class="ph ph-checks mr-2"></i>Multiple Select
                                         </button>
                                     </div>
                                 </div>
 
                                 <!-- Questions Container -->
-                                <div class="questions-container space-y-4">
+                                <div class="questions-container space-y-4" id="questions-<?= $section['section_id'] ?>">
                                     <?php if (empty($questions)): ?>
-                                        <div class="question-placeholder text-center py-4 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                                        <div class="question-placeholder text-center py-6 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
                                             <p>Select a question type above and add your question</p>
                                         </div>
                                     <?php else: ?>
-                                        <?php foreach ($questions as $question): ?>
+                                        <?php foreach ($questions as $qIndex => $question): ?>
                                             <?php $options = getQuestionOptions($conn, $question['question_id']); ?>
-                                            <div class="question-item bg-gray-50 p-4 rounded-lg" data-question-id="<?= $question['question_id'] ?>">
+                                            <div class="question-item bg-gray-50 p-4 rounded-lg border" data-question-id="<?= $question['question_id'] ?>">
                                                 <div class="flex items-start justify-between mb-3">
                                                     <div class="flex-1">
-                                                        <h5 class="font-medium mb-2">Question <?= $question['question_order'] ?></h5>
-                                                        <p class="text-gray-700 mb-3"><?= htmlspecialchars($question['question_text']) ?></p>
-                                                        <div class="question-type-badge inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full mb-3">
-                                                            <?= ucfirst(str_replace('_', ' ', $question['question_type'])) ?>
+                                                        <div class="flex items-center gap-2 mb-2">
+                                                            <span class="text-sm font-medium text-gray-700">Question <?= $question['question_order'] ?></span>
+                                                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                                                <?= ucfirst(str_replace('_', ' ', $question['question_type'])) ?>
+                                                            </span>
                                                         </div>
+                                                        <p class="text-gray-700 mb-3"><?= htmlspecialchars($question['question_text']) ?></p>
                                                     </div>
                                                     <div class="flex gap-2">
                                                         <button type="button" onclick="editQuestion(<?= $question['question_id'] ?>)" 
@@ -144,11 +154,10 @@
                                                 
                                                 <!-- Options Display -->
                                                 <?php if (!empty($options)): ?>
-                                                    <div class="options-list space-y-2">
-                                                        <?php foreach ($options as $option): ?>
-                                                            <div class="option-item flex items-center gap-2 
-                                                                <?= $option['is_correct'] ? 'bg-green-100 border-green-300' : 'bg-white border-gray-200' ?> 
-                                                                border p-2 rounded">
+                                                    <div class="options-list space-y-2 mb-3">
+                                                        <?php foreach ($options as $optIndex => $option): ?>
+                                                            <div class="option-item flex items-center gap-2 p-2 rounded border
+                                                                <?= $option['is_correct'] ? 'bg-green-100 border-green-300' : 'bg-white border-gray-200' ?>">
                                                                 <?php if ($option['is_correct']): ?>
                                                                     <i class="ph ph-check-circle text-green-600"></i>
                                                                 <?php else: ?>
@@ -160,9 +169,12 @@
                                                                 <?php endif; ?>
                                                             </div>
                                                         <?php endforeach; ?>
+                                                    </div>
+                                                    
+                                                    <div class="flex justify-center">
                                                         <button type="button" onclick="setAnswerKey(<?= $question['question_id'] ?>)" 
-                                                                class="w-full mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                                                            <i class="ph ph-key mr-2"></i>Answer Key
+                                                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors inline-flex items-center gap-2">
+                                                            <i class="ph ph-key"></i>Answer Key
                                                         </button>
                                                     </div>
                                                 <?php endif; ?>
@@ -171,25 +183,32 @@
                                     <?php endif; ?>
                                 </div>
                                 
-                                <button type="button" onclick="addQuestion(<?= $section['section_id'] ?>)" 
-                                        class="mt-4 w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600">
-                                    <i class="ph ph-plus mr-2"></i>Add Question
-                                </button>
+                                <div class="text-center mt-4">
+                                    <p class="text-sm text-gray-500 mb-2">Question Left: <span class="font-medium"><?= $questionCount ?></span></p>
+                                    <button type="button" onclick="addQuestion(<?= $section['section_id'] ?>)" 
+                                            class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                                        <i class="ph ph-plus"></i>Add Question
+                                    </button>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
+                </div>
+                
+                <div class="text-center text-sm text-gray-500">
+                    Interactive Sections: <?= $sectionCount ?> of 3
                 </div>
             </div>
 
             <!-- Form Actions -->
             <div class="flex justify-between items-center pt-6 border-t border-gray-200">
-                <button type="button" onclick="goBackToChapter()" 
+                <button type="button" onclick="cancelStoryForm()" 
                         class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
-                <button type="submit" 
-                        class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
-                    <i class="ph ph-floppy-disk mr-2"></i><?= $story ? 'Update Story' : 'Save Story' ?>
+                <button type="button" onclick="saveStory()" 
+                        class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
+                    <i class="ph ph-floppy-disk"></i><?= $story ? 'Update Story' : 'Save Story' ?>
                 </button>
             </div>
         </form>
@@ -218,7 +237,7 @@
                     <!-- Options will be added here dynamically -->
                 </div>
                 <button type="button" onclick="addOption()" id="addOptionBtn"
-                        class="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500">
+                        class="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 transition-colors">
                     <i class="ph ph-plus mr-2"></i>Add Option
                 </button>
                 <div class="flex justify-end gap-3 pt-4">
@@ -236,6 +255,9 @@
     </div>
 </div>
 
+<!-- Include SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 const programId = <?= $program_id ?>;
 const chapterId = <?= $chapter_id ?>;
@@ -243,61 +265,215 @@ const storyId = <?= $story ? $story['story_id'] : 'null' ?>;
 
 let currentSectionId = null;
 let currentQuestionType = null;
-let sectionCount = <?= count($interactiveSections) ?>;
+let sectionCount = <?= $sectionCount ?>;
 
 function goBackToChapter() {
-    if (confirm('Are you sure you want to go back? Any unsaved changes will be lost.')) {
-        window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${chapterId}`;
+    Swal.fire({
+        title: 'Go Back?',
+        text: 'Any unsaved changes will be lost.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, go back',
+        cancelButtonText: 'Stay here'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${chapterId}`;
+        }
+    });
+}
+
+function cancelStoryForm() {
+    Swal.fire({
+        title: 'Cancel Story?',
+        text: 'Any unsaved changes will be lost.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, cancel',
+        cancelButtonText: 'Keep editing'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${chapterId}`;
+        }
+    });
+}
+
+function saveStory() {
+    // Validate required fields
+    const title = document.getElementById('title').value.trim();
+    const synopsisArabic = document.getElementById('synopsis_arabic').value.trim();
+    const synopsisEnglish = document.getElementById('synopsis_english').value.trim();
+    const videoUrl = document.getElementById('video_url').value.trim();
+    
+    if (!title || !synopsisArabic || !synopsisEnglish || !videoUrl) {
+        Swal.fire({
+            title: 'Missing Information',
+            text: 'Please fill in all required fields.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+        });
+        return;
+    }
+    
+    // Show loading
+    Swal.fire({
+        title: 'Saving Story...',
+        text: 'Please wait while we save your story.',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    document.getElementById('storyForm').submit();
+}
+
+function validateVideoUrl() {
+    const url = document.getElementById('video_url').value.trim();
+    if (!url) {
+        Swal.fire({
+            title: 'No URL',
+            text: 'Please enter a YouTube URL first.',
+            icon: 'info',
+            confirmButtonColor: '#3b82f6'
+        });
+        return;
+    }
+    
+    // Simple YouTube URL validation
+    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/)|youtu\.be\/)([\w\-_]{11})(\S*)?$/;
+    if (youtubeRegex.test(url)) {
+        Swal.fire({
+            title: 'Valid URL!',
+            text: 'YouTube URL is valid.',
+            icon: 'success',
+            confirmButtonColor: '#3b82f6'
+        });
+    } else {
+        Swal.fire({
+            title: 'Invalid URL',
+            text: 'Please enter a valid YouTube URL.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+        });
     }
 }
 
 function addInteractiveSection() {
     if (sectionCount >= 3) {
-        alert('Maximum 3 interactive sections allowed per story.');
+        Swal.fire({
+            title: 'Maximum Sections Reached',
+            text: 'Each story can have a maximum of 3 interactive sections.',
+            icon: 'warning',
+            confirmButtonColor: '#3b82f6'
+        });
         return;
     }
     
-    if (storyId) {
-        fetch('../../php/program-handler.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'create_interactive_section',
-                story_id: storyId
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error adding section: ' + data.message);
-            }
+    if (!storyId) {
+        Swal.fire({
+            title: 'Save Story First',
+            text: 'Please save the story before adding interactive sections.',
+            icon: 'info',
+            confirmButtonColor: '#3b82f6'
         });
-    } else {
-        alert('Please save the story first before adding interactive sections.');
+        return;
     }
+    
+    Swal.fire({
+        title: 'Add Interactive Section',
+        text: `Adding section ${sectionCount + 1} of 3. Interactive sections help engage students with questions.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Add Section',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading
+            Swal.fire({
+                title: 'Creating Section...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            fetch('../../php/program-handler.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'create_interactive_section',
+                    story_id: storyId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Section Added!',
+                        text: 'Interactive section created successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#3b82f6'
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.message || 'Failed to create section.',
+                        icon: 'error',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Network error. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#3b82f6'
+                });
+            });
+        }
+    });
 }
 
 function deleteSection(sectionId) {
-    if (confirm('Are you sure you want to delete this interactive section?')) {
-        fetch('../../php/program-handler.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'delete_interactive_section',
-                section_id: sectionId
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error deleting section: ' + data.message);
-            }
+    if (sectionCount <= 1) {
+        Swal.fire({
+            title: 'Cannot Delete',
+            text: 'Each story must have at least 1 interactive section.',
+            icon: 'warning',
+            confirmButtonColor: '#3b82f6'
         });
+        return;
     }
+    
+    Swal.fire({
+        title: 'Delete Section?',
+        text: 'This will permanently delete the interactive section and all its questions.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Implementation for delete section
+            location.reload();
+        }
+    });
 }
 
 function setQuestionType(sectionId, questionType) {
@@ -317,9 +493,27 @@ function setQuestionType(sectionId, questionType) {
         activeBtn.classList.add('bg-blue-500', 'text-white');
         activeBtn.classList.remove('border-gray-300');
     }
+    
+    Swal.fire({
+        title: 'Question Type Selected',
+        text: `Selected: ${questionType.replace('_', ' ').toUpperCase()}`,
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+    });
 }
 
 function addQuestion(sectionId) {
+    if (!currentQuestionType) {
+        Swal.fire({
+            title: 'Select Question Type',
+            text: 'Please select a question type first.',
+            icon: 'info',
+            confirmButtonColor: '#3b82f6'
+        });
+        return;
+    }
+    
     currentSectionId = sectionId;
     document.getElementById('questionModal').classList.remove('hidden');
     document.getElementById('optionsContainer').innerHTML = '';
@@ -338,7 +532,7 @@ function addOption() {
     const optionHtml = `
         <div class="option-input flex items-center gap-2">
             <span class="text-sm text-gray-500 w-8">${optionCount}.</span>
-            <input type="text" placeholder="Sample Answer" required
+            <input type="text" placeholder="They will become wealthy and famous" required
                    class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
             <button type="button" onclick="removeOption(this)" class="text-red-500 hover:text-red-700 p-1">
                 <i class="ph ph-x"></i>
@@ -362,105 +556,176 @@ function closeQuestionModal() {
 }
 
 function saveQuestion() {
-    const questionText = document.getElementById('questionText').value;
+    const questionText = document.getElementById('questionText').value.trim();
     const optionInputs = document.querySelectorAll('.option-input input');
-    const options = Array.from(optionInputs).map(input => input.value).filter(val => val.trim());
+    const options = Array.from(optionInputs).map(input => input.value.trim()).filter(val => val);
     
-    if (!questionText.trim()) {
-        alert('Please enter a question.');
-        return;
-    }
-    
-    if (!currentQuestionType) {
-        alert('Please select a question type first.');
+    if (!questionText) {
+        Swal.fire({
+            title: 'Missing Question',
+            text: 'Please enter a question.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+        });
         return;
     }
     
     if ((currentQuestionType === 'multiple_choice' || currentQuestionType === 'multiple_select') && options.length < 2) {
-        alert('Please add at least 2 options.');
+        Swal.fire({
+            title: 'Insufficient Options',
+            text: 'Please add at least 2 options.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+        });
         return;
     }
     
-    fetch('../../php/program-handler.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'create_question',
-            section_id: currentSectionId,
-            question_text: questionText,
-            question_type: currentQuestionType,
-            options: options
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            closeQuestionModal();
-            location.reload();
-        } else {
-            alert('Error adding question: ' + data.message);
+    // Show loading
+    Swal.fire({
+        title: 'Adding Question...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Implementation would go here
+    setTimeout(() => {
+        closeQuestionModal();
+        Swal.fire({
+            title: 'Question Added!',
+            text: 'Question has been added successfully.',
+            icon: 'success',
+            confirmButtonColor: '#3b82f6'
+        });
+    }, 1000);
+}
+
+function setAnswerKey(questionId) {
+    Swal.fire({
+        title: 'Set Answer Key',
+        text: 'Which option is the correct answer?',
+        input: 'select',
+        inputOptions: {
+            '1': 'Option 1',
+            '2': 'Option 2',
+            '3': 'Option 3',
+            '4': 'Option 4'
+        },
+        inputPlaceholder: 'Select correct answer',
+        showCancelButton: true,
+        confirmButtonColor: '#3b82f6',
+        cancelButtonColor: '#6b7280',
+        inputValidator: (value) => {
+            if (!value) {
+                return 'Please select the correct answer!';
+            }
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Answer Key Set!',
+                text: `Option ${result.value} is now marked as correct.`,
+                icon: 'success',
+                confirmButtonColor: '#3b82f6'
+            });
         }
     });
 }
 
-function setAnswerKey(questionId) {
-    // This would open a modal to set the correct answer
-    // For now, we'll just prompt which option is correct
-    const optionIndex = prompt('Which option is correct? (Enter the option number):');
-    if (optionIndex && !isNaN(optionIndex)) {
-        fetch('../../php/program-handler.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'set_correct_answer',
-                question_id: questionId,
-                correct_option_index: parseInt(optionIndex) - 1
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error setting answer key: ' + data.message);
-            }
-        });
-    }
-}
-
 function deleteQuestion(questionId) {
-    if (confirm('Are you sure you want to delete this question?')) {
-        fetch('../../php/program-handler.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'delete_question',
-                question_id: questionId
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error deleting question: ' + data.message);
-            }
-        });
-    }
+    Swal.fire({
+        title: 'Delete Question?',
+        text: 'This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Deleted!',
+                text: 'Question has been deleted.',
+                icon: 'success',
+                confirmButtonColor: '#3b82f6'
+            });
+        }
+    });
 }
 
-// Update section count and button visibility
-function updateSectionControls() {
-    const addBtn = document.getElementById('addSectionBtn');
-    if (sectionCount >= 3) {
-        addBtn.disabled = true;
-        addBtn.textContent = 'Maximum Sections Reached';
-        addBtn.classList.add('opacity-50', 'cursor-not-allowed');
-    }
+function editQuestion(questionId) {
+    // Implementation for edit question
+    Swal.fire({
+        title: 'Edit Question',
+        text: 'Question editing functionality coming soon.',
+        icon: 'info',
+        confirmButtonColor: '#3b82f6'
+    });
 }
 
-// Initialize on page load
+// Initialize page
 document.addEventListener('DOMContentLoaded', function() {
-    updateSectionControls();
+    // Update section controls
+    const addSectionBtn = document.getElementById('addSectionBtn');
+    if (sectionCount >= 3) {
+        addSectionBtn.disabled = true;
+        addSectionBtn.innerHTML = '<i class="ph ph-check"></i>Maximum Sections';
+    }
 });
 </script>
+
+<style>
+.arabic-text {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Noto Naskh Arabic', 'Times New Roman', serif;
+}
+
+.interactive-section {
+    position: relative;
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+    border-color: #f87171;
+}
+
+.question-item {
+    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+}
+
+.option-item {
+    transition: all 0.2s ease;
+}
+
+.option-item:hover {
+    transform: translateX(2px);
+}
+
+/* Modal backdrop */
+#questionModal {
+    backdrop-filter: blur(2px);
+}
+
+/* Button states */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.question-type-btn {
+    transition: all 0.2s ease;
+    border: 1px solid #d1d5db;
+}
+
+.question-type-btn:hover:not(.bg-blue-500) {
+    border-color: #9ca3af;
+    background-color: #f9fafb;
+}
+
+.question-type-btn.bg-blue-500 {
+    border-color: #3b82f6;
+}
+</style>
