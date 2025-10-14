@@ -4,7 +4,7 @@ $current_page = "teacher-programs";
 $page_title = "My Programs";
 
 // Enable debugging - set to false in production
-$debug_mode = true;
+$debug_mode = false;
 
 if ($debug_mode) {
     ini_set('display_errors', 1);
@@ -31,6 +31,7 @@ try {
     require_once '../../php/dbConnection.php';
     require_once '../../php/functions.php';
     require_once '../../php/program-helpers.php';
+    
 } catch (Exception $e) {
     if ($debug_mode) {
         die('Error including required files: ' . $e->getMessage());
@@ -357,115 +358,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                     <?php endif; ?>
                 </div>
             </section>
-            
         <?php elseif ($pageContent === 'program_details'): ?>
-            <!-- PROGRAM DETAILS FORM -->
-            <section class="content-section">
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h1 class="section-title text-xl md:text-2xl font-bold">
-                            <?= $program ? 'Edit Program' : 'Create New Program' ?>
-                        </h1>
-                        <a href="teacher-programs.php" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm flex items-center gap-2">
-                            <i class="ph ph-arrow-left"></i>
-                            <span>Back to Programs</span>
-                        </a>
-                    </div>
-                    
-                    <form method="POST" action="../../php/create-program-fixed.php" enctype="multipart/form-data" class="space-y-6">
-                        <?php if ($program): ?>
-                            <input type="hidden" name="program_id" value="<?= $program['programID'] ?>">
-                            <input type="hidden" name="update_program" value="1">
-                        <?php else: ?>
-                            <input type="hidden" name="create_program" value="1">
-                        <?php endif; ?>
-                        
-                        <!-- Program Title -->
-                        <div>
-                            <label for="title" class="block text-gray-700 font-medium mb-2">Program Title</label>
-                            <input type="text" id="title" name="title" 
-                                   value="<?= $program ? htmlspecialchars($program['title']) : '' ?>" 
-                                   required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        
-                        <!-- Program Description -->
-                        <div>
-                            <label for="description" class="block text-gray-700 font-medium mb-2">Program Description</label>
-                            <textarea id="description" name="description" rows="4" required 
-                                      class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"><?= $program ? htmlspecialchars($program['description']) : '' ?></textarea>
-                        </div>
-                        
-                        <!-- Category/Difficulty -->
-                        <div>
-                            <label class="block text-gray-700 font-medium mb-2">Difficulty Level</label>
-                            <div class="flex gap-4">
-                                <label class="flex items-center gap-2">
-                                    <input type="radio" name="category" value="beginner" <?= (!$program || $program['category'] === 'beginner') ? 'checked' : '' ?> required>
-                                    <span class="px-4 py-2 bg-gray-100 rounded-lg">Beginner</span>
-                                </label>
-                                <label class="flex items-center gap-2">
-                                    <input type="radio" name="category" value="intermediate" <?= ($program && $program['category'] === 'intermediate') ? 'checked' : '' ?>>
-                                    <span class="px-4 py-2 bg-gray-100 rounded-lg">Intermediate</span>
-                                </label>
-                                <label class="flex items-center gap-2">
-                                    <input type="radio" name="category" value="advanced" <?= ($program && $program['category'] === 'advanced') ? 'checked' : '' ?>>
-                                    <span class="px-4 py-2 bg-gray-100 rounded-lg">Advanced</span>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <!-- Program Price -->
-                        <div>
-                            <label for="price" class="block text-gray-700 font-medium mb-2">Program Price (₱)</label>
-                            <input type="number" id="price" name="price" min="0" step="0.01" 
-                                   value="<?= $program ? $program['price'] : '0.00' ?>" 
-                                   required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        
-                        <!-- Program Status -->
-                        <div>
-                            <label class="block text-gray-700 font-medium mb-2">Program Status</label>
-                            <select name="status" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
-                                <option value="draft" <?= (!$program || $program['status'] === 'draft') ? 'selected' : '' ?>>Draft</option>
-                                <option value="published" <?= ($program && $program['status'] === 'published') ? 'selected' : '' ?>>Published</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Thumbnail Upload (only for new programs) -->
-                        <?php if (!$program): ?>
-                            <div>
-                                <label class="block text-gray-700 font-medium mb-2">Program Thumbnail</label>
-                                <div class="flex items-center gap-4">
-                                    <img id="thumbnailPreview" src="../../images/default-program.jpg" alt="Thumbnail Preview" 
-                                         class="w-20 h-20 object-cover border rounded">
-                                    <div>
-                                        <input type="file" name="thumbnail" id="thumbnail" accept="image/*" 
-                                               class="hidden" onchange="previewThumbnail()">
-                                        <label for="thumbnail" 
-                                               class="bg-blue-500 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-600">
-                                            Upload Image
-                                        </label>
-                                        <p class="text-sm text-gray-500 mt-1">Recommended: 400x400px, JPG/PNG</p>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <!-- Submit Buttons -->
-                        <div class="flex justify-end gap-4">
-                            <a href="teacher-programs.php" 
-                               class="px-6 py-3 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
-                                Cancel
-                            </a>
-                            <button type="submit" 
-                                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                                <?= $program ? 'Update Program' : 'Create Program' ?>
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </section>
-            
         <?php else: ?>
             <!-- OTHER CONTENT SECTIONS -->
             <section class="content-section">
