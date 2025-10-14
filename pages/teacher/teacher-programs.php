@@ -48,95 +48,10 @@ $program_id = $_GET['program_id'] ?? null;
 $chapter_id = $_GET['chapter_id'] ?? null;
 $story_id = $_GET['story_id'] ?? null;
 
-// Enhanced teacher ID retrieval with auto-creation
-function getOrCreateTeacherId($conn, $user_id, $debug_mode = false) {
-    // First, try to get existing teacher ID
-    $stmt = $conn->prepare("SELECT teacherID FROM teacher WHERE userID = ? AND isActive = 1");
-    if (!$stmt) {
-        if ($debug_mode) {
-            echo "<div class='debug-error'>Prepare statement failed: " . $conn->error . "</div>";
-        }
-        return null;
-    }
-    
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $stmt->close();
-        return (int)$row['teacherID'];
-    }
-    
-    $stmt->close();
-    
-    if ($debug_mode) {
-        echo "<div class='debug-info'>No teacher record found for user ID: {$user_id}. Attempting to create...</div>";
-    }
-    
-    // If teacher record doesn't exist, create one
-    $userStmt = $conn->prepare("SELECT email, fname, lname FROM user WHERE userID = ? AND role = 'teacher' AND isActive = 1");
-    if (!$userStmt) {
-        if ($debug_mode) {
-            echo "<div class='debug-error'>User query prepare failed: " . $conn->error . "</div>";
-        }
-        return null;
-    }
-    
-    $userStmt->bind_param("i", $user_id);
-    $userStmt->execute();
-    $userResult = $userStmt->get_result();
-    
-    if ($userResult->num_rows > 0) {
-        $user = $userResult->fetch_assoc();
-        $userStmt->close();
-        
-        if ($debug_mode) {
-            echo "<div class='debug-info'>Found user record: " . $user['email'] . ". Creating teacher record...</div>";
-        }
-        
-        // Create teacher record
-        $insertStmt = $conn->prepare("INSERT INTO teacher (userID, email, username, fname, lname, dateCreated, isActive) VALUES (?, ?, ?, ?, ?, NOW(), 1)");
-        if (!$insertStmt) {
-            if ($debug_mode) {
-                echo "<div class='debug-error'>Insert statement prepare failed: " . $conn->error . "</div>";
-            }
-            return null;
-        }
-        
-        $username = $user['email']; // Use email as username
-        $insertStmt->bind_param("issss", $user_id, $user['email'], $username, $user['fname'], $user['lname']);
-        
-        if ($insertStmt->execute()) {
-            $teacher_id = $insertStmt->insert_id;
-            $insertStmt->close();
-            
-            if ($debug_mode) {
-                echo "<div class='debug-success'>✅ Teacher record created successfully! Teacher ID: {$teacher_id}</div>";
-            }
-            
-            return $teacher_id;
-        } else {
-            if ($debug_mode) {
-                echo "<div class='debug-error'>Insert execution failed: " . $insertStmt->error . "</div>";
-            }
-            $insertStmt->close();
-        }
-    } else {
-        if ($debug_mode) {
-            echo "<div class='debug-error'>No user found with ID: {$user_id} and role 'teacher'</div>";
-        }
-    }
-    
-    $userStmt->close();
-    return null;
-}
+// Get teacher ID using the consolidated function from program-helpers.php
+$teacher_id = getTeacherIdFromSession($conn, $user_id);
 
-// Get teacher ID with better error handling
-$actual_teacher_id = getOrCreateTeacherId($conn, $user_id, $debug_mode);
-
-if (!$actual_teacher_id) {
+if (!$teacher_id) {
     $error_details = '';
     if ($debug_mode) {
         $error_details = " (User ID: {$user_id}, Role: {$_SESSION['role']})";
@@ -145,11 +60,9 @@ if (!$actual_teacher_id) {
         echo '<p><strong>Error:</strong> Teacher profile not found or could not be created.' . $error_details . '</p>';
         echo '<p><strong>Possible solutions:</strong></p>';
         echo '<ul>';
-        echo '<li>Run the fix script: <a href="../../sql/fix-teacher-mapping.php">../../sql/fix-teacher-mapping.php</a></li>';
         echo '<li>Check if your user account has role = "teacher" in the user table</li>';
         echo '<li>Verify database connection and table structure</li>';
         echo '</ul>';
-        echo '<p><a href="../../sql/fix-teacher-mapping.php" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">→ Run Fix Script</a></p>';
         echo '</div>';
         exit();
     } else {
@@ -162,7 +75,7 @@ if (!$actual_teacher_id) {
 if ($debug_mode) {
     echo '<div style="background: #e6ffe6; padding: 10px; margin: 10px; border: 1px solid #00aa00; border-radius: 5px;">';
     echo "<p><strong>✅ Authentication successful!</strong></p>";
-    echo "<p>User ID: {$user_id} | Teacher ID: {$actual_teacher_id} | Action: {$action}</p>";
+    echo "<p>User ID: {$user_id} | Teacher ID: {$teacher_id} | Action: {$action}</p>";
     echo '</div>';
 }
 
@@ -174,12 +87,12 @@ switch ($action) {
         
         if ($program_id) {
             try {
-                $program = getProgram($conn, $program_id, $actual_teacher_id);
+                $program = getProgram($conn, $program_id, $teacher_id);
                 
                 if (!$program && $debug_mode) {
                     echo '<div style="background: #fff3cd; padding: 10px; margin: 10px; border: 1px solid #ffc107; border-radius: 5px;">';
                     echo "<p><strong>⚠️ Program not found or access denied</strong></p>";
-                    echo "<p>Program ID: {$program_id} | Teacher ID: {$actual_teacher_id}</p>";
+                    echo "<p>Program ID: {$program_id} | Teacher ID: {$teacher_id}</p>";
                     echo "<p>This could mean the program doesn't exist or doesn't belong to you.</p>";
                     echo '</div>';
                 }
@@ -196,20 +109,20 @@ switch ($action) {
         
     case 'edit_chapter':
         $pageContent = 'chapter_content';
-        $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
+        $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
         $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
         break;
         
     case 'add_story':
         $pageContent = 'story_form';
-        $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
+        $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
         $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
         $story = $story_id ? getStory($conn, $story_id) : null;
         break;
         
     case 'add_quiz':
         $pageContent = 'quiz_form';
-        $program = $program_id ? getProgram($conn, $program_id, $actual_teacher_id) : null;
+        $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
         $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
         $quiz = $chapter_id ? getChapterQuiz($conn, $chapter_id) : null;
         break;
@@ -217,7 +130,7 @@ switch ($action) {
     default:
         $pageContent = 'programs_list';
         try {
-            $myPrograms = getTeacherPrograms($conn, $actual_teacher_id);
+            $myPrograms = getTeacherPrograms($conn, $teacher_id);
             $allPrograms = getPublishedPrograms($conn);
         } catch (Exception $e) {
             if ($debug_mode) {
@@ -358,7 +271,19 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                     <?php endif; ?>
                 </div>
             </section>
+            
         <?php elseif ($pageContent === 'program_details'): ?>
+            <!-- PROGRAM DETAILS FORM - Use New Component -->
+            <?php include '../../components/program-details-form.php'; ?>
+            
+        <?php elseif ($pageContent === 'chapter_content'): ?>
+            <!-- CHAPTER CONTENT FORM - Use New Component -->
+            <?php include '../../components/chapter-content-form.php'; ?>
+            
+        <?php elseif ($pageContent === 'story_form'): ?>
+            <!-- STORY FORM - Use New Component -->
+            <?php include '../../components/story-form.php'; ?>
+            
         <?php else: ?>
             <!-- OTHER CONTENT SECTIONS -->
             <section class="content-section">
@@ -391,6 +316,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 // Set global variables for JS
 const currentProgramId = <?= json_encode($program_id) ?>;
 const currentAction = <?= json_encode($action) ?>;
+const teacherId = <?= json_encode($teacher_id) ?>;
 
 // Display success/error messages
 <?php if ($success): ?>
@@ -408,20 +334,6 @@ const currentAction = <?= json_encode($action) ?>;
         icon: 'error'
     });
 <?php endif; ?>
-
-// Thumbnail preview function
-function previewThumbnail() {
-    const fileInput = document.getElementById('thumbnail');
-    const preview = document.getElementById('thumbnailPreview');
-    
-    if (fileInput && preview && fileInput.files && fileInput.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            preview.src = e.target.result;
-        };
-        reader.readAsDataURL(fileInput.files[0]);
-    }
-}
 
 // Scroll to top functionality
 function scrollToTop() {
