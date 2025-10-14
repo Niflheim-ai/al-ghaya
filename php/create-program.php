@@ -1,14 +1,8 @@
 <?php
-// Enhanced create-program.php - Fixed version with better error handling and database compatibility
+// Enhanced create-program.php - Fixed version without duplicate function issues
 require_once __DIR__ . '/dbConnection.php';
-require_once __DIR__ . '/functions.php';
-require_once __DIR__ . '/program-helpers.php';
+require_once __DIR__ . '/program-helpers.php'; // This now contains all program-related functions
 session_start();
-
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 
 // Check if user is logged in and is a teacher
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
@@ -23,51 +17,8 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
 
 $user_id = $_SESSION['userID'];
 
-// Enhanced teacher ID retrieval with auto-creation
-function getOrCreateTeacherId($conn, $user_id) {
-    // First, try to get existing teacher ID
-    $stmt = $conn->prepare("SELECT teacherID FROM teacher WHERE userID = ? AND isActive = 1");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $stmt->close();
-        return (int)$row['teacherID'];
-    }
-    
-    $stmt->close();
-    
-    // If teacher record doesn't exist, create one
-    $userStmt = $conn->prepare("SELECT email, fname, lname FROM user WHERE userID = ? AND role = 'teacher' AND isActive = 1");
-    $userStmt->bind_param("i", $user_id);
-    $userStmt->execute();
-    $userResult = $userStmt->get_result();
-    
-    if ($userResult->num_rows > 0) {
-        $user = $userResult->fetch_assoc();
-        $userStmt->close();
-        
-        // Create teacher record
-        $insertStmt = $conn->prepare("INSERT INTO teacher (userID, email, username, fname, lname, dateCreated, isActive) VALUES (?, ?, ?, ?, ?, NOW(), 1)");
-        $username = $user['email']; // Use email as username
-        $insertStmt->bind_param("issss", $user_id, $user['email'], $username, $user['fname'], $user['lname']);
-        
-        if ($insertStmt->execute()) {
-            $teacher_id = $insertStmt->insert_id;
-            $insertStmt->close();
-            return $teacher_id;
-        }
-        
-        $insertStmt->close();
-    }
-    
-    $userStmt->close();
-    return null;
-}
-
-$teacher_id = getOrCreateTeacherId($conn, $user_id);
+// Get teacher ID using the consolidated function
+$teacher_id = getTeacherIdFromSession($conn, $user_id);
 
 if (!$teacher_id) {
     if (($_GET['flow'] ?? '') === 'redirect') {
@@ -147,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $program_id = createProgram($conn, $data);
         if ($program_id) {
-            // Add all temp chapters using existing function
+            // Add all temp chapters using consolidated function
             foreach ($_SESSION['temp_chapters'] as $chapter) {
                 addChapter($conn, $program_id, $chapter['title'], $chapter['content'], $chapter['question']);
             }
