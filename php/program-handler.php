@@ -1,6 +1,6 @@
 <?php
 /**
- * Enhanced Program Handler - Compatible with Existing Schema
+ * Enhanced Program Handler - Compatible with New Components
  * Processes all program-related operations including creation, updates, chapters, stories, quizzes, etc.
  */
 
@@ -9,11 +9,13 @@ require_once 'dbConnection.php';
 require_once 'functions.php';
 require_once 'program-helpers.php';
 
-// Set JSON content type for all responses
-header('Content-Type: application/json');
-
 // Check if user is logged in and is a teacher
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
+    if (isset($_POST['action']) && in_array($_POST['action'], ['create_program', 'update_program'])) {
+        $_SESSION['error_message'] = 'Unauthorized access';
+        header('Location: ../pages/teacher/teacher-programs.php');
+        exit;
+    }
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
@@ -23,6 +25,11 @@ $user_id = $_SESSION['userID'];
 $teacher_id = getTeacherIdFromSession($conn, $user_id);
 
 if (!$teacher_id) {
+    if (isset($_POST['action']) && in_array($_POST['action'], ['create_program', 'update_program'])) {
+        $_SESSION['error_message'] = 'Teacher profile not found';
+        header('Location: ../pages/teacher/teacher-programs.php');
+        exit;
+    }
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Teacher profile not found']);
     exit;
@@ -43,18 +50,32 @@ if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'applica
 try {
     switch ($action) {
         
-        // ==================== PROGRAM OPERATIONS ====================
+        // ==================== PROGRAM OPERATIONS (FORM SUBMISSIONS) ====================
         
         case 'create_program':
+            // Handle form-based program creation
             $data = [
                 'teacherID' => $teacher_id,
-                'title' => $_POST['title'] ?? 'New Program',
-                'description' => $_POST['description'] ?? '',
-                'category' => $_POST['category'] ?? 'beginner',
+                'title' => trim($_POST['title'] ?? ''),
+                'description' => trim($_POST['description'] ?? ''),
+                'category' => $_POST['difficulty_level'] ?? 'Student', // Map difficulty_level to category
                 'price' => floatval($_POST['price'] ?? 0),
                 'status' => $_POST['status'] ?? 'draft',
                 'thumbnail' => 'default-thumbnail.jpg'
             ];
+            
+            // Validate required fields
+            if (empty($data['title']) || strlen($data['title']) < 3) {
+                $_SESSION['error_message'] = 'Program title must be at least 3 characters long';
+                header('Location: ../pages/teacher/teacher-programs.php?action=create');
+                exit;
+            }
+            
+            if (empty($data['description']) || strlen($data['description']) < 10) {
+                $_SESSION['error_message'] = 'Program description must be at least 10 characters long';
+                header('Location: ../pages/teacher/teacher-programs.php?action=create');
+                exit;
+            }
             
             // Handle thumbnail upload
             if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
@@ -66,185 +87,179 @@ try {
             
             $program_id = createProgram($conn, $data);
             if ($program_id) {
-                echo json_encode([
-                    'success' => true, 
-                    'program_id' => $program_id,
-                    'message' => 'Program created successfully'
-                ]);
+                // Create initial chapter
+                addChapter($conn, $program_id, 'Introduction', 'Welcome to this program!', '');
+                
+                $_SESSION['success_message'] = 'Program created successfully!';
+                header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id);
+                exit;
             } else {
-                throw new Exception('Failed to create program');
+                $_SESSION['error_message'] = 'Failed to create program. Please try again.';
+                header('Location: ../pages/teacher/teacher-programs.php?action=create');
+                exit;
             }
             break;
             
         case 'update_program':
+            // Handle form-based program updates
             $program_id = intval($_POST['program_id'] ?? 0);
             if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
-                throw new Exception('Invalid program or no permission');
+                $_SESSION['error_message'] = 'Invalid program or access denied.';
+                header('Location: ../pages/teacher/teacher-programs.php');
+                exit;
             }
             
             $data = [
                 'teacherID' => $teacher_id,
-                'title' => $_POST['title'] ?? '',
-                'description' => $_POST['description'] ?? '',
-                'category' => $_POST['category'] ?? 'beginner',
+                'title' => trim($_POST['title'] ?? ''),
+                'description' => trim($_POST['description'] ?? ''),
+                'category' => $_POST['difficulty_level'] ?? 'Student',
                 'price' => floatval($_POST['price'] ?? 0),
                 'status' => $_POST['status'] ?? 'draft'
             ];
             
+            // Validate required fields
+            if (empty($data['title']) || strlen($data['title']) < 3) {
+                $_SESSION['error_message'] = 'Program title must be at least 3 characters long';
+                header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id);
+                exit;
+            }
+            
+            if (empty($data['description']) || strlen($data['description']) < 10) {
+                $_SESSION['error_message'] = 'Program description must be at least 10 characters long';
+                header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id);
+                exit;
+            }
+            
+            // Handle thumbnail upload
+            if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
+                $uploaded_thumbnail = uploadThumbnail($_FILES['thumbnail']);
+                if ($uploaded_thumbnail) {
+                    $data['thumbnail'] = $uploaded_thumbnail;
+                }
+            }
+            
             if (updateProgram($conn, $program_id, $data)) {
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Program updated successfully'
-                ]);
+                $_SESSION['success_message'] = 'Program updated successfully!';
             } else {
-                throw new Exception('Failed to update program');
+                $_SESSION['error_message'] = 'No changes made or error updating program.';
             }
+            
+            header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id);
+            exit;
             break;
             
-        case 'get_program':
+        case 'create_story':
+            // Handle form-based story creation
             $program_id = intval($_POST['program_id'] ?? 0);
-            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
-                throw new Exception('Invalid program or no permission');
+            $chapter_id = intval($_POST['chapter_id'] ?? 0);
+            $title = trim($_POST['title'] ?? '');
+            $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? '');
+            $synopsis_english = trim($_POST['synopsis_english'] ?? '');
+            $video_url = trim($_POST['video_url'] ?? '');
+            
+            // Validate required fields
+            if (empty($title) || empty($synopsis_arabic) || empty($synopsis_english) || empty($video_url)) {
+                $_SESSION['error_message'] = 'All fields are required for the story.';
+                header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
+                exit;
             }
             
-            $program = getProgram($conn, $program_id, $teacher_id);
-            if ($program) {
-                echo json_encode([
-                    'success' => true,
-                    'program' => $program
-                ]);
+            if (!$program_id || !$chapter_id) {
+                $_SESSION['error_message'] = 'Invalid program or chapter ID.';
+                header('Location: ../pages/teacher/teacher-programs.php');
+                exit;
+            }
+            
+            // Verify ownership
+            if (!verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                $_SESSION['error_message'] = 'Access denied to this program.';
+                header('Location: ../pages/teacher/teacher-programs.php');
+                exit;
+            }
+            
+            // Create story record (need to add this table if it doesn't exist)
+            $story_id = createStoryRecord($conn, [
+                'chapter_id' => $chapter_id,
+                'title' => $title,
+                'synopsis_arabic' => $synopsis_arabic,
+                'synopsis_english' => $synopsis_english,
+                'video_url' => $video_url
+            ]);
+            
+            if ($story_id) {
+                $_SESSION['success_message'] = 'Story created successfully!';
+                header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id);
+                exit;
             } else {
-                throw new Exception('Program not found');
+                $_SESSION['error_message'] = 'Failed to save story. Please try again.';
+                header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
+                exit;
             }
             break;
             
-        case 'get_draft_programs':
-            $programs = getDraftPrograms($conn, $teacher_id);
-            echo json_encode(['success' => true, 'programs' => $programs]);
-            break;
-            
-        case 'submit_for_publishing':
-            $program_ids = $_POST['program_ids'] ?? [];
-            
-            if (empty($program_ids)) {
-                throw new Exception('No programs selected');
-            }
-            
-            if (submitForPublishing($conn, $program_ids, $teacher_id)) {
-                echo json_encode(['success' => true, 'message' => 'Programs submitted for review successfully']);
-            } else {
-                throw new Exception('Failed to submit programs for publishing');
-            }
-            break;
-            
-        // ==================== CHAPTER OPERATIONS ====================
+        // ==================== AJAX OPERATIONS (JSON RESPONSES) ====================
         
-        case 'add_chapter':
+        case 'create_chapter':
+            header('Content-Type: application/json');
             $program_id = intval($_POST['program_id'] ?? 0);
+            $title = trim($_POST['title'] ?? 'New Chapter');
+            
             if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
-                throw new Exception('Invalid program or no permission');
+                echo json_encode(['success' => false, 'message' => 'Invalid program or no permission']);
+                exit;
             }
             
-            $title = $_POST['chapter_title'] ?? 'New Chapter';
-            $content = $_POST['chapter_content'] ?? '';
-            $question = $_POST['chapter_question'] ?? '';
-            
-            $chapter_id = addChapter($conn, $program_id, $title, $content, $question);
+            $chapter_id = addChapter($conn, $program_id, $title, '', '');
             if ($chapter_id) {
-                $chapters = getChapters($conn, $program_id);
                 echo json_encode([
                     'success' => true,
                     'chapter_id' => $chapter_id,
-                    'chapters' => $chapters,
-                    'message' => 'Chapter added successfully'
+                    'message' => 'Chapter created successfully'
                 ]);
             } else {
-                throw new Exception('Failed to add chapter');
+                echo json_encode(['success' => false, 'message' => 'Failed to create chapter']);
             }
-            break;
-            
-        case 'update_chapter':
-            $chapter_id = intval($_POST['chapter_id'] ?? 0);
-            $program_id = intval($_POST['program_id'] ?? 0);
-            
-            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
-                throw new Exception('Invalid program or no permission');
-            }
-            
-            $title = $_POST['chapter_title'] ?? '';
-            $content = $_POST['chapter_content'] ?? '';
-            $question = $_POST['chapter_question'] ?? '';
-            
-            if (updateChapter($conn, $chapter_id, $title, $content, $question)) {
-                $chapters = getChapters($conn, $program_id);
-                echo json_encode([
-                    'success' => true,
-                    'chapters' => $chapters,
-                    'message' => 'Chapter updated successfully'
-                ]);
-            } else {
-                throw new Exception('Failed to update chapter');
-            }
+            exit;
             break;
             
         case 'delete_chapter':
+            header('Content-Type: application/json');
             $chapter_id = intval($_POST['chapter_id'] ?? 0);
             $program_id = intval($_POST['program_id'] ?? 0);
             
             if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
-                throw new Exception('Invalid program or no permission');
+                echo json_encode(['success' => false, 'message' => 'Invalid program or no permission']);
+                exit;
             }
             
             if (deleteChapter($conn, $chapter_id)) {
-                $chapters = getChapters($conn, $program_id);
-                echo json_encode([
-                    'success' => true,
-                    'chapters' => $chapters,
-                    'message' => 'Chapter deleted successfully'
-                ]);
+                echo json_encode(['success' => true, 'message' => 'Chapter deleted successfully']);
             } else {
-                throw new Exception('Failed to delete chapter');
+                echo json_encode(['success' => false, 'message' => 'Failed to delete chapter']);
             }
+            exit;
             break;
             
-        case 'get_chapters':
-            $program_id = intval($_POST['program_id'] ?? 0);
-            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
-                throw new Exception('Invalid program or no permission');
+        case 'delete_story':
+            header('Content-Type: application/json');
+            $story_id = intval($_POST['story_id'] ?? 0);
+            
+            if (!$story_id) {
+                echo json_encode(['success' => false, 'message' => 'Story ID required']);
+                exit;
             }
             
-            $chapters = getChapters($conn, $program_id);
-            echo json_encode([
-                'success' => true,
-                'chapters' => $chapters
-            ]);
-            break;
-            
-        case 'get_chapter':
-            $chapter_id = intval($_POST['chapter_id'] ?? 0);
-            if (!$chapter_id) {
-                throw new Exception('Invalid chapter ID');
-            }
-            
-            $chapter = getChapter($conn, $chapter_id);
-            if ($chapter) {
-                // Verify ownership through program
-                if (!verifyProgramOwnership($conn, $chapter['program_id'], $teacher_id)) {
-                    throw new Exception('No permission to access this chapter');
-                }
-                
-                echo json_encode([
-                    'success' => true,
-                    'chapter' => $chapter
-                ]);
+            if (deleteStoryRecord($conn, $story_id)) {
+                echo json_encode(['success' => true, 'message' => 'Story deleted successfully']);
             } else {
-                throw new Exception('Chapter not found');
+                echo json_encode(['success' => false, 'message' => 'Failed to delete story']);
             }
+            exit;
             break;
             
-        // ==================== VALIDATION OPERATIONS ====================
-        
         case 'validate_youtube_url':
+            header('Content-Type: application/json');
             $url = $_POST['url'] ?? '';
             $is_valid = validateYouTubeUrl($url);
             $video_id = $is_valid ? getYouTubeVideoId($url) : null;
@@ -254,112 +269,135 @@ try {
                 'is_valid' => $is_valid,
                 'video_id' => $video_id
             ]);
+            exit;
             break;
             
-        // ==================== STORY OPERATIONS ====================
-        
-        case 'add_story':
-            $chapter_id = intval($_POST['chapter_id'] ?? 0);
-            if (!$chapter_id) {
-                throw new Exception('Invalid chapter ID');
+        case 'get_chapters':
+            header('Content-Type: application/json');
+            $program_id = intval($_POST['program_id'] ?? 0);
+            if (!$program_id || !verifyProgramOwnership($conn, $program_id, $teacher_id)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid program or no permission']);
+                exit;
             }
             
-            // Verify chapter ownership through program
-            $chapter = getChapter($conn, $chapter_id);
-            if (!$chapter || !verifyProgramOwnership($conn, $chapter['program_id'], $teacher_id)) {
-                throw new Exception('No permission to modify this chapter');
-            }
-            
-            // For now, return success (stories table may not exist yet)
-            echo json_encode([
-                'success' => true,
-                'message' => 'Story functionality will be available soon'
-            ]);
-            break;
-            
-        // ==================== QUIZ OPERATIONS ====================
-        
-        case 'add_quiz':
-            $chapter_id = intval($_POST['chapter_id'] ?? 0);
-            if (!$chapter_id) {
-                throw new Exception('Invalid chapter ID');
-            }
-            
-            // Verify chapter ownership through program
-            $chapter = getChapter($conn, $chapter_id);
-            if (!$chapter || !verifyProgramOwnership($conn, $chapter['program_id'], $teacher_id)) {
-                throw new Exception('No permission to modify this chapter');
-            }
-            
-            // For now, return success (quiz table may not exist yet)
-            echo json_encode([
-                'success' => true,
-                'message' => 'Quiz functionality will be available soon'
-            ]);
+            $chapters = getChapters($conn, $program_id);
+            echo json_encode(['success' => true, 'chapters' => $chapters]);
+            exit;
             break;
             
         default:
-            throw new Exception('Invalid action: ' . $action);
+            if (in_array($action, ['create_program', 'update_program', 'create_story'])) {
+                $_SESSION['error_message'] = 'Invalid action: ' . $action;
+                header('Location: ../pages/teacher/teacher-programs.php');
+                exit;
+            } else {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid action: ' . $action]);
+                exit;
+            }
     }
     
 } catch (Exception $e) {
     error_log("Program Handler Error: " . $e->getMessage());
     
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
-    ]);
-}
-
-/**
- * Get draft programs for a teacher
- */
-function getDraftPrograms($conn, $teacher_id) {
-    $stmt = $conn->prepare("SELECT programID, title, price, category FROM programs WHERE teacherID = ? AND status = 'draft' ORDER BY dateCreated DESC");
-    if (!$stmt) {
-        throw new Exception('Database prepare failed: ' . $conn->error);
+    if (in_array($action, ['create_program', 'update_program', 'create_story'])) {
+        $_SESSION['error_message'] = 'Server error: ' . $e->getMessage();
+        header('Location: ../pages/teacher/teacher-programs.php');
+        exit;
+    } else {
+        header('Content-Type: application/json');
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        exit;
     }
-    
-    $stmt->bind_param("i", $teacher_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $programs = $result->fetch_all(MYSQLI_ASSOC);
-    $stmt->close();
-    
-    return $programs;
 }
 
 /**
- * Submit programs for publishing
+ * Create a new story record
  */
-function submitForPublishing($conn, $program_ids, $teacher_id) {
-    $conn->begin_transaction();
-    
-    try {
-        foreach ($program_ids as $program_id) {
-            // Verify ownership before updating
-            if (!verifyProgramOwnership($conn, $program_id, $teacher_id)) {
-                throw new Exception('No permission to publish program ID: ' . $program_id);
-            }
-            
-            $stmt = $conn->prepare("UPDATE programs SET status = 'published', dateUpdated = NOW() WHERE programID = ? AND teacherID = ?");
-            if (!$stmt) {
-                throw new Exception('Database prepare failed');
-            }
-            
-            $stmt->bind_param("ii", $program_id, $teacher_id);
-            if (!$stmt->execute()) {
-                throw new Exception('Failed to update program ' . $program_id);
-            }
-            $stmt->close();
-        }
+function createStoryRecord($conn, $data) {
+    // Check if program_stories table exists, create if needed
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'program_stories'");
+    if ($tableCheck->num_rows == 0) {
+        $createTable = "
+            CREATE TABLE program_stories (
+                story_id INT PRIMARY KEY AUTO_INCREMENT,
+                chapter_id INT NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                synopsis_arabic TEXT,
+                synopsis_english TEXT,
+                video_url VARCHAR(500),
+                story_order INT DEFAULT 1,
+                dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (chapter_id) REFERENCES program_chapters(chapter_id) ON DELETE CASCADE
+            )
+        ";
         
-        $conn->commit();
-        return true;
-    } catch (Exception $e) {
-        $conn->rollback();
-        throw $e;
+        if (!$conn->query($createTable)) {
+            error_log("Failed to create program_stories table: " . $conn->error);
+            return false;
+        }
     }
+    
+    // Get the next story order for this chapter
+    $orderQuery = "SELECT COALESCE(MAX(story_order), 0) + 1 as next_order FROM program_stories WHERE chapter_id = ?";
+    $orderStmt = $conn->prepare($orderQuery);
+    $orderStmt->bind_param("i", $data['chapter_id']);
+    $orderStmt->execute();
+    $orderResult = $orderStmt->get_result();
+    $next_order = $orderResult->fetch_assoc()['next_order'];
+    $orderStmt->close();
+    
+    // Insert the story
+    $sql = "INSERT INTO program_stories (chapter_id, title, synopsis_arabic, synopsis_english, video_url, story_order, dateCreated) 
+            VALUES (?, ?, ?, ?, ?, ?, NOW())";
+    
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        error_log("createStoryRecord prepare failed: " . $conn->error);
+        return false;
+    }
+    
+    $stmt->bind_param("issssi", 
+        $data['chapter_id'],
+        $data['title'],
+        $data['synopsis_arabic'],
+        $data['synopsis_english'],
+        $data['video_url'],
+        $next_order
+    );
+    
+    if ($stmt->execute()) {
+        $story_id = $stmt->insert_id;
+        $stmt->close();
+        return $story_id;
+    }
+    
+    error_log("createStoryRecord execute failed: " . $stmt->error);
+    $stmt->close();
+    return false;
+}
+
+/**
+ * Delete a story record
+ */
+function deleteStoryRecord($conn, $story_id) {
+    $stmt = $conn->prepare("DELETE FROM program_stories WHERE story_id = ?");
+    if (!$stmt) {
+        error_log("deleteStoryRecord prepare failed: " . $conn->error);
+        return false;
+    }
+    
+    $stmt->bind_param("i", $story_id);
+    
+    if ($stmt->execute()) {
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+        return $affected > 0;
+    }
+    
+    error_log("deleteStoryRecord execute failed: " . $stmt->error);
+    $stmt->close();
+    return false;
 }
 ?>
