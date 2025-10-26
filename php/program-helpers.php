@@ -56,7 +56,26 @@ function ph_getTeacherPrograms($conn, $teacher_id, $sortBy = 'dateCreated') {
 function ph_getChapter($conn, $chapter_id) { return chapter_getById($conn, $chapter_id); }
 function ph_getStory($conn, $story_id) { return story_getById($conn, $story_id); }
 function ph_getChapterQuiz($conn, $chapter_id) { return chapter_getQuiz($conn, $chapter_id); }
-function ph_getChapters($conn, $program_id) { return chapter_getByProgram($conn, $program_id); }
+
+function ph_getChapters($conn, $program_id) {
+    if (function_exists('chapter_getByProgram')) {
+        return chapter_getByProgram($conn, $program_id);
+    }
+    // Fallback: detect foreign key column name and query
+    $col = 'program_id';
+    $check = $conn->query("SHOW COLUMNS FROM program_chapters LIKE 'program_id'");
+    if (!$check || $check->num_rows === 0) { $col = 'programID'; }
+    $sql = "SELECT * FROM program_chapters WHERE $col = ? ORDER BY chapter_order";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) { return []; }
+    $stmt->bind_param("i", $program_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $rows = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    $stmt->close();
+    return $rows;
+}
+
 function ph_getChapterStories($conn, $chapter_id) { return chapter_getStories($conn, $chapter_id); }
 function ph_getStoryInteractiveSections($conn, $story_id) { return story_getInteractiveSections($conn, $story_id); }
 
