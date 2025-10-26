@@ -11,13 +11,13 @@ if (file_exists(__DIR__ . '/config.php')) {
     require_once __DIR__ . '/config.php';
     
     // Use environment variables if available
-    $googleClientId = Config::get('GOOGLE_CLIENT_ID', '704460822405-0gjtdkl1acustankf6k9p3o3444lpb7g.apps.googleusercontent.com');
-    $googleClientSecret = Config::get('GOOGLE_CLIENT_SECRET', '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');
+    $googleClientId = Config::get('GOOGLE_CLIENT_ID', '381384421779-4049dup84m5c4msicbumql4pruj1vsul.apps.googleusercontent.com');
+    $googleClientSecret = Config::get('GOOGLE_CLIENT_SECRET', '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');
     $appDebug = Config::get('APP_DEBUG', false);
 } else {
     // Fallback to hardcoded values temporarily
-    $googleClientId = '704460822405-0gjtdkl1acustankf6k9p3o3444lpb7g.apps.googleusercontent.com';
-    $googleClientSecret = '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';
+    $googleClientId = '381384421779-4049dup84m5c4msicbumql4pruj1vsul.apps.googleusercontent.com';
+    $googleClientSecret = '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';
     $appDebug = true;
 }
 
