@@ -50,7 +50,7 @@ function program_create($conn, $data) {
 function program_update($conn, $program_id, $data) {
     $sql = "UPDATE programs SET title = ?, description = ?, difficulty_label = ?, category = ?, price = ?, status = ?, overview_video_url = ?, dateUpdated = NOW() WHERE programID = ?";
     $stmt = $conn->prepare($sql); if (!$stmt) { error_log("program_update prepare failed: " . $conn->error); return false; }
-    $stmt->bind_param("ssssdss", $data['title'], $data['description'], $data['difficulty_label'], $data['category'], $data['price'], $data['status'], $data['overview_video_url'], $program_id);
+    $stmt->bind_param("sssssdsi", $data['title'], $data['description'], $data['difficulty_label'], $data['category'], $data['price'], $data['status'], $data['overview_video_url'], $program_id);
     $ok = $stmt->execute(); $stmt->close(); return $ok;
 }
 
