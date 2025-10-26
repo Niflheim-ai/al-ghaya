@@ -20,8 +20,23 @@ if (!function_exists('getTeacherIdFromSession')) {
 function ph_getTeacherIdFromSession($conn, $user_id) { 
     return getTeacherIdFromSession($conn, $user_id); 
 }
+
+// Guarded ph_ proxies with fallbacks for resilience
+function ph_getProgram($conn, $program_id, $teacher_id = null) {
+    if (function_exists('program_getById')) {
+        return program_getById($conn, $program_id, $teacher_id);
+    }
+    $stmt = $conn->prepare("SELECT * FROM programs WHERE programID = ?");
+    if (!$stmt) { return null; }
+    $stmt->bind_param("i", $program_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res ? $res->fetch_assoc() : null;
+    $stmt->close();
+    return $row ?: null;
+}
+
 function ph_getTeacherPrograms($conn, $teacher_id) { return program_getByTeacher($conn, $teacher_id); }
-function ph_getProgram($conn, $program_id, $teacher_id = null) { return program_getById($conn, $program_id, $teacher_id); }
 function ph_getChapter($conn, $chapter_id) { return chapter_getById($conn, $chapter_id); }
 function ph_getStory($conn, $story_id) { return story_getById($conn, $story_id); }
 function ph_getChapterQuiz($conn, $chapter_id) { return chapter_getQuiz($conn, $chapter_id); }
