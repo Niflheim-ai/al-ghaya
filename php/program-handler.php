@@ -1,10 +1,7 @@
 <?php
 /**
  * CENTRALIZED PROGRAM HANDLER - Al-Ghaya LMS
- * RELAXED VERSION: Teachers can collaborate on programs, admin approves for publish
- * ENHANCED: Includes quiz and interactive systems integration
- * CLEANED: No legacy aliases to avoid function redeclaration conflicts
- * FIXED: Database column compatibility for program_chapters
+ * CANONICAL FUNCTIONS ONLY - No legacy wrappers to prevent redeclaration
  */
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
@@ -38,7 +35,6 @@ function getTeacherIdFromSession($conn, $user_id) {
     return null;
 }
 
-// RELAXED: Any teacher can edit any program - admin controls publishing
 function program_verifyOwnership($conn, $program_id, $teacher_id) { return true; }
 
 // Core program functions
@@ -68,43 +64,12 @@ function program_getByTeacher($conn, $teacher_id, $sortBy = 'dateCreated') {
     $stmt->bind_param("i", $teacher_id); $stmt->execute(); $res = $stmt->get_result(); $rows = $res->fetch_all(MYSQLI_ASSOC); $stmt->close(); return $rows;
 }
 
-// Database column compatibility helper
-function getChapterProgramColumn($conn) {
-    static $column = null;
-    if ($column === null) {
-        $result = $conn->query("SHOW COLUMNS FROM program_chapters LIKE 'program_id'");
-        if ($result && $result->num_rows > 0) {
-            $column = 'program_id';
-        } else {
-            // Check for programID column
-            $result = $conn->query("SHOW COLUMNS FROM program_chapters LIKE 'programID'");
-            if ($result && $result->num_rows > 0) {
-                $column = 'programID';
-            } else {
-                // Default fallback - this should not happen
-                $column = 'program_id';
-                error_log("WARNING: Neither program_id nor programID found in program_chapters table");
-            }
-        }
-    }
-    return $column;
-}
-
-// Chapter functions (enhanced with column compatibility)
+// Chapter functions
 function chapter_add($conn, $program_id, $title, $content = '', $question = '') {
-    $program_col = getChapterProgramColumn($conn);
-    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE $program_col = ?"); if (!$stmt) { error_log("chapter_add order query prepare failed: " . $conn->error); return false; }
+    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE programID = ?"); if (!$stmt) { error_log("chapter_add order query prepare failed: " . $conn->error); return false; }
     $stmt->bind_param("i", $program_id); $stmt->execute(); $max_order = $stmt->get_result()->fetch_array()[0]; $stmt->close(); $chapter_order = $max_order ? $max_order + 1 : 1;
-    $stmt = $conn->prepare("INSERT INTO program_chapters ($program_col, title, content, question, chapter_order, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?, NOW(), NOW())"); if (!$stmt) { error_log("chapter_add insert prepare failed: " . $conn->error); return false; }
-    $stmt->bind_param("isssi", $program_id, $title, $content, $question, $chapter_order); $ok = $stmt->execute(); $id = $stmt->insert_id; $stmt->close(); 
-    
-    // Auto-create quiz for new chapter
-    if ($ok && $id) {
-        require_once __DIR__ . '/quiz-handler.php';
-        quiz_create($conn, $id, $title . ' Quiz');
-    }
-    
-    return $ok ? $id : false;
+    $stmt = $conn->prepare("INSERT INTO program_chapters (programID, title, content, question, chapter_order, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?, NOW(), NOW())"); if (!$stmt) { error_log("chapter_add insert prepare failed: " . $conn->error); return false; }
+    $stmt->bind_param("isssi", $program_id, $title, $content, $question, $chapter_order); $ok = $stmt->execute(); $id = $stmt->insert_id; $stmt->close(); return $ok ? $id : false;
 }
 
 function chapter_update($conn, $chapter_id, $title, $content, $question) {
@@ -117,12 +82,6 @@ function chapter_delete($conn, $chapter_id) {
     try {
         $stories = chapter_getStories($conn, $chapter_id);
         foreach ($stories as $story) { story_deleteInteractiveSections($conn, $story['story_id']); }
-        
-        // Delete quiz and its questions/options
-        require_once __DIR__ . '/quiz-handler.php';
-        $quiz = quiz_getByChapter($conn, $chapter_id);
-        if ($quiz) { quiz_delete($conn, $quiz['quiz_id']); }
-        
         $stmt1 = $conn->prepare("DELETE FROM chapter_stories WHERE chapter_id = ?"); if ($stmt1) { $stmt1->bind_param("i", $chapter_id); $stmt1->execute(); $stmt1->close(); }
         $stmt = $conn->prepare("DELETE FROM program_chapters WHERE chapter_id = ?"); if (!$stmt) throw new Exception("chapter_delete prepare failed: " . $conn->error);
         $stmt->bind_param("i", $chapter_id); if (!$stmt->execute()) throw new Exception("chapter_delete execute failed: " . $stmt->error); $affected = $stmt->affected_rows; $stmt->close();
@@ -131,8 +90,7 @@ function chapter_delete($conn, $chapter_id) {
 }
 
 function chapter_getByProgram($conn, $program_id) {
-    $program_col = getChapterProgramColumn($conn);
-    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE $program_col = ? ORDER BY chapter_order"); if (!$stmt) { error_log("chapter_getByProgram prepare failed: " . $conn->error); return []; }
+    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE programID = ? ORDER BY chapter_order"); if (!$stmt) { error_log("chapter_getByProgram prepare failed: " . $conn->error); return []; }
     $stmt->bind_param("i", $program_id); $stmt->execute(); $res = $stmt->get_result(); $rows = $res->fetch_all(MYSQLI_ASSOC); $stmt->close(); return $rows;
 }
 
@@ -153,7 +111,7 @@ function chapter_getQuiz($conn, $chapter_id) {
     $stmt->bind_param("i", $chapter_id); $stmt->execute(); $res = $stmt->get_result(); $row = $res->fetch_assoc(); $stmt->close(); return $row;
 }
 
-// Story functions (enhanced)
+// Story functions
 function story_create($conn, $data) {
     $tableCheck = $conn->query("SHOW TABLES LIKE 'chapter_stories'"); if ($tableCheck->num_rows == 0) { error_log("chapter_stories table does not exist"); return false; }
     $orderStmt = $conn->prepare("SELECT COALESCE(MAX(story_order), 0) + 1 as next_order FROM chapter_stories WHERE chapter_id = ?"); if (!$orderStmt) { error_log("story_create order query prepare failed: " . $conn->error); return false; }
@@ -250,7 +208,6 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 $program_id = intval($_POST['program_id'] ?? $_POST['programID'] ?? 0);
                 $chapter_id = intval($_POST['chapter_id'] ?? $_POST['chapterID'] ?? 0);
                 $title = trim($_POST['title'] ?? ''); $content = trim($_POST['content'] ?? ''); $question = trim($_POST['question'] ?? '');
-                error_log("DBG update_chapter: program_id=$program_id, chapter_id=$chapter_id, title=$title");
                 if (!$chapter_id || empty($title)) { $_SESSION['error_message']='Chapter ID and title are required.'; header('Location: ../pages/teacher/teacher-programs.php?action=edit_chapter&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit; }
                 if (chapter_update($conn, $chapter_id, $title, $content, $question)) { $_SESSION['success_message']='Chapter updated successfully!'; } else { $_SESSION['error_message']='Failed to update chapter.'; }
                 header('Location: ../pages/teacher/teacher-programs.php?action=edit_chapter&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit;
@@ -258,7 +215,6 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
             case 'create_story':
                 $program_id = intval($_POST['programID'] ?? 0); $chapter_id = intval($_POST['chapter_id'] ?? 0);
                 $title = trim($_POST['title'] ?? ''); $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? ''); $synopsis_english = trim($_POST['synopsis_english'] ?? ''); $video_url = trim($_POST['video_url'] ?? '');
-                error_log("DBG create_story: programID=$program_id, chapter_id=$chapter_id, teacherID=$teacher_id, title=$title");
                 if (empty($title) || empty($synopsis_arabic) || empty($synopsis_english) || empty($video_url)) { $_SESSION['error_message']='All fields are required for the story.'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit; }
                 if (!$program_id) { $_SESSION['error_message']='Program ID is required.'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
                 $existingStories = chapter_getStories($conn, $chapter_id); if (count($existingStories) >= 3) { $_SESSION['error_message']='Maximum of 3 stories per chapter allowed.'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit; }
@@ -269,7 +225,6 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
             case 'update_story':
                 $program_id = intval($_POST['programID'] ?? 0); $chapter_id = intval($_POST['chapter_id'] ?? 0); $story_id = intval($_POST['story_id'] ?? 0);
                 $title = trim($_POST['title'] ?? ''); $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? ''); $synopsis_english = trim($_POST['synopsis_english'] ?? ''); $video_url = trim($_POST['video_url'] ?? '');
-                error_log("DBG update_story: programID=$program_id, chapter_id=$chapter_id, story_id=$story_id, teacherID=$teacher_id");
                 if (!$story_id || empty($title) || empty($synopsis_arabic) || empty($synopsis_english) || empty($video_url)) { $_SESSION['error_message']='All fields are required for the story update.'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id); exit; }
                 $data = ['title'=>$title,'synopsis_arabic'=>$synopsis_arabic,'synopsis_english'=>$synopsis_english,'video_url'=>$video_url];
                 if (story_update($conn, $story_id, $data)) { $_SESSION['success_message']='Story updated successfully!'; header('Location: ../pages/teacher/teacher-programs.php?action=edit_chapter&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit; }
@@ -277,7 +232,6 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
 
             case 'create_chapter':
                 header('Content-Type: application/json'); $program_id = intval($_POST['programID'] ?? 0); $title = trim($_POST['title'] ?? 'New Chapter');
-                error_log("DBG create_chapter: programID=$program_id, teacherID=$teacher_id, title=$title");
                 if (!$program_id) { echo json_encode(['success'=>false,'message'=>'Program ID is required']); exit; }
                 $chapter_id = chapter_add($conn, $program_id, $title); 
                 echo json_encode($chapter_id ? ['success'=>true,'chapter_id'=>$chapter_id,'message'=>'Chapter created successfully'] : ['success'=>false,'message'=>'Failed to create chapter']);
