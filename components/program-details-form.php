@@ -277,38 +277,6 @@ document.addEventListener('DOMContentLoaded', function() {
     difficultyInputs.forEach(input => { input.addEventListener('change', function() { document.querySelectorAll('.difficulty-card').forEach(card => { card.classList.remove('border-blue-500','bg-blue-50'); card.classList.add('border-gray-200'); }); if (this.checked) { const card=this.nextElementSibling; card.classList.remove('border-gray-200'); card.classList.add('border-blue-500','bg-blue-50'); } }); if (input.checked) { const card=input.nextElementSibling; card.classList.remove('border-gray-200'); card.classList.add('border-blue-500','bg-blue-50'); } });
     const t=document.getElementById('newChapterTitle'); if(t){ t.addEventListener('keypress', e=>{ if(e.key==='Enter'){ submitNewChapter(); } }); }
 });
-
-function editChapter(programId, chapterId) {
-    window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${chapterId}`;
-}
-
-function deleteChapter(programId, chapterId) {
-    Swal.fire({
-        title: 'Delete Chapter?',
-        text: 'This will permanently delete the chapter and all its content.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, delete it'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            const fd = new FormData();
-            fd.append('action', 'delete_chapter');
-            fd.append('chapter_id', chapterId);
-            fetch('../../php/program-handler.php', { method: 'POST', body: fd })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    document.querySelector(`[data-chapter-id="${chapterId}"]`).remove();
-                    Swal.fire('Deleted!', 'Chapter has been deleted.', 'success');
-                } else {
-                    Swal.fire('Error', data.message || 'Failed to delete chapter.', 'error');
-                }
-            });
-        }
-    });
-}
 </script>
 
 <style>
