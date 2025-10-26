@@ -1,5 +1,6 @@
 <!-- Program Details Form Component -->
 <section class="content-section">
+    <input type="hidden" id="programID" value="<?= isset($program['programID']) ? (int)$program['programID'] : (isset($program_id) ? (int)$program_id : 0) ?>">
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
             <button onclick="goBack()" class="text-gray-600 hover:text-gray-800 p-2 rounded-lg hover:bg-gray-100">
@@ -22,7 +23,7 @@
         <form id="programDetailsForm" method="POST" action="../../php/program-handler.php" enctype="multipart/form-data" class="space-y-8">
             <input type="hidden" name="action" value="<?= $program ? 'update_program' : 'create_program' ?>">
             <?php if ($program): ?>
-                <input type="hidden" name="program_id" value="<?= $program['programID'] ?>">
+                <input type="hidden" name="programID" value="<?= (int)$program['programID'] ?>">
             <?php endif; ?>
             <input type="hidden" name="teacher_id" value="<?= $teacher_id ?>">
 
@@ -145,7 +146,7 @@
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-900">Chapters</h3>
                     <?php if ($program): ?>
-                        <button type="button" onclick="showAddChapterModal()" 
+                        <button type="button" id="addChapterBtn" 
                                 class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
                             <i class="ph ph-plus"></i>Add Chapter
                         </button>
@@ -237,275 +238,44 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-const programId = <?= $program['programID'] ?? 'null' ?>;
+const programId = Number(document.getElementById('programID')?.value || 0);
 
 // Form handling functions
-function previewThumbnail(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('thumbnailPreview').src = e.target.result;
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
+function previewThumbnail(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = e => { document.getElementById('thumbnailPreview').src = e.target.result; }; reader.readAsDataURL(input.files[0]); } }
+function goBack() { window.location.href = 'teacher-programs.php'; }
+function cancelForm() { Swal.fire({ title:'Cancel Changes?', text:'Any unsaved changes will be lost.', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', cancelButtonColor:'#6b7280', confirmButtonText:'Yes, cancel', cancelButtonText:'Keep editing' }).then(r=>{ if(r.isConfirmed){ window.location.href='teacher-programs.php'; } }); }
+function saveProgram(status) { const form=document.getElementById('programDetailsForm'); const s=document.createElement('input'); s.type='hidden'; s.name='status'; s.value=status; form.appendChild(s); Swal.fire({ title:'Saving Program...', allowOutsideClick:false, allowEscapeKey:false, showConfirmButton:false, didOpen:()=>Swal.showLoading() }); form.submit(); }
 
-function goBack() {
-    window.location.href = 'teacher-programs.php';
-}
-
-function cancelForm() {
-    Swal.fire({
-        title: 'Cancel Changes?',
-        text: 'Any unsaved changes will be lost.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, cancel',
-        cancelButtonText: 'Keep editing'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = 'teacher-programs.php';
-        }
-    });
-}
-
-function saveProgram(status) {
-    const form = document.getElementById('programDetailsForm');
-    const statusInput = document.createElement('input');
-    statusInput.type = 'hidden';
-    statusInput.name = 'status';
-    statusInput.value = status;
-    form.appendChild(statusInput);
-    
-    // Show loading alert
-    Swal.fire({
-        title: 'Saving Program...',
-        text: 'Please wait while we save your program.',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-    
-    form.submit();
-}
-
-// Chapter functions
 function showAddChapterModal() {
-    if (!programId) {
-        Swal.fire({
-            title: 'Save Program First',
-            text: 'Please save the program before adding chapters.',
-            icon: 'info',
-            confirmButtonColor: '#3b82f6'
-        });
-        return;
-    }
+    if (!programId) { Swal.fire({ title:'Save Program First', text:'Please save the program before adding chapters.', icon:'info', confirmButtonColor:'#3b82f6' }); return; }
     document.getElementById('addChapterModal').classList.remove('hidden');
     document.getElementById('newChapterTitle').focus();
 }
+function hideAddChapterModal() { document.getElementById('addChapterModal').classList.add('hidden'); document.getElementById('newChapterTitle').value=''; }
 
-function hideAddChapterModal() {
-    document.getElementById('addChapterModal').classList.add('hidden');
-    document.getElementById('newChapterTitle').value = '';
+// Ensure Add Chapter button always sends programID
+const addBtn = document.getElementById('addChapterBtn');
+if (addBtn) {
+  addBtn.addEventListener('click', showAddChapterModal);
 }
 
 function submitNewChapter() {
     const title = document.getElementById('newChapterTitle').value.trim();
-    
-    if (!title) {
-        Swal.fire({
-            title: 'Missing Title',
-            text: 'Please enter a chapter title.',
-            icon: 'error',
-            confirmButtonColor: '#3b82f6'
-        });
-        return;
-    }
-
-    if (!programId) {
-        Swal.fire({
-            title: 'Program Not Found',
-            text: 'Please save the program first.',
-            icon: 'error',
-            confirmButtonColor: '#3b82f6'
-        });
-        return;
-    }
-
-    // Show loading
-    Swal.fire({
-        title: 'Creating Chapter...',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
-    fetch('../../php/program-handler.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'create_chapter',
-            program_id: programId,
-            title: title
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            Swal.fire({
-                title: 'Chapter Created!',
-                text: 'Chapter created successfully. You will be redirected to add content.',
-                icon: 'success',
-                confirmButtonColor: '#3b82f6',
-                confirmButtonText: 'Continue'
-            }).then(() => {
-                window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${data.chapter_id}`;
-            });
-        } else {
-            Swal.fire({
-                title: 'Error',
-                text: data.message || 'Failed to create chapter.',
-                icon: 'error',
-                confirmButtonColor: '#3b82f6'
-            });
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({
-            title: 'Error',
-            text: 'Network error. Please try again.',
-            icon: 'error',
-            confirmButtonColor: '#3b82f6'
-        });
-    });
-}
-
-function editChapter(programId, chapterId) {
-    window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${chapterId}`;
-}
-
-function deleteChapter(programId, chapterId) {
-    Swal.fire({
-        title: 'Delete Chapter?',
-        text: 'This will permanently delete the chapter and all its stories and quizzes.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, delete it',
-        cancelButtonText: 'Cancel'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // Show loading
-            Swal.fire({
-                title: 'Deleting Chapter...',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-            
-            fetch('../../php/program-handler.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'delete_chapter',
-                    program_id: programId,
-                    chapter_id: chapterId,
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Remove the chapter element from the DOM
-                    const chapterElement = document.querySelector(`.chapter-item[data-chapter-id='${chapterId}']`);
-                    if (chapterElement) {
-                        chapterElement.remove();
-                    }
-                    
-                    // Check if no chapters left
-                    const remainingChapters = document.querySelectorAll('.chapter-item');
-                    if (remainingChapters.length === 0) {
-                        document.getElementById('chaptersContainer').innerHTML = `
-                            <div id="no-chapters-message" class="text-center py-8 text-gray-500">
-                                <i class="ph ph-book text-4xl mb-4"></i>
-                                <p>No chapters yet. Add your first chapter to get started!</p>
-                            </div>
-                        `;
-                    }
-                    
-                    Swal.fire({
-                        title: 'Deleted!',
-                        text: 'Chapter has been deleted.',
-                        icon: 'success',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Error',
-                        text: data.message || 'Failed to delete chapter.',
-                        icon: 'error',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Network error. Please try again.',
-                    icon: 'error',
-                    confirmButtonColor: '#3b82f6'
-                });
-            });
-        }
-    });
+    if (!title) { Swal.fire({ title:'Missing Title', text:'Please enter a chapter title.', icon:'error', confirmButtonColor:'#3b82f6' }); return; }
+    if (!programId) { Swal.fire({ title:'Program Not Found', text:'Please save the program first.', icon:'error', confirmButtonColor:'#3b82f6' }); return; }
+    Swal.fire({ title:'Creating Chapter...', allowOutsideClick:false, allowEscapeKey:false, showConfirmButton:false, didOpen:()=>Swal.showLoading() });
+    const fd = new FormData(); fd.append('action','create_chapter'); fd.append('programID', String(programId)); fd.append('title', title);
+    fetch('../../php/program-handler.php', { method:'POST', body: fd })
+    .then(r=>r.json())
+    .then(data=>{ if (data.success) { Swal.fire({ title:'Chapter Created!', text:'Redirecting to content...', icon:'success', confirmButtonColor:'#3b82f6' }).then(()=>{ window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${data.chapter_id}`; }); } else { Swal.fire({ title:'Error', text:data.message||'Failed to create chapter.', icon:'error', confirmButtonColor:'#3b82f6' }); } })
+    .catch(()=> Swal.fire({ title:'Error', text:'Network error. Please try again.', icon:'error', confirmButtonColor:'#3b82f6' }));
 }
 
 // Difficulty selection styling
 document.addEventListener('DOMContentLoaded', function() {
     const difficultyInputs = document.querySelectorAll('input[name="difficulty_level"]');
-    difficultyInputs.forEach(input => {
-        input.addEventListener('change', function() {
-            // Reset all cards
-            document.querySelectorAll('.difficulty-card').forEach(card => {
-                card.classList.remove('border-blue-500', 'bg-blue-50');
-                card.classList.add('border-gray-200');
-            });
-            
-            // Highlight selected card
-            if (this.checked) {
-                const card = this.nextElementSibling;
-                card.classList.remove('border-gray-200');
-                card.classList.add('border-blue-500', 'bg-blue-50');
-            }
-        });
-        
-        // Set initial state
-        if (input.checked) {
-            const card = input.nextElementSibling;
-            card.classList.remove('border-gray-200');
-            card.classList.add('border-blue-500', 'bg-blue-50');
-        }
-    });
-    
-    // Handle enter key in chapter title input
-    document.getElementById('newChapterTitle').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            submitNewChapter();
-        }
-    });
+    difficultyInputs.forEach(input => { input.addEventListener('change', function() { document.querySelectorAll('.difficulty-card').forEach(card => { card.classList.remove('border-blue-500','bg-blue-50'); card.classList.add('border-gray-200'); }); if (this.checked) { const card=this.nextElementSibling; card.classList.remove('border-gray-200'); card.classList.add('border-blue-500','bg-blue-50'); } }); if (input.checked) { const card=input.nextElementSibling; card.classList.remove('border-gray-200'); card.classList.add('border-blue-500','bg-blue-50'); } });
+    const t=document.getElementById('newChapterTitle'); if(t){ t.addEventListener('keypress', e=>{ if(e.key==='Enter'){ submitNewChapter(); } }); }
 });
 </script>
 
@@ -513,17 +283,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .difficulty-card.student-difficulty { color: #374151; }
 .difficulty-card.aspiring-difficulty { color: #2563eb; }
 .difficulty-card.master-difficulty { color: #d97706; }
-
-.thumbnail-preview img {
-    transition: transform 0.2s;
-}
-
-.thumbnail-preview:hover img {
-    transform: scale(1.02);
-}
-
-/* Modal backdrop blur effect */
-#addChapterModal {
-    backdrop-filter: blur(2px);
-}
+.thumbnail-preview img { transition: transform 0.2s; }
+.thumbnail-preview:hover img { transform: scale(1.02); }
+#addChapterModal { backdrop-filter: blur(2px); }
 </style>
