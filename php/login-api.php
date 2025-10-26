@@ -4,6 +4,7 @@
  * Simplified version to avoid undefined function errors
  */
 
+require_once __DIR__ . '/config.php';
 require __DIR__ . "/../vendor/autoload.php";
 
 // Check if config is available, otherwise use fallback
