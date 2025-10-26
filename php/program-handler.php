@@ -127,6 +127,13 @@ function story_create($conn, $data) {
     $ok = $stmt->execute(); $id = $stmt->insert_id; $stmt->close(); return $ok ? $id : false;
 }
 
+function story_update($conn, $story_id, $data) {
+    $sql = "UPDATE chapter_stories SET title = ?, synopsis_arabic = ?, synopsis_english = ?, video_url = ? WHERE story_id = ?";
+    $stmt = $conn->prepare($sql); if (!$stmt) { error_log("story_update prepare failed: " . $conn->error); return false; }
+    $stmt->bind_param("ssssi", $data['title'], $data['synopsis_arabic'], $data['synopsis_english'], $data['video_url'], $story_id);
+    $ok = $stmt->execute(); $stmt->close(); return $ok;
+}
+
 function story_delete($conn, $story_id) {
     story_deleteInteractiveSections($conn, $story_id);
     $stmt = $conn->prepare("DELETE FROM chapter_stories WHERE story_id = ?"); if (!$stmt) { error_log("story_delete prepare failed: " . $conn->error); return false; }
@@ -167,6 +174,12 @@ function section_delete($conn, $section_id) {
     $stmt->bind_param("i", $section_id); $ok = $stmt->execute(); $affected = $stmt->affected_rows; $stmt->close(); return $ok && $affected > 0;
 }
 
+function section_getQuestions($conn, $section_id) {
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'interactive_questions'"); if ($tableCheck->num_rows == 0) { return []; }
+    $stmt = $conn->prepare("SELECT * FROM interactive_questions WHERE section_id = ? ORDER BY question_order ASC"); if (!$stmt) { error_log("section_getQuestions prepare failed: " . $conn->error); return []; }
+    $stmt->bind_param("i", $section_id); $stmt->execute(); $res = $stmt->get_result(); $rows = $res->fetch_all(MYSQLI_ASSOC); $stmt->close(); return $rows;
+}
+
 function mapDifficultyToCategory($difficulty_level) {
     switch ($difficulty_level) { case 'Student': return 'beginner'; case 'Aspiring': return 'intermediate'; case 'Master': return 'advanced'; default: return 'beginner'; }
 }
@@ -182,13 +195,17 @@ function uploadThumbnail($file) {
     error_log("Failed to move uploaded file to: " . $destination); return false;
 }
 
+// Handler logic - only run when directly accessed
 if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
     if (!validateTeacherAccess()) {
-        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story'])) { $_SESSION['error_message'] = 'Unauthorized access'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
+        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story','update_story'])) { $_SESSION['error_message'] = 'Unauthorized access'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
         http_response_code(403); echo json_encode(['success'=>false,'message'=>'Unauthorized access']); exit;
     }
 
-    $user_id = $_SESSION['userID']; $teacher_id = getTeacherIdFromSession($conn, $user_id); if (!$teacher_id) { http_response_code(403); echo json_encode(['success'=>false,'message'=>'Teacher profile not found']); exit; }
+    $user_id = $_SESSION['userID']; $teacher_id = getTeacherIdFromSession($conn, $user_id); if (!$teacher_id) { 
+        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story','update_story'])) { $_SESSION['error_message'] = 'Teacher profile not found'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
+        http_response_code(403); echo json_encode(['success'=>false,'message'=>'Teacher profile not found']); exit; 
+    }
 
     $action = $_POST['action'] ?? $_GET['action'] ?? '';
     if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) { $input = json_decode(file_get_contents('php://input'), true); if ($input) { $action = $input['action'] ?? $action; $_POST = array_merge($_POST, $input); } }
@@ -212,17 +229,29 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
                 header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit;
             case 'create_story':
                 $program_id = intval($_POST['programID'] ?? 0); $chapter_id = intval($_POST['chapter_id'] ?? 0); $title = trim($_POST['title'] ?? ''); $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? ''); $synopsis_english = trim($_POST['synopsis_english'] ?? ''); $video_url = trim($_POST['video_url'] ?? '');
+                error_log("create_story: programID=$program_id, chapter_id=$chapter_id, teacherID=$teacher_id");
                 if (empty($title) || empty($synopsis_arabic) || empty($synopsis_english) || empty($video_url)) { $_SESSION['error_message']='All fields are required for the story.'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit; }
-                if (!program_verifyOwnership($conn, $program_id, $teacher_id)) { $_SESSION['error_message']='Access denied to this program.'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
+                if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) { $_SESSION['error_message']='Access denied to this program.'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
                 $existingStories = chapter_getStories($conn, $chapter_id); if (count($existingStories) >= 3) { $_SESSION['error_message']='Maximum of 3 stories per chapter allowed.'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit; }
                 $story_id = story_create($conn, ['chapter_id'=>$chapter_id,'title'=>$title,'synopsis_arabic'=>$synopsis_arabic,'synopsis_english'=>$synopsis_english,'video_url'=>$video_url]);
-                if ($story_id) { $_SESSION['success_message']='Story created successfully!'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id); exit; }
+                if ($story_id) { $_SESSION['success_message']='Story created successfully!'; header('Location: ../pages/teacher/teacher-programs.php?action=edit_chapter&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit; }
                 $_SESSION['error_message']='Failed to save story. Please try again.'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit;
+            case 'update_story':
+                $program_id = intval($_POST['programID'] ?? 0); $chapter_id = intval($_POST['chapter_id'] ?? 0); $story_id = intval($_POST['story_id'] ?? 0); 
+                $title = trim($_POST['title'] ?? ''); $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? ''); $synopsis_english = trim($_POST['synopsis_english'] ?? ''); $video_url = trim($_POST['video_url'] ?? '');
+                if (!$story_id || empty($title) || empty($synopsis_arabic) || empty($synopsis_english) || empty($video_url)) { $_SESSION['error_message']='All fields are required for the story update.'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id); exit; }
+                if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) { $_SESSION['error_message']='Access denied to this program.'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
+                $data = ['title'=>$title,'synopsis_arabic'=>$synopsis_arabic,'synopsis_english'=>$synopsis_english,'video_url'=>$video_url];
+                if (story_update($conn, $story_id, $data)) { $_SESSION['success_message']='Story updated successfully!'; header('Location: ../pages/teacher/teacher-programs.php?action=edit_chapter&program_id=' . $program_id . '&chapter_id=' . $chapter_id); exit; }
+                $_SESSION['error_message']='Failed to update story. Please try again.'; header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id); exit;
 
             case 'create_chapter':
                 header('Content-Type: application/json'); $program_id = intval($_POST['programID'] ?? 0); $title = trim($_POST['title'] ?? 'New Chapter');
-                if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) { echo json_encode(['success'=>false,'message'=>'Invalid program or no permission']); exit; }
-                $chapter_id = chapter_add($conn, $program_id, $title); echo json_encode($chapter_id ? ['success'=>true,'chapter_id'=>$chapter_id,'programID'=>$program_id,'message'=>'Chapter created successfully'] : ['success'=>false,'message'=>'Failed to create chapter']); exit;
+                error_log("create_chapter: programID=$program_id, teacherID=$teacher_id, title=$title");
+                if (!$program_id) { echo json_encode(['success'=>false,'message'=>'Program ID is required']); exit; }
+                if (!program_verifyOwnership($conn, $program_id, $teacher_id)) { echo json_encode(['success'=>false,'message'=>'Invalid program or no permission']); exit; }
+                $chapter_id = chapter_add($conn, $program_id, $title); 
+                echo json_encode($chapter_id ? ['success'=>true,'chapter_id'=>$chapter_id,'programID'=>$program_id,'message'=>'Chapter created successfully'] : ['success'=>false,'message'=>'Failed to create chapter']); exit;
             case 'delete_chapter':
                 header('Content-Type: application/json'); $chapter_id = intval($_POST['chapter_id'] ?? 0); $program_id = intval($_POST['programID'] ?? 0);
                 if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) { echo json_encode(['success'=>false,'message'=>'Invalid program or no permission']); exit; }
@@ -246,16 +275,17 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
             case 'get_chapters':
                 header('Content-Type: application/json'); $program_id = intval($_POST['programID'] ?? 0); if (!$program_id || !program_verifyOwnership($conn, $program_id, $teacher_id)) { echo json_encode(['success'=>false,'message'=>'Invalid program or no permission']); exit; } $chapters = chapter_getByProgram($conn, $program_id); echo json_encode(['success'=>true,'chapters'=>$chapters]); exit;
             default:
-                if (in_array($action, ['create_program','update_program','create_story'])) { $_SESSION['error_message']='Invalid action: ' . $action; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
+                if (in_array($action, ['create_program','update_program','create_story','update_story'])) { $_SESSION['error_message']='Invalid action: ' . $action; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
                 header('Content-Type: application/json'); echo json_encode(['success'=>false,'message'=>'Invalid action: ' . $action]); exit;
         }
     } catch (Exception $e) {
         error_log("Program Handler Error: " . $e->getMessage());
-        if (in_array($action, ['create_program','update_program','create_story'])) { $_SESSION['error_message']='Server error: ' . $e->getMessage(); header('Location: ../pages/teacher/teacher-programs.php'); exit; }
+        if (in_array($action, ['create_program','update_program','create_story','update_story'])) { $_SESSION['error_message']='Server error: ' . $e->getMessage(); header('Location: ../pages/teacher/teacher-programs.php'); exit; }
         header('Content-Type: application/json'); http_response_code(500); echo json_encode(['success'=>false,'message'=>'Server error: ' . $e->getMessage()]); exit;
     }
 }
 
+// Legacy aliases for backward compatibility
 function getTeacherPrograms($conn, $teacher_id, $sortBy = 'dateCreated') { return program_getByTeacher($conn, $teacher_id, $sortBy); }
 function getProgram($conn, $program_id, $teacher_id) { return program_getById($conn, $program_id, $teacher_id); }
 function addChapter($conn, $program_id, $title, $content = '', $question = '') { return chapter_add($conn, $program_id, $title, $content, $question); }
@@ -271,3 +301,4 @@ function createProgram($conn, $data) { return program_create($conn, $data); }
 function updateProgram($conn, $program_id, $data) { return program_update($conn, $program_id, $data); }
 function deleteChapter($conn, $chapter_id) { return chapter_delete($conn, $chapter_id); }
 function updateChapter($conn, $chapter_id, $title, $content, $question) { return chapter_update($conn, $chapter_id, $title, $content, $question); }
+function getStory($conn, $story_id) { return story_getById($conn, $story_id); }
