@@ -207,7 +207,7 @@ function confirmTeacherSignOut() {
         if (result.isConfirmed) {
             // Show appreciation message for teachers
             Swal.fire({
-                title: 'Thank You for Teaching! 🎆',
+                title: 'Thank You for Teaching!',
                 html: 'Your dedication to educating students is truly appreciated.<br><br><div class="text-sm text-gray-600">Signing out securely...</div>',
                 icon: 'success',
                 showConfirmButton: false,
