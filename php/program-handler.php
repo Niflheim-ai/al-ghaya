@@ -3,6 +3,7 @@
  * CENTRALIZED PROGRAM HANDLER - Al-Ghaya LMS
  * RELAXED VERSION: Teachers can collaborate on programs, admin approves for publish
  * ENHANCED: Includes quiz and interactive systems integration
+ * CLEANED: No legacy aliases to avoid function redeclaration conflicts
  */
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
@@ -171,10 +172,6 @@ function story_deleteInteractiveSections($conn, $story_id) {
     return true;
 }
 
-// Enhanced helper functions
-function getStoryInteractiveSections($conn, $story_id) { return story_getInteractiveSections($conn, $story_id); }
-function getChapterQuiz($conn, $chapter_id) { return chapter_getQuiz($conn, $chapter_id); }
-
 // Quiz integration functions
 function getQuizQuestions($conn, $quiz_id) {
     require_once __DIR__ . '/quiz-handler.php';
@@ -323,15 +320,3 @@ if (basename($_SERVER['PHP_SELF']) === 'program-handler.php') {
         exit;
     }
 }
-
-// Legacy aliases for backward compatibility
-function getChapter($conn, $chapter_id) { return chapter_getById($conn, $chapter_id); }
-function getChapters($conn, $program_id) { return chapter_getByProgram($conn, $program_id); }
-function getChapterStories($conn, $chapter_id) { return chapter_getStories($conn, $chapter_id); }
-function getStory($conn, $story_id) { return story_getById($conn, $story_id); }
-function createChapter($conn, $program_id, $title, $content = '', $question = '') { return chapter_add($conn, $program_id, $title, $content, $question); }
-function deleteChapter($conn, $chapter_id) { return chapter_delete($conn, $chapter_id); }
-function createStory($conn, $data) { return story_create($conn, $data); }
-function updateStory($conn, $story_id, $data) { return story_update($conn, $story_id, $data); }
-function deleteStory($conn, $story_id) { return story_delete($conn, $story_id); }
-function getProgram($conn, $program_id) { return program_getById($conn, $program_id); }
