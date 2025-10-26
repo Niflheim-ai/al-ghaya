@@ -1,9 +1,9 @@
 <?php
 // Helper functions specific to program listing and teacher helper
-require_once __DIR__ . '/../php/program-handler.php';
+require_once __DIR__ . '/program-handler.php';
 
-function getTeacherIdFromSession($conn, $user_id) {
-    return getTeacherIdFromSession($conn, $user_id); // use the definition from program-handler
+function ph_getTeacherIdFromSession($conn, $user_id) {
+    return getTeacherIdFromSession($conn, $user_id);
 }
 
 function getPublishedPrograms($conn) {
