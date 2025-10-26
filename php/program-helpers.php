@@ -79,12 +79,12 @@ function getPublishedPrograms($conn) {
 }
 
 // Legacy wrappers
-function getTeacherPrograms($conn, $teacher_id, $sortBy = 'dateCreated') { return ph_getTeacherPrograms($conn, $teacher_id, $sortBy); }
-function getProgram($conn, $program_id, $teacher_id = null) { return ph_getProgram($conn, $program_id, $teacher_id); }
-function getChapter($conn, $chapter_id) { return ph_getChapter($conn, $chapter_id); }
-function getStory($conn, $story_id) { return ph_getStory($conn, $story_id); }
-function getChapterQuiz($conn, $chapter_id) { return ph_getChapterQuiz($conn, $chapter_id); }
-function getChapters($conn, $program_id) { return ph_getChapters($conn, $program_id); }
-function getChapterStories($conn, $chapter_id) { return ph_getChapterStories($conn, $chapter_id); }
-function getProgramChapters($conn, $program_id) { return ph_getChapters($conn, $program_id); }
-function getStoryInteractiveSections($conn, $story_id) { return ph_getStoryInteractiveSections($conn, $story_id); }
+// function getTeacherPrograms($conn, $teacher_id, $sortBy = 'dateCreated') { return ph_getTeacherPrograms($conn, $teacher_id, $sortBy); }
+// function getProgram($conn, $program_id, $teacher_id = null) { return ph_getProgram($conn, $program_id, $teacher_id); }
+// function getChapter($conn, $chapter_id) { return ph_getChapter($conn, $chapter_id); }
+// function getStory($conn, $story_id) { return ph_getStory($conn, $story_id); }
+// function getChapterQuiz($conn, $chapter_id) { return ph_getChapterQuiz($conn, $chapter_id); }
+// function getChapters($conn, $program_id) { return ph_getChapters($conn, $program_id); }
+// function getChapterStories($conn, $chapter_id) { return ph_getChapterStories($conn, $chapter_id); }
+// function getProgramChapters($conn, $program_id) { return ph_getChapters($conn, $program_id); }
+// function getStoryInteractiveSections($conn, $story_id) { return ph_getStoryInteractiveSections($conn, $story_id); }
