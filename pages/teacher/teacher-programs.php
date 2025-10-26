@@ -32,21 +32,24 @@ switch ($action) {
     $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
     $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
     if (!$chapter) { $_SESSION['error_message']='Failed to get chapter.'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
-    // Ownership check
-    if (!$program || (int)($program['programID']??0) !== (int)($chapter['program_id']??-1)) { $_SESSION['error_message']='Access denied to chapter.'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
+    // Robust relationship check supporting program_id or programID columns
+    $chapterProgramId = isset($chapter['program_id']) ? (int)$chapter['program_id'] : (int)($chapter['programID'] ?? -1);
+    if (!$program || (int)($program['programID'] ?? 0) !== $chapterProgramId) { $_SESSION['error_message']='Access denied to chapter.'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     break;
   case 'add_story':
     $pageContent='story_form';
     $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
     $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
-    if (!$program || !$chapter || (int)($program['programID']??0)!==(int)($chapter['program_id']??-1)) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
+    $chapterProgramId = $chapter ? (isset($chapter['program_id']) ? (int)$chapter['program_id'] : (int)($chapter['programID'] ?? -1)) : -1;
+    if (!$program || !$chapter || (int)($program['programID'] ?? 0)!==$chapterProgramId) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     $story = $story_id ? getStory($conn, $story_id) : null;
     break;
   case 'add_quiz':
     $pageContent='quiz_form';
     $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
     $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
-    if (!$program || !$chapter || (int)($program['programID']??0)!==(int)($chapter['program_id']??-1)) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
+    $chapterProgramId = $chapter ? (isset($chapter['program_id']) ? (int)$chapter['program_id'] : (int)($chapter['programID'] ?? -1)) : -1;
+    if (!$program || !$chapter || (int)($program['programID'] ?? 0)!==$chapterProgramId) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     $quiz = $chapter_id ? getChapterQuiz($conn, $chapter_id) : null;
     // Get quiz questions if editing
     if ($quiz) {
@@ -59,7 +62,8 @@ switch ($action) {
     $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
     $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
     $story_data = $story_id ? getStory($conn, $story_id) : null;
-    if (!$program || !$chapter || !$story_data) { $_SESSION['error_message']='Invalid program, chapter, or story'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
+    $chapterProgramId = $chapter ? (isset($chapter['program_id']) ? (int)$chapter['program_id'] : (int)($chapter['programID'] ?? -1)) : -1;
+    if (!$program || !$chapter || !$story_data || (int)($program['programID'] ?? 0)!==$chapterProgramId) { $_SESSION['error_message']='Invalid program, chapter, or story'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     break;
   default:
     $pageContent='programs_list';
