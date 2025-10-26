@@ -55,6 +55,7 @@ function getStory($conn, $story_id) { return ph_getStory($conn, $story_id); }
 function getChapterQuiz($conn, $chapter_id) { return ph_getChapterQuiz($conn, $chapter_id); }
 function getChapters($conn, $program_id) { return ph_getChapters($conn, $program_id); }
 function getChapterStories($conn, $chapter_id) { return ph_getChapterStories($conn, $chapter_id); }
+function getProgramChapters($conn, $program_id) { return ph_getChapters($conn, $program_id); }
 
 // Ownership checks will now allow any user to edit any program; admin reviews for publish
 // All access/modify actions have no program-ownership filter in teacher flows
