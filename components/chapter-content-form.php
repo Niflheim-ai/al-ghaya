@@ -1,4 +1,11 @@
-<!-- Chapter Content Form Component -->
+<!-- Chapter Content Form Component (refactored to use canonical functions) -->
+<?php
+require_once __DIR__ . '/../php/program-handler.php';
+$stories = chapter_getStories($conn, $chapter_id);
+$quiz = chapter_getQuiz($conn, $chapter_id);
+$storyCount = is_array($stories) ? count($stories) : 0;
+$quizCount = $quiz ? 1 : 0;
+?>
 <section class="content-section">
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
@@ -16,12 +23,6 @@
         <!-- Chapter Header -->
         <div class="mb-8">
             <h2 class="text-xl font-semibold mb-4"><?= htmlspecialchars($chapter['title'] ?? '') ?></h2>
-            <?php 
-            $stories = getChapterStories($conn, $chapter_id);
-            $quiz = getChapterQuiz($conn, $chapter_id);
-            $storyCount = count($stories);
-            $quizCount = $quiz ? 1 : 0;
-            ?>
             <div class="grid grid-cols-2 gap-4 max-w-md">
                 <div class="text-center p-3 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-600">Story Left:</p>
@@ -89,31 +90,28 @@
             <?php else: ?>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <?php foreach ($stories as $index => $story): ?>
-                        <?php 
-                        $interactiveSections = getStoryInteractiveSections($conn, $story['story_id']);
-                        $sectionCount = count($interactiveSections);
-                        ?>
+                        <?php $interactiveSections = getStoryInteractiveSections($conn, $story['story_id']); $sectionCount = is_array($interactiveSections) ? count($interactiveSections) : 0; ?>
                         <div class="story-card bg-white rounded-lg p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                             <div class="flex items-start justify-between mb-3">
                                 <div class="flex-1">
                                     <div class="flex items-center gap-2 mb-2">
                                         <i class="ph ph-book-open text-xl text-blue-600"></i>
-                                        <span class="text-sm font-medium text-blue-600">Story <?= $story['story_order'] ?></span>
+                                        <span class="text-sm font-medium text-blue-600">Story <?= (int)($story['story_order'] ?? ($index+1)) ?></span>
                                     </div>
                                     <h4 class="font-semibold text-gray-900 mb-2"><?= htmlspecialchars($story['title']) ?></h4>
-                                    <?php if ($story['synopsis_english']): ?>
+                                    <?php if (!empty($story['synopsis_english'])): ?>
                                         <p class="text-sm text-gray-600 mb-3 line-clamp-2"><?= htmlspecialchars(substr($story['synopsis_english'], 0, 100)) ?>...</p>
                                     <?php endif; ?>
                                 </div>
                                 <div class="relative">
-                                    <button onclick="toggleStoryMenu(<?= $story['story_id'] ?>)" class="text-gray-400 hover:text-gray-600 p-1">
+                                    <button onclick="toggleStoryMenu(<?= (int)$story['story_id'] ?>)" class="text-gray-400 hover:text-gray-600 p-1">
                                         <i class="ph ph-dots-three-vertical"></i>
                                     </button>
-                                    <div id="menu-<?= $story['story_id'] ?>" class="hidden absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 w-36">
-                                        <button onclick="editStory(<?= $story['story_id'] ?>)" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    <div id="menu-<?= (int)$story['story_id'] ?>" class="hidden absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 w-36">
+                                        <button onclick="editStory(<?= (int)$story['story_id'] ?>)" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                                             <i class="ph ph-pencil-simple mr-2"></i>Edit
                                         </button>
-                                        <button onclick="deleteStory(<?= $story['story_id'] ?>)" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                        <button onclick="deleteStory(<?= (int)$story['story_id'] ?>)" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">
                                             <i class="ph ph-trash mr-2"></i>Delete
                                         </button>
                                     </div>
@@ -126,14 +124,14 @@
                                         <i class="ph ph-chat-circle-dots text-purple-600"></i>
                                         <span class="text-gray-600"><?= $sectionCount ?> Interactive</span>
                                     </div>
-                                    <?php if ($story['video_url']): ?>
+                                    <?php if (!empty($story['video_url'])): ?>
                                         <div class="flex items-center gap-1">
                                             <i class="ph ph-play-circle text-red-600"></i>
                                             <span class="text-gray-600">Video</span>
                                         </div>
                                     <?php endif; ?>
                                 </div>
-                                <button onclick="editStory(<?= $story['story_id'] ?>)" 
+                                <button onclick="editStory(<?= (int)$story['story_id'] ?>)" 
                                         class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
                                     Edit Content
                                 </button>
@@ -160,21 +158,20 @@
                     </button>
                 </div>
             <?php else: ?>
-                <?php $quizQuestions = getQuizQuestions($conn, $quiz['quiz_id']); ?>
                 <div class="quiz-card bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <i class="ph ph-question text-2xl text-green-600"></i>
                             <div>
-                                <h4 class="font-semibold text-gray-900"><?= htmlspecialchars($quiz['title']) ?></h4>
-                                <p class="text-sm text-gray-600"><?= count($quizQuestions) ?> questions • Multiple Choice</p>
+                                <h4 class="font-semibold text-gray-900">Quiz</h4>
+                                <p class="text-sm text-gray-600">Multiple Choice</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                                 Quiz Ready
                             </span>
-                            <button onclick="editQuiz(<?= $quiz['quiz_id'] ?>)" 
+                            <button onclick="editQuiz(<?= (int)($quiz['quiz_id'] ?? 0) ?>)" 
                                     class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
                                 <i class="ph ph-pencil-simple mr-1"></i>Edit Quiz
                             </button>
@@ -208,10 +205,10 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-const programId = <?= $program_id ?>;
-const chapterId = <?= $chapter_id ?>;
-let currentStoryCount = <?= $storyCount ?>;
-let currentQuizCount = <?= $quizCount ?>;
+const programId = <?= (int)$program_id ?>;
+const chapterId = <?= (int)$chapter_id ?>;
+let currentStoryCount = <?= (int)$storyCount ?>;
+let currentQuizCount = <?= (int)$quizCount ?>;
 
 function goBackToProgram() {
     window.location.href = `teacher-programs.php?action=create&program_id=${programId}`;
@@ -219,227 +216,66 @@ function goBackToProgram() {
 
 function addStory() {
     if (currentStoryCount >= 3) {
-        Swal.fire({
-            title: 'Maximum Stories Reached',
-            text: 'Each chapter can have a maximum of 3 stories.',
-            icon: 'warning',
-            confirmButtonColor: '#3b82f6'
-        });
+        Swal.fire({ title: 'Maximum Stories Reached', text: 'Each chapter can have a maximum of 3 stories.', icon: 'warning', confirmButtonColor: '#3b82f6' });
         return;
     }
-    
-    Swal.fire({
-        title: 'Create New Story',
-        text: `You are creating story ${currentStoryCount + 1} of 3 for this chapter.`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#3b82f6',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Create Story',
-        cancelButtonText: 'Cancel'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}`;
-        }
+    Swal.fire({ title: 'Create New Story', text: `You are creating story ${currentStoryCount + 1} of 3 for this chapter.`, icon: 'question', showCancelButton: true, confirmButtonColor: '#3b82f6', cancelButtonColor: '#6b7280', confirmButtonText: 'Create Story', cancelButtonText: 'Cancel' }).then((result)=>{
+        if (result.isConfirmed) { window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}`; }
     });
 }
 
 function addQuiz() {
     if (currentQuizCount >= 1) {
-        Swal.fire({
-            title: 'Quiz Already Exists',
-            text: 'Each chapter can have only one quiz. Would you like to edit the existing quiz?',
-            icon: 'info',
-            showCancelButton: true,
-            confirmButtonColor: '#3b82f6',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Edit Quiz',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                <?php if ($quiz): ?>
-                    editQuiz(<?= $quiz['quiz_id'] ?>);
-                <?php endif; ?>
-            }
+        Swal.fire({ title: 'Quiz Already Exists', text: 'Each chapter can have only one quiz. Would you like to edit the existing quiz?', icon: 'info', showCancelButton: true, confirmButtonColor: '#3b82f6', cancelButtonColor: '#6b7280', confirmButtonText: 'Edit Quiz', cancelButtonText: 'Cancel' }).then((result)=>{
+            if (result.isConfirmed) { <?php if ($quiz): ?> editQuiz(<?= (int)$quiz['quiz_id'] ?>); <?php endif; ?> }
         });
         return;
     }
-    
-    Swal.fire({
-        title: 'Create Chapter Quiz',
-        text: 'A quiz helps assess student understanding of this chapter.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#10b981',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Create Quiz',
-        cancelButtonText: 'Cancel'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`;
-        }
+    Swal.fire({ title: 'Create Chapter Quiz', text: 'A quiz helps assess student understanding of this chapter.', icon: 'question', showCancelButton: true, confirmButtonColor: '#10b981', cancelButtonColor: '#6b7280', confirmButtonText: 'Create Quiz', cancelButtonText: 'Cancel' }).then((result)=>{
+        if (result.isConfirmed) { window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`; }
     });
 }
 
-function editStory(storyId) {
-    window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}&story_id=${storyId}`;
-}
-
-function editQuiz(quizId) {
-    window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}&quiz_id=${quizId}`;
-}
+function editStory(storyId) { window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}&story_id=${storyId}`; }
+function editQuiz(quizId) { window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}&quiz_id=${quizId}`; }
 
 function toggleStoryMenu(storyId) {
-    // Close all other menus
-    document.querySelectorAll('[id^="menu-"]').forEach(menu => {
-        if (menu.id !== `menu-${storyId}`) {
-            menu.classList.add('hidden');
-        }
-    });
-    
-    // Toggle current menu
-    const menu = document.getElementById(`menu-${storyId}`);
-    menu.classList.toggle('hidden');
+    document.querySelectorAll('[id^="menu-"]').forEach(menu => { if (menu.id !== `menu-${storyId}`) { menu.classList.add('hidden'); } });
+    const menu = document.getElementById(`menu-${storyId}`); if (menu) menu.classList.toggle('hidden');
 }
 
 function deleteStory(storyId) {
-    if (currentStoryCount <= 1) {
-        Swal.fire({
-            title: 'Cannot Delete',
-            text: 'Each chapter must have at least 1 story. Please add another story before deleting this one.',
-            icon: 'warning',
-            confirmButtonColor: '#3b82f6'
-        });
-        return;
-    }
-    
-    Swal.fire({
-        title: 'Delete Story?',
-        text: 'This will permanently delete the story and all its interactive sections.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, delete it',
-        cancelButtonText: 'Cancel'
-    }).then((result) => {
+    if (currentStoryCount <= 1) { Swal.fire({ title: 'Cannot Delete', text: 'Each chapter must have at least 1 story.', icon: 'warning', confirmButtonColor: '#3b82f6' }); return; }
+    Swal.fire({ title: 'Delete Story?', text: 'This will permanently delete the story and all its interactive sections.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', cancelButtonColor: '#6b7280', confirmButtonText: 'Yes, delete it', cancelButtonText: 'Cancel' }).then((result)=>{
         if (result.isConfirmed) {
-            // Show loading
-            Swal.fire({
-                title: 'Deleting Story...',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-            
-            fetch('../../php/program-handler.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'delete_story',
-                    story_id: storyId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        title: 'Deleted!',
-                        text: 'Story has been deleted successfully.',
-                        icon: 'success',
-                        confirmButtonColor: '#3b82f6'
-                    }).then(() => {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Error',
-                        text: data.message || 'Failed to delete story.',
-                        icon: 'error',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Network error. Please try again.',
-                    icon: 'error',
-                    confirmButtonColor: '#3b82f6'
-                });
-            });
+            Swal.fire({ title: 'Deleting Story...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: ()=>{ Swal.showLoading(); } });
+            fetch('../../php/program-handler.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete_story', story_id: storyId }) })
+              .then(r=>r.json()).then(data=>{
+                if (data.success) { Swal.fire({ title: 'Deleted!', text: 'Story has been deleted successfully.', icon: 'success', confirmButtonColor: '#3b82f6' }).then(()=> location.reload()); }
+                else { Swal.fire({ title: 'Error', text: data.message || 'Failed to delete story.', icon: 'error', confirmButtonColor: '#3b82f6' }); }
+              }).catch(()=> Swal.fire({ title: 'Error', text: 'Network error. Please try again.', icon: 'error', confirmButtonColor: '#3b82f6' }));
         }
     });
 }
 
 // Close menus when clicking outside
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.relative')) {
-        document.querySelectorAll('[id^="menu-"]').forEach(menu => {
-            menu.classList.add('hidden');
-        });
-    }
-});
+document.addEventListener('click', function(e) { if (!e.target.closest('.relative')) { document.querySelectorAll('[id^="menu-"]').forEach(menu => menu.classList.add('hidden')); } });
 
 // Update button states based on counts
 document.addEventListener('DOMContentLoaded', function() {
     const addStoryBtn = document.getElementById('addStoryBtn');
     const addQuizBtn = document.getElementById('addQuizBtn');
-    
-    if (currentStoryCount >= 3) {
-        addStoryBtn.setAttribute('disabled', 'true');
-        addStoryBtn.onclick = function() {
-            Swal.fire({
-                title: 'Maximum Stories Reached',
-                text: 'Each chapter can have a maximum of 3 stories.',
-                icon: 'info',
-                confirmButtonColor: '#3b82f6'
-            });
-        };
-    }
-    
-    if (currentQuizCount >= 1) {
-        addQuizBtn.setAttribute('disabled', 'true');
-    }
+    if (currentStoryCount >= 3 && addStoryBtn) { addStoryBtn.setAttribute('disabled', 'true'); addStoryBtn.onclick = function(){ Swal.fire({ title: 'Maximum Stories Reached', text: 'Each chapter can have a maximum of 3 stories.', icon: 'info', confirmButtonColor: '#3b82f6' }); }; }
+    if (currentQuizCount >= 1 && addQuizBtn) { addQuizBtn.setAttribute('disabled', 'true'); }
 });
 </script>
 
 <style>
-.line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.story-card {
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.story-card:hover {
-    transform: translateY(-2px);
-}
-
-.quiz-card {
-    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
-    border-color: #10b981;
-}
-
-/* Button disabled states */
-button[disabled] {
-    pointer-events: none;
-}
-
-.story-card .relative {
-    position: relative;
-}
-
-.story-card .absolute {
-    position: absolute;
-    z-index: 20;
-}
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.story-card { transition: transform 0.2s, box-shadow 0.2s; }
+.story-card:hover { transform: translateY(-2px); }
+.quiz-card { background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); border-color: #10b981; }
+button[disabled] { pointer-events: none; }
+.story-card .relative { position: relative; }
+.story-card .absolute { position: absolute; z-index: 20; }
 </style>
