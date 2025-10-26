@@ -15,6 +15,8 @@ $action = $_GET['action'] ?? 'list';
 $program_id = isset($_GET['program_id']) ? (int)$_GET['program_id'] : null;
 $chapter_id = isset($_GET['chapter_id']) ? (int)$_GET['chapter_id'] : null;
 $story_id = isset($_GET['story_id']) ? (int)$_GET['story_id'] : null;
+$quiz_id = isset($_GET['quiz_id']) ? (int)$_GET['quiz_id'] : null;
+$section_id = isset($_GET['section_id']) ? (int)$_GET['section_id'] : null;
 
 // Get teacherID using consolidated helper from program-handler via namespaced proxy
 $teacher_id = ph_getTeacherIdFromSession($conn, $user_id);
@@ -31,21 +33,33 @@ switch ($action) {
     $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
     if (!$chapter) { $_SESSION['error_message']='Failed to get chapter.'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     // Ownership check
-    if (!$program || (int)($program['programID']??0) !== (int)($chapter['programID']??-1)) { $_SESSION['error_message']='Access denied to chapter.'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
+    if (!$program || (int)($program['programID']??0) !== (int)($chapter['program_id']??-1)) { $_SESSION['error_message']='Access denied to chapter.'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     break;
   case 'add_story':
     $pageContent='story_form';
     $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
     $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
-    if (!$program || !$chapter || (int)($program['programID']??0)!==(int)($chapter['programID']??-1)) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
+    if (!$program || !$chapter || (int)($program['programID']??0)!==(int)($chapter['program_id']??-1)) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     $story = $story_id ? getStory($conn, $story_id) : null;
     break;
   case 'add_quiz':
     $pageContent='quiz_form';
     $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
     $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
-    if (!$program || !$chapter || (int)($program['programID']??0)!==(int)($chapter['programID']??-1)) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
+    if (!$program || !$chapter || (int)($program['programID']??0)!==(int)($chapter['program_id']??-1)) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     $quiz = $chapter_id ? getChapterQuiz($conn, $chapter_id) : null;
+    // Get quiz questions if editing
+    if ($quiz) {
+        require_once '../../php/quiz-handler.php';
+        $quiz_questions = quizQuestion_getByQuiz($conn, $quiz['quiz_id']);
+    }
+    break;
+  case 'edit_interactive':
+    $pageContent='interactive_sections';
+    $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
+    $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
+    $story_data = $story_id ? getStory($conn, $story_id) : null;
+    if (!$program || !$chapter || !$story_data) { $_SESSION['error_message']='Invalid program, chapter, or story'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
     break;
   default:
     $pageContent='programs_list';
@@ -190,6 +204,14 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
         <?php elseif ($pageContent === 'story_form'): ?>
             <!-- STORY FORM - Use New Component -->
             <?php include '../../components/story-form.php'; ?>
+            
+        <?php elseif ($pageContent === 'quiz_form'): ?>
+            <!-- QUIZ FORM - Use New Component -->
+            <?php include '../../components/quiz-form.php'; ?>
+            
+        <?php elseif ($pageContent === 'interactive_sections'): ?>
+            <!-- INTERACTIVE SECTIONS - Use New Component -->
+            <?php include '../../components/interactive-sections.php'; ?>
             
         <?php else: ?>
             <!-- OTHER CONTENT SECTIONS -->
