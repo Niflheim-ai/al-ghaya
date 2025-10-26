@@ -3,7 +3,9 @@
 require_once __DIR__ . '/program-handler.php';
 
 // Safe proxy to avoid naming conflicts
-function ph_getTeacherIdFromSession($conn, $user_id) { return getTeacherIdFromSession($conn, $user_id); }
+function ph_getTeacherIdFromSession($conn, $user_id) { 
+    return getTeacherIdFromSession($conn, $user_id); 
+}
 
 // Utility: list published programs for library section
 function getPublishedPrograms($conn) {
