@@ -20,20 +20,26 @@ $quizCount = $quiz ? 1 : 0;
     </div>
 
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <!-- Chapter Header -->
-        <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4"><?= htmlspecialchars($chapter['title'] ?? '') ?></h2>
-            <div class="grid grid-cols-2 gap-4 max-w-md">
-                <div class="text-center p-3 bg-gray-50 rounded-lg">
-                    <p class="text-sm text-gray-600">Story Left:</p>
-                    <p class="text-2xl font-bold text-blue-600" id="storyCount"><?= $storyCount ?></p>
-                </div>
-                <div class="text-center p-3 bg-gray-50 rounded-lg">
-                    <p class="text-sm text-gray-600">Quiz Left:</p>
-                    <p class="text-2xl font-bold text-green-600" id="quizCount"><?= $quizCount ?></p>
-                </div>
+        <!-- Chapter Edit Form (POST wrapper) -->
+        <form id="chapterForm" method="POST" action="../../php/program-handler.php" class="space-y-6 mb-8">
+            <input type="hidden" name="action" value="update_chapter">
+            <input type="hidden" name="chapter_id" value="<?= (int)$chapter_id ?>">
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Chapter Title</label>
+                <input type="text" name="title" value="<?= htmlspecialchars($chapter['title'] ?? '') ?>" class="w-full px-4 py-3 border rounded-lg" required>
             </div>
-        </div>
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Content</label>
+                <textarea name="content" rows="5" class="w-full px-4 py-3 border rounded-lg"><?= htmlspecialchars($chapter['content'] ?? '') ?></textarea>
+            </div>
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Question (Optional)</label>
+                <input type="text" name="question" value="<?= htmlspecialchars($chapter['question'] ?? '') ?>" class="w-full px-4 py-3 border rounded-lg">
+            </div>
+            <div class="flex justify-end">
+                <button type="submit" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">Save Chapter</button>
+            </div>
+        </form>
 
         <!-- Action Buttons -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -210,64 +216,33 @@ const chapterId = <?= (int)$chapter_id ?>;
 let currentStoryCount = <?= (int)$storyCount ?>;
 let currentQuizCount = <?= (int)$quizCount ?>;
 
-function goBackToProgram() {
-    window.location.href = `teacher-programs.php?action=create&program_id=${programId}`;
-}
-
+function goBackToProgram() { window.location.href = `teacher-programs.php?action=create&program_id=${programId}`; }
 function addStory() {
-    if (currentStoryCount >= 3) {
-        Swal.fire({ title: 'Maximum Stories Reached', text: 'Each chapter can have a maximum of 3 stories.', icon: 'warning', confirmButtonColor: '#3b82f6' });
-        return;
-    }
-    Swal.fire({ title: 'Create New Story', text: `You are creating story ${currentStoryCount + 1} of 3 for this chapter.`, icon: 'question', showCancelButton: true, confirmButtonColor: '#3b82f6', cancelButtonColor: '#6b7280', confirmButtonText: 'Create Story', cancelButtonText: 'Cancel' }).then((result)=>{
-        if (result.isConfirmed) { window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}`; }
-    });
+    if (currentStoryCount >= 3) { Swal.fire({ title:'Maximum Stories Reached', text:'Each chapter can have a maximum of 3 stories.', icon:'warning', confirmButtonColor:'#3b82f6' }); return; }
+    Swal.fire({ title:'Create New Story', text:`You are creating story ${currentStoryCount + 1} of 3 for this chapter.`, icon:'question', showCancelButton:true, confirmButtonColor:'#3b82f6', cancelButtonColor:'#6b7280', confirmButtonText:'Create Story', cancelButtonText:'Cancel' }).then((r)=>{ if (r.isConfirmed) { window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}`; } });
 }
-
 function addQuiz() {
-    if (currentQuizCount >= 1) {
-        Swal.fire({ title: 'Quiz Already Exists', text: 'Each chapter can have only one quiz. Would you like to edit the existing quiz?', icon: 'info', showCancelButton: true, confirmButtonColor: '#3b82f6', cancelButtonColor: '#6b7280', confirmButtonText: 'Edit Quiz', cancelButtonText: 'Cancel' }).then((result)=>{
-            if (result.isConfirmed) { <?php if ($quiz): ?> editQuiz(<?= (int)$quiz['quiz_id'] ?>); <?php endif; ?> }
-        });
-        return;
-    }
-    Swal.fire({ title: 'Create Chapter Quiz', text: 'A quiz helps assess student understanding of this chapter.', icon: 'question', showCancelButton: true, confirmButtonColor: '#10b981', cancelButtonColor: '#6b7280', confirmButtonText: 'Create Quiz', cancelButtonText: 'Cancel' }).then((result)=>{
-        if (result.isConfirmed) { window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`; }
-    });
+    if (currentQuizCount >= 1) { Swal.fire({ title:'Quiz Already Exists', text:'Each chapter can have only one quiz. Would you like to edit the existing quiz?', icon:'info', showCancelButton:true, confirmButtonColor:'#3b82f6', cancelButtonColor:'#6b7280', confirmButtonText:'Edit Quiz', cancelButtonText:'Cancel' }).then((r)=>{ if (r.isConfirmed) { <?php if ($quiz): ?> editQuiz(<?= (int)$quiz['quiz_id'] ?>); <?php endif; ?> } }); return; }
+    Swal.fire({ title:'Create Chapter Quiz', text:'A quiz helps assess student understanding of this chapter.', icon:'question', showCancelButton:true, confirmButtonColor:'#10b981', cancelButtonColor:'#6b7280', confirmButtonText:'Create Quiz', cancelButtonText:'Cancel' }).then((r)=>{ if (r.isConfirmed) { window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}`; } });
 }
-
 function editStory(storyId) { window.location.href = `teacher-programs.php?action=add_story&program_id=${programId}&chapter_id=${chapterId}&story_id=${storyId}`; }
 function editQuiz(quizId) { window.location.href = `teacher-programs.php?action=add_quiz&program_id=${programId}&chapter_id=${chapterId}&quiz_id=${quizId}`; }
-
-function toggleStoryMenu(storyId) {
-    document.querySelectorAll('[id^="menu-"]').forEach(menu => { if (menu.id !== `menu-${storyId}`) { menu.classList.add('hidden'); } });
-    const menu = document.getElementById(`menu-${storyId}`); if (menu) menu.classList.toggle('hidden');
-}
-
+function toggleStoryMenu(storyId) { document.querySelectorAll('[id^="menu-"]').forEach(menu => { if (menu.id !== `menu-${storyId}`) { menu.classList.add('hidden'); } }); const menu = document.getElementById(`menu-${storyId}`); if (menu) menu.classList.toggle('hidden'); }
 function deleteStory(storyId) {
-    if (currentStoryCount <= 1) { Swal.fire({ title: 'Cannot Delete', text: 'Each chapter must have at least 1 story.', icon: 'warning', confirmButtonColor: '#3b82f6' }); return; }
-    Swal.fire({ title: 'Delete Story?', text: 'This will permanently delete the story and all its interactive sections.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', cancelButtonColor: '#6b7280', confirmButtonText: 'Yes, delete it', cancelButtonText: 'Cancel' }).then((result)=>{
-        if (result.isConfirmed) {
-            Swal.fire({ title: 'Deleting Story...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: ()=>{ Swal.showLoading(); } });
-            fetch('../../php/program-handler.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete_story', story_id: storyId }) })
-              .then(r=>r.json()).then(data=>{
-                if (data.success) { Swal.fire({ title: 'Deleted!', text: 'Story has been deleted successfully.', icon: 'success', confirmButtonColor: '#3b82f6' }).then(()=> location.reload()); }
-                else { Swal.fire({ title: 'Error', text: data.message || 'Failed to delete story.', icon: 'error', confirmButtonColor: '#3b82f6' }); }
-              }).catch(()=> Swal.fire({ title: 'Error', text: 'Network error. Please try again.', icon: 'error', confirmButtonColor: '#3b82f6' }));
+    if (currentStoryCount <= 1) { Swal.fire({ title:'Cannot Delete', text:'Each chapter must have at least 1 story.', icon:'warning', confirmButtonColor:'#3b82f6' }); return; }
+    Swal.fire({ title:'Delete Story?', text:'This will permanently delete the story and all its interactive sections.', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc2626', cancelButtonColor:'#6b7280', confirmButtonText:'Yes, delete it', cancelButtonText:'Cancel' }).then((r)=>{
+        if (r.isConfirmed) {
+            Swal.fire({ title:'Deleting Story...', allowOutsideClick:false, allowEscapeKey:false, showConfirmButton:false, didOpen:()=>{ Swal.showLoading(); } });
+            fetch('../../php/program-handler.php', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ action:'delete_story', story_id: storyId }) })
+                .then(r=>r.json()).then(data=>{ if (data.success) { Swal.fire({ title:'Deleted!', text:'Story has been deleted successfully.', icon:'success', confirmButtonColor:'#3b82f6' }).then(()=> location.reload()); } else { Swal.fire({ title:'Error', text:data.message||'Failed to delete story.', icon:'error', confirmButtonColor:'#3b82f6' }); } })
+                .catch(()=> Swal.fire({ title:'Error', text:'Network error. Please try again.', icon:'error', confirmButtonColor:'#3b82f6' }));
         }
     });
 }
-
 // Close menus when clicking outside
 document.addEventListener('click', function(e) { if (!e.target.closest('.relative')) { document.querySelectorAll('[id^="menu-"]').forEach(menu => menu.classList.add('hidden')); } });
-
 // Update button states based on counts
-document.addEventListener('DOMContentLoaded', function() {
-    const addStoryBtn = document.getElementById('addStoryBtn');
-    const addQuizBtn = document.getElementById('addQuizBtn');
-    if (currentStoryCount >= 3 && addStoryBtn) { addStoryBtn.setAttribute('disabled', 'true'); addStoryBtn.onclick = function(){ Swal.fire({ title: 'Maximum Stories Reached', text: 'Each chapter can have a maximum of 3 stories.', icon: 'info', confirmButtonColor: '#3b82f6' }); }; }
-    if (currentQuizCount >= 1 && addQuizBtn) { addQuizBtn.setAttribute('disabled', 'true'); }
-});
+document.addEventListener('DOMContentLoaded', function() { const addStoryBtn=document.getElementById('addStoryBtn'); const addQuizBtn=document.getElementById('addQuizBtn'); if (currentStoryCount >= 3 && addStoryBtn) { addStoryBtn.setAttribute('disabled','true'); addStoryBtn.onclick=function(){ Swal.fire({ title:'Maximum Stories Reached', text:'Each chapter can have a maximum of 3 stories.', icon:'info', confirmButtonColor:'#3b82f6' }); }; } if (currentQuizCount >= 1 && addQuizBtn) { addQuizBtn.setAttribute('disabled','true'); } });
 </script>
 
 <style>
