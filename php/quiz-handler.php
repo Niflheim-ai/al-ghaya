@@ -96,7 +96,7 @@ function quizQuestionOption_getByQuestion($conn, $question_id) {
     $stmt->bind_param("i", $question_id); $stmt->execute(); $res = $stmt->get_result(); $rows = $res->fetch_all(MYSQLI_ASSOC); $stmt->close(); return $rows;
 }
 
-// Interactive Section functions (same as before)
+// Interactive Section functions
 function interactiveSection_create($conn, $story_id) {
     $orderStmt = $conn->prepare("SELECT COALESCE(MAX(section_order), 0) + 1 as next_order FROM story_interactive_sections WHERE story_id = ?");
     if (!$orderStmt) { error_log("interactiveSection_create order query prepare failed: " . $conn->error); return false; }
@@ -152,12 +152,12 @@ function questionOption_getByQuestion($conn, $question_id) {
     $stmt->bind_param("i", $question_id); $stmt->execute(); $res = $stmt->get_result(); $rows = $res->fetch_all(MYSQLI_ASSOC); $stmt->close(); return $rows;
 }
 
-// Handler logic - only run when directly accessed (unchanged below)
+// Handler logic - only run when directly accessed
 $__SELF__ = basename($_SERVER['PHP_SELF']);
 if ($__SELF__ === 'quiz-handler.php') {
     if (!validateTeacherAccess()) {
         http_response_code(403);
-        if (isset($_POST['action']) && in_array($_POST['action'], ['create_quiz', 'update_quiz'])) {
+        if (isset($_POST['action']) && in_array($_POST['action'], ['create_quiz', 'update_quiz', 'save_quiz', 'create_interactive_section', 'save_interactive_section'])) {
             $_SESSION['error_message'] = 'Unauthorized access';
             header('Location: ../pages/teacher/teacher-programs.php');
             exit;
@@ -166,10 +166,170 @@ if ($__SELF__ === 'quiz-handler.php') {
         exit;
     }
 
-    // ... rest of the existing switch logic remains identical ...
+    $user_id = $_SESSION['userID'];
+    $teacher_id = getTeacherIdFromSession($conn, $user_id);
+    if (!$teacher_id) {
+        if (isset($_POST['action']) && in_array($_POST['action'], ['create_quiz', 'update_quiz', 'save_quiz', 'create_interactive_section', 'save_interactive_section'])) {
+            $_SESSION['error_message'] = 'Teacher profile not found';
+            header('Location: ../pages/teacher/teacher-programs.php');
+            exit;
+        }
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Teacher profile not found']);
+        exit;
+    }
+
+    $action = $_POST['action'] ?? $_GET['action'] ?? '';
+    if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
+        $input = json_decode(file_get_contents('php://input'), true);
+        if ($input) {
+            $action = $input['action'] ?? $action;
+            $_POST = array_merge($_POST, $input);
+        }
+    }
+
+    header('Content-Type: application/json');
+    
+    try {
+        switch ($action) {
+            case 'save_quiz':
+                $chapter_id = intval($_POST['chapter_id'] ?? 0);
+                $quiz_title = trim($_POST['quiz_title'] ?? 'Chapter Quiz');
+                $questions_data = $_POST['questions'] ?? [];
+                
+                if (!$chapter_id) {
+                    echo json_encode(['success' => false, 'message' => 'Chapter ID is required']);
+                    exit;
+                }
+                
+                $conn->begin_transaction();
+                try {
+                    $quiz = quiz_getByChapter($conn, $chapter_id);
+                    if ($quiz) {
+                        $quiz_id = $quiz['quiz_id'];
+                        quiz_update($conn, $quiz_id, $quiz_title);
+                        quizQuestion_deleteByQuiz($conn, $quiz_id);
+                    } else {
+                        $quiz_id = quiz_create($conn, $chapter_id, $quiz_title);
+                        if (!$quiz_id) throw new Exception('Failed to create quiz');
+                    }
+                    
+                    foreach ($questions_data as $index => $question_data) {
+                        $question_text = trim($question_data['text'] ?? '');
+                        $options_data = $question_data['options'] ?? [];
+                        
+                        if (empty($question_text) || empty($options_data)) continue;
+                        
+                        $question_id = quizQuestion_create($conn, $quiz_id, $question_text, $index + 1);
+                        if (!$question_id) throw new Exception('Failed to create question');
+                        
+                        foreach ($options_data as $option_index => $option_data) {
+                            $option_text = trim($option_data['text'] ?? '');
+                            $is_correct = $option_data['is_correct'] ? 1 : 0;
+                            
+                            if (empty($option_text)) continue;
+                            
+                            if (!quizQuestionOption_create($conn, $question_id, $option_text, $is_correct, $option_index + 1)) {
+                                throw new Exception('Failed to create option');
+                            }
+                        }
+                    }
+                    
+                    $conn->commit();
+                    echo json_encode(['success' => true, 'message' => 'Quiz saved successfully']);
+                } catch (Exception $e) {
+                    $conn->rollback();
+                    echo json_encode(['success' => false, 'message' => 'Failed to save quiz: ' . $e->getMessage()]);
+                }
+                break;
+                
+            case 'create_interactive_section':
+                $story_id = intval($_POST['story_id'] ?? 0);
+                if (!$story_id) {
+                    echo json_encode(['success' => false, 'message' => 'Story ID is required']);
+                    exit;
+                }
+                
+                $section_id = interactiveSection_create($conn, $story_id);
+                if ($section_id) {
+                    echo json_encode(['success' => true, 'section_id' => $section_id, 'message' => 'Interactive section created successfully']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Failed to create interactive section']);
+                }
+                break;
+                
+            case 'delete_interactive_section':
+                $section_id = intval($_POST['section_id'] ?? 0);
+                if (!$section_id) {
+                    echo json_encode(['success' => false, 'message' => 'Section ID is required']);
+                    exit;
+                }
+                
+                if (interactiveSection_delete($conn, $section_id)) {
+                    echo json_encode(['success' => true, 'message' => 'Interactive section deleted successfully']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Failed to delete interactive section']);
+                }
+                break;
+                
+            case 'save_interactive_section':
+                $section_id = intval($_POST['section_id'] ?? 0);
+                $questions_data = $_POST['questions'] ?? [];
+                
+                if (!$section_id) {
+                    echo json_encode(['success' => false, 'message' => 'Section ID is required']);
+                    exit;
+                }
+                
+                $conn->begin_transaction();
+                try {
+                    $stmt = $conn->prepare("DELETE FROM interactive_questions WHERE section_id = ?");
+                    if ($stmt) { $stmt->bind_param("i", $section_id); $stmt->execute(); $stmt->close(); }
+                    
+                    foreach ($questions_data as $index => $question_data) {
+                        $question_text = trim($question_data['text'] ?? '');
+                        $question_type = $question_data['type'] ?? 'multiple_choice';
+                        $options_data = $question_data['options'] ?? [];
+                        
+                        if (empty($question_text)) continue;
+                        
+                        $question_id = interactiveQuestion_create($conn, $section_id, $question_text, $question_type, $index + 1);
+                        if (!$question_id) throw new Exception('Failed to create interactive question');
+                        
+                        foreach ($options_data as $option_index => $option_data) {
+                            $option_text = trim($option_data['text'] ?? '');
+                            $is_correct = $option_data['is_correct'] ? 1 : 0;
+                            
+                            if (empty($option_text)) continue;
+                            
+                            if (!questionOption_create($conn, $question_id, $option_text, $is_correct, $option_index + 1)) {
+                                throw new Exception('Failed to create interactive option');
+                            }
+                        }
+                    }
+                    
+                    $conn->commit();
+                    echo json_encode(['success' => true, 'message' => 'Interactive section saved successfully']);
+                } catch (Exception $e) {
+                    $conn->rollback();
+                    echo json_encode(['success' => false, 'message' => 'Failed to save interactive section: ' . $e->getMessage()]);
+                }
+                break;
+                
+            default:
+                echo json_encode(['success' => false, 'message' => 'Invalid action: ' . $action]);
+                break;
+        }
+    } catch (Exception $e) {
+        error_log("Quiz Handler Error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+    }
+    
+    exit;
 }
 
-// Legacy aliases (unchanged)
+// Legacy aliases for backward compatibility
 function getQuiz($conn, $quiz_id) { return quiz_getById($conn, $quiz_id); }
 function getChapterQuiz($conn, $chapter_id) { return quiz_getByChapter($conn, $chapter_id); }
 function getQuizQuestions($conn, $quiz_id) { return quizQuestion_getByQuiz($conn, $quiz_id); }
