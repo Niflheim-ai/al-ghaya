@@ -44,57 +44,52 @@ $stories = ph_getChapterStories($conn, $chapterId);
                 </div>
             </div>
 
-            <!-- Stories List -->
+            <!-- Stories List (Legacy styling reapplied) -->
             <div class="mt-8">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold">Stories</h3>
+                    <div class="flex items-center gap-[10px] p-[10px] text-company_blue">
+                        <i class="ph ph-books text-[24px]"></i>
+                        <h3 class="body-text2-semibold">Stories</h3>
+                    </div>
                     <a href="teacher-programs.php?action=add_story&program_id=<?= $programId ?>&chapter_id=<?= $chapterId ?>" 
-                       class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
-                        <i class="ph ph-plus mr-1"></i> Add Story
+                       class="px-4 py-2 bg-company_orange hover:opacity-90 text-white rounded-[10px] transition-colors inline-flex items-center gap-2">
+                        <i class="ph ph-plus"></i><span class="body-text3-semibold">Add Story</span>
                     </a>
                 </div>
 
                 <?php if (empty($stories)): ?>
-                    <div class="text-center py-12 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
-                        <i class="ph ph-book text-5xl mb-4"></i>
-                        <h4 class="text-lg font-medium mb-2">No Stories Yet</h4>
-                        <p class="mb-4">Add up to 3 stories for this chapter.</p>
-                        <a href="teacher-programs.php?action=add_story&program_id=<?= $programId ?>&chapter_id=<?= $chapterId ?>" 
-                           class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
-                            <i class="ph ph-plus mr-2"></i> Add First Story
-                        </a>
+                    <div class="w-full text-center py-10 bg-company_white border border-dashed border-gray-300 rounded-[20px]">
+                        <i class="ph ph-book text-4xl text-gray-400 mb-3"></i>
+                        <p class="text-gray-500">No stories yet. Add up to 3 stories for this chapter.</p>
                     </div>
                 <?php else: ?>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         <?php foreach ($stories as $story): ?>
                             <?php 
                                 $sections = ph_getStoryInteractiveSections($conn, (int)$story['story_id']);
-                                $sectionCount = count($sections);
+                                $sectionCount = is_array($sections) ? count($sections) : 0;
                             ?>
-                            <div class="story-card bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                            <div class="bg-company_white border border-gray-200 rounded-[20px] shadow-sm hover:shadow-md transition-shadow">
+                                <div class="relative">
+                                    <img src="<?= '../../images/default-story.jpg' ?>" alt="Story" class="w-full h-36 object-cover rounded-t-[20px]">
+                                    <span class="absolute top-2 left-2 px-2 py-1 text-xs rounded-full bg-gray-900/70 text-white">
+                                        <?= $sectionCount ?> sections
+                                    </span>
+                                </div>
                                 <div class="p-4">
-                                    <div class="flex items-start justify-between mb-3">
-                                        <h4 class="font-medium text-gray-900 line-clamp-1"><?= htmlspecialchars($story['title']) ?></h4>
-                                        <span class="text-xs px-2 py-1 rounded-full <?= $sectionCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700' ?>">
-                                            <?= $sectionCount ?> sections
-                                        </span>
-                                    </div>
+                                    <h4 class="body-text2-semibold text-company_blue mb-1 line-clamp-1"><?= htmlspecialchars($story['title']) ?></h4>
                                     <p class="text-sm text-gray-600 line-clamp-2 mb-3"><?= htmlspecialchars($story['synopsis_english']) ?></p>
-                                    <div class="flex items-center gap-2 text-xs text-gray-500 mb-4">
-                                        <i class="ph ph-video"></i>
-                                        <span><?= htmlspecialchars($story['video_url']) ?></span>
-                                    </div>
                                     <div class="flex items-center justify-between">
                                         <a href="teacher-programs.php?action=add_story&program_id=<?= $programId ?>&chapter_id=<?= $chapterId ?>&story_id=<?= (int)$story['story_id'] ?>" 
-                                           class="text-blue-600 hover:text-blue-800 text-sm">
-                                            <i class="ph ph-pencil-simple"></i> Edit Story
+                                           class="text-blue-600 hover:text-blue-800 text-sm inline-flex items-center gap-1">
+                                            <i class="ph ph-pencil-simple"></i> Edit
                                         </a>
-                                        <div class="flex items-center gap-2">
+                                        <div class="flex items-center gap-3">
                                             <a href="teacher-programs.php?action=edit_interactive&program_id=<?= $programId ?>&chapter_id=<?= $chapterId ?>&story_id=<?= (int)$story['story_id'] ?>" 
-                                               class="text-purple-600 hover:text-purple-800 text-sm">
+                                               class="text-purple-600 hover:text-purple-800 text-sm inline-flex items-center gap-1">
                                                 <i class="ph ph-chats"></i> Interactive
                                             </a>
-                                            <button type="button" onclick="deleteStory(<?= (int)$story['story_id'] ?>)" class="text-red-600 hover:text-red-800 text-sm">
+                                            <button type="button" onclick="deleteStory(<?= (int)$story['story_id'] ?>)" class="text-red-600 hover:text-red-800 text-sm inline-flex items-center gap-1">
                                                 <i class="ph ph-trash"></i> Delete
                                             </button>
                                         </div>
@@ -159,6 +154,10 @@ function deleteStory(storyId) {
 </script>
 
 <style>
-.story-card { transition: transform 0.2s, box-shadow 0.2s; }
-.story-card:hover { transform: translateY(-2px); }
+/* Legacy card feel */
+.body-text2-semibold { font-weight: 600; font-size: 1rem; }
+.body-text3-semibold { font-weight: 600; font-size: 0.9rem; }
+.bg-company_white { background: #ffffff; }
+.text-company_blue { color: #10375B; }
+.text-company_orange { color: #F97316; }
 </style>
