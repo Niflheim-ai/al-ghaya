@@ -35,8 +35,8 @@ function sendLoginCredentials($email, $password, $firstName = '', $lastName = ''
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'admin@al-ghaya.com'; // Replace with your Gmail
-        $mail->Password   = 'xtmr pend jhgn zzjz'; // Replace with your Gmail App Password
+        $mail->Username   = 'thegodlykali@gmail.com'; // Replace with your Gmail
+        $mail->Password   = 'ghyh cagn jqor hlzx'; // Replace with your Gmail App Password
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = 587;
 
