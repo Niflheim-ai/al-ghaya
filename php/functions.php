@@ -11,7 +11,7 @@
     require_once __DIR__ . '/config.php';
     require_once __DIR__ . '/mail-config.php';
 
-    // Create Account
+    // Create Account - SINGLE DECLARATION
     function createAccount($conn) {
         if (isset($_POST['create-account'])) {
             if (!empty($_POST['first-name']) && !empty($_POST['last-name']) && !empty($_POST['email']) && !empty($_POST['password']) && !empty($_POST['confirm-password'])) {
@@ -128,5 +128,5 @@
         }
     }
 
-    // Other functions unchanged ...
+    // Other utility functions can go here...
 ?>
