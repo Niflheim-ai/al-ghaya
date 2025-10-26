@@ -4,6 +4,7 @@
  * RELAXED VERSION: Teachers can collaborate on programs, admin approves for publish
  * ENHANCED: Includes quiz and interactive systems integration
  * CLEANED: No legacy aliases to avoid function redeclaration conflicts
+ * FIXED: Database column compatibility for program_chapters
  */
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
@@ -67,11 +68,34 @@ function program_getByTeacher($conn, $teacher_id, $sortBy = 'dateCreated') {
     $stmt->bind_param("i", $teacher_id); $stmt->execute(); $res = $stmt->get_result(); $rows = $res->fetch_all(MYSQLI_ASSOC); $stmt->close(); return $rows;
 }
 
-// Chapter functions (enhanced)
+// Database column compatibility helper
+function getChapterProgramColumn($conn) {
+    static $column = null;
+    if ($column === null) {
+        $result = $conn->query("SHOW COLUMNS FROM program_chapters LIKE 'program_id'");
+        if ($result && $result->num_rows > 0) {
+            $column = 'program_id';
+        } else {
+            // Check for programID column
+            $result = $conn->query("SHOW COLUMNS FROM program_chapters LIKE 'programID'");
+            if ($result && $result->num_rows > 0) {
+                $column = 'programID';
+            } else {
+                // Default fallback - this should not happen
+                $column = 'program_id';
+                error_log("WARNING: Neither program_id nor programID found in program_chapters table");
+            }
+        }
+    }
+    return $column;
+}
+
+// Chapter functions (enhanced with column compatibility)
 function chapter_add($conn, $program_id, $title, $content = '', $question = '') {
-    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE program_id = ?"); if (!$stmt) { error_log("chapter_add order query prepare failed: " . $conn->error); return false; }
+    $program_col = getChapterProgramColumn($conn);
+    $stmt = $conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE $program_col = ?"); if (!$stmt) { error_log("chapter_add order query prepare failed: " . $conn->error); return false; }
     $stmt->bind_param("i", $program_id); $stmt->execute(); $max_order = $stmt->get_result()->fetch_array()[0]; $stmt->close(); $chapter_order = $max_order ? $max_order + 1 : 1;
-    $stmt = $conn->prepare("INSERT INTO program_chapters (program_id, title, content, question, chapter_order, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?, NOW(), NOW())"); if (!$stmt) { error_log("chapter_add insert prepare failed: " . $conn->error); return false; }
+    $stmt = $conn->prepare("INSERT INTO program_chapters ($program_col, title, content, question, chapter_order, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?, NOW(), NOW())"); if (!$stmt) { error_log("chapter_add insert prepare failed: " . $conn->error); return false; }
     $stmt->bind_param("isssi", $program_id, $title, $content, $question, $chapter_order); $ok = $stmt->execute(); $id = $stmt->insert_id; $stmt->close(); 
     
     // Auto-create quiz for new chapter
@@ -107,7 +131,8 @@ function chapter_delete($conn, $chapter_id) {
 }
 
 function chapter_getByProgram($conn, $program_id) {
-    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE program_id = ? ORDER BY chapter_order"); if (!$stmt) { error_log("chapter_getByProgram prepare failed: " . $conn->error); return []; }
+    $program_col = getChapterProgramColumn($conn);
+    $stmt = $conn->prepare("SELECT * FROM program_chapters WHERE $program_col = ? ORDER BY chapter_order"); if (!$stmt) { error_log("chapter_getByProgram prepare failed: " . $conn->error); return []; }
     $stmt->bind_param("i", $program_id); $stmt->execute(); $res = $stmt->get_result(); $rows = $res->fetch_all(MYSQLI_ASSOC); $stmt->close(); return $rows;
 }
 
