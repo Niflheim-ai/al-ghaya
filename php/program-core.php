@@ -358,8 +358,8 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
             http_response_code(403); echo json_encode(['success'=>false,'message'=>'Teacher access required']); exit;
         }
         
-        $user_id = $_SESSION['userID']; 
-        $teacher_id = getTeacherIdFromSession($conn, $user_id); 
+        $user_id = $_SESSION['userID'] ?? 0; 
+        $teacher_id = $user_id ? getTeacherIdFromSession($conn, (int)$user_id) : 0; 
         if (!$teacher_id) { 
             if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','archive_program'])) { 
                 $_SESSION['error_message'] = 'Teacher profile not found'; 
@@ -505,11 +505,22 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
 
             case 'get_draft_programs':
                 header('Content-Type: application/json');
+                // Ensure teacher_id is set locally to avoid undefined variable warnings
+                if (!isset($teacher_id) || !$teacher_id) {
+                    $user_id = (int)($_SESSION['userID'] ?? 0);
+                    $teacher_id = $user_id ? getTeacherIdFromSession($conn, $user_id) : 0;
+                    if (!$teacher_id) { echo json_encode(['success'=>false,'message'=>'Teacher profile not found']); exit; }
+                }
                 $rows = get_draft_programs($conn, $teacher_id);
                 echo json_encode(['success'=>true,'programs'=>$rows]); exit;
 
             case 'submit_for_publishing':
                 header('Content-Type: application/json');
+                if (!isset($teacher_id) || !$teacher_id) {
+                    $user_id = (int)($_SESSION['userID'] ?? 0);
+                    $teacher_id = $user_id ? getTeacherIdFromSession($conn, $user_id) : 0;
+                    if (!$teacher_id) { echo json_encode(['success'=>false,'message'=>'Teacher profile not found']); exit; }
+                }
                 $ids = array_map('intval', $_POST['program_ids'] ?? []);
                 $count = mark_pending_review($conn, $teacher_id, $ids);
                 echo json_encode(['success'=> $count > 0, 'updated'=>$count]); exit;
