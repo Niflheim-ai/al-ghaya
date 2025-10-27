@@ -1,9 +1,10 @@
 <?php
 // Chapter Content Form Component - Full Al-Ghaya Legacy Style
+require_once __DIR__ . '/../php/program-core.php';
 $programId = isset($program_id) ? (int)$program_id : 0;
 $chapterId = isset($chapter_id) ? (int)$chapter_id : 0;
-$chapter = isset($chapter) ? $chapter : (function() use ($conn, $chapterId) { return ph_getChapter($conn, $chapterId); })();
-$stories = ph_getChapterStories($conn, $chapterId);
+$chapter = isset($chapter) ? $chapter : (function() use ($conn, $chapterId) { return getChapter($conn, $chapterId); })();
+$stories = getchapter_stories($conn, $chapterId);
 ?>
 
 <!-- Chapter Content Form -->
@@ -92,7 +93,7 @@ $stories = ph_getChapterStories($conn, $chapterId);
             <div class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[20px]">
                 <?php foreach ($stories as $index => $story): ?>
                     <?php 
-                        $sections = ph_getStoryInteractiveSections($conn, (int)$story['story_id']);
+                        $sections = getStoryInteractiveSections($conn, (int)$story['story_id']);
                         $sectionCount = is_array($sections) ? count($sections) : 0;
                     ?>
                     <div class="story-card bg-white border border-gray-200 rounded-[20px] shadow-sm hover:shadow-lg transition-all duration-200">
@@ -157,7 +158,7 @@ $stories = ph_getChapterStories($conn, $chapterId);
 
     <!-- Quiz Section -->
     <?php 
-        $quiz = ph_getChapterQuiz($conn, $chapterId);
+        $quiz = getChapterQuiz($conn, $chapterId);
     ?>
     <div class="w-full h-fit flex flex-col bg-company_white gap-[20px] p-[20px] rounded-[40px] items-start justify-start mt-8">
         <div class="w-full flex gap-[25px] items-center justify-between">
