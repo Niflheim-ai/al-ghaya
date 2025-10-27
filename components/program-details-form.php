@@ -11,9 +11,10 @@
         <?php if ($program): ?>
             <div class="flex gap-2">
                 <span class="px-3 py-1 rounded-full text-sm 
-                    <?= $program['status'] === 'published' ? 'bg-green-100 text-green-800' : 
-                       ($program['status'] === 'pending_review' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800') ?>">
-                    <?= ucfirst(str_replace('_', ' ', $program['status'])) ?>
+                    <?= ($program['status'] ?? 'draft') === 'published' ? 'bg-green-100 text-green-800' : 
+                       (($program['status'] ?? 'draft') === 'pending_review' ? 'bg-blue-100 text-blue-800' : 
+                       (($program['status'] ?? 'draft') === 'archived' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800')) ?>">
+                    <?= ucfirst(str_replace('_', ' ', $program['status'] ?? 'draft')) ?>
                 </span>
             </div>
         <?php endif; ?>
@@ -65,7 +66,7 @@
             <div class="space-y-2">
                 <label for="description" class="block text-sm font-medium text-gray-700">Program Description</label>
                 <textarea id="description" name="description" rows="4" required
-                          placeholder="Hadith are the recorded accounts of the sayings, actions, silent approvals, and physical descriptions of the Prophet Muhammad (peace be upon him). They serve as the..."
+                          placeholder="Describe your program..."
                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"><?= $program ? htmlspecialchars($program['description']) : '' ?></textarea>
             </div>
 
@@ -75,7 +76,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Student" 
-                               <?= (!$program || $program['difficulty_label'] === 'Student') ? 'checked' : '' ?>
+                               <?= (!$program || ($program['difficulty_label'] ?? 'Student') === 'Student') ? 'checked' : '' ?>
                                class="sr-only" required>
                         <div class="difficulty-card student-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
@@ -89,7 +90,7 @@
                     </label>
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Aspiring" 
-                               <?= ($program && $program['difficulty_label'] === 'Aspiring') ? 'checked' : '' ?>
+                               <?= ($program && ($program['difficulty_label'] ?? '') === 'Aspiring') ? 'checked' : '' ?>
                                class="sr-only">
                         <div class="difficulty-card aspiring-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
@@ -103,7 +104,7 @@
                     </label>
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Master" 
-                               <?= ($program && $program['difficulty_label'] === 'Master') ? 'checked' : '' ?>
+                               <?= ($program && ($program['difficulty_label'] ?? '') === 'Master') ? 'checked' : '' ?>
                                class="sr-only">
                         <div class="difficulty-card master-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
@@ -133,7 +134,7 @@
             <div class="space-y-2">
                 <label for="overview_video_url" class="block text-sm font-medium text-gray-700">Overview Video</label>
                 <input type="url" id="overview_video_url" name="overview_video_url"
-                       value="<?= $program ? htmlspecialchars($program['overview_video_url']) : '' ?>"
+                       value="<?= $program ? htmlspecialchars($program['overview_video_url'] ?? '') : '' ?>"
                        placeholder="https://youtube.com/..."
                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 <p class="text-sm text-gray-500">A YouTube video to be displayed in the program overview</p>
@@ -187,7 +188,7 @@
 
             <hr class="border-gray-200">
 
-            <!-- Save Actions -->
+            <!-- Save Actions: only Save as Draft here -->
             <div class="flex justify-between items-center">
                 <button type="button" onclick="cancelForm()" 
                         class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
@@ -198,12 +199,6 @@
                             class="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
                         <i class="ph ph-floppy-disk"></i>Save as Draft
                     </button>
-                    <?php if (!$program || $program['status'] === 'draft'): ?>
-                        <button type="button" onclick="saveProgram('ready_for_review')" 
-                                class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
-                            <i class="ph ph-check-circle"></i>Save & Continue
-                        </button>
-                    <?php endif; ?>
                 </div>
             </div>
         </form>
@@ -255,9 +250,7 @@ function hideAddChapterModal() { document.getElementById('addChapterModal').clas
 
 // Ensure Add Chapter button always sends programID
 const addBtn = document.getElementById('addChapterBtn');
-if (addBtn) {
-  addBtn.addEventListener('click', showAddChapterModal);
-}
+if (addBtn) { addBtn.addEventListener('click', showAddChapterModal); }
 
 function submitNewChapter() {
     const title = document.getElementById('newChapterTitle').value.trim();
