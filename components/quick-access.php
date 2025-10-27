@@ -158,11 +158,11 @@ function loadDraftPrograms() {
     let apiUrl;
     
     if (currentPath.includes('/pages/teacher/')) {
-        apiUrl = '../../php/program-handler.php';
+        apiUrl = '../../php/program-core.php';
     } else if (currentPath.includes('/pages/')) {
-        apiUrl = '../php/program-handler.php';
+        apiUrl = '../php/program-core.php';
     } else {
-        apiUrl = 'php/program-handler.php';
+        apiUrl = 'php/program-core.php';
     }
     
     fetch(apiUrl, {
@@ -202,7 +202,7 @@ function loadDraftPrograms() {
 }
 
 function submitForPublishing() {
-    const selectedPrograms = Array.from(document.querySelectorAll('input[name="publish_programs[]"]:checked')).map(cb => cb.value);
+    const selectedPrograms = Array.from(document.querySelectorAll('input[name="publish_programs[]"]')).filter(cb => cb.checked).map(cb => cb.value);
     
     if (selectedPrograms.length === 0) {
         if (typeof Swal !== 'undefined') {
@@ -222,11 +222,11 @@ function submitForPublishing() {
     let apiUrl;
     
     if (currentPath.includes('/pages/teacher/')) {
-        apiUrl = '../../php/program-handler.php';
+        apiUrl = '../../php/program-core.php';
     } else if (currentPath.includes('/pages/')) {
-        apiUrl = '../php/program-handler.php';
+        apiUrl = '../php/program-core.php';
     } else {
-        apiUrl = 'php/program-handler.php';
+        apiUrl = 'php/program-core.php';
     }
 
     fetch(apiUrl, {
@@ -247,13 +247,13 @@ function submitForPublishing() {
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: `${selectedPrograms.length} program(s) published successfully!`
+                    text: `${selectedPrograms.length} program(s) submitted for review successfully!`
                 }).then(() => {
                     closePublishModal();
                     window.location.reload();
                 });
             } else {
-                alert(`${selectedPrograms.length} program(s) published successfully!`);
+                alert(`${selectedPrograms.length} program(s) submitted for review successfully!`);
                 closePublishModal();
                 window.location.reload();
             }
@@ -262,23 +262,23 @@ function submitForPublishing() {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Error publishing programs: ' + (data.message || 'Unknown error')
+                    text: 'Error submitting programs: ' + (data.message || 'Unknown error')
                 });
             } else {
-                alert('Error publishing programs: ' + (data.message || 'Unknown error'));
+                alert('Error submitting programs: ' + (data.message || 'Unknown error'));
             }
         }
     })
     .catch(error => {
-        console.error('Error publishing programs:', error);
+        console.error('Error submitting programs:', error);
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'error',
                 title: 'Network Error',
-                text: 'Error publishing programs. Please try again.'
+                text: 'Error submitting programs. Please try again.'
             });
         } else {
-            alert('Error publishing programs. Please try again.');
+            alert('Error submitting programs. Please try again.');
         }
     });
 }
