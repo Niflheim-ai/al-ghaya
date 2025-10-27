@@ -1,6 +1,6 @@
 <!-- Story Form Component (refactored to use canonical functions and correct request fields) -->
 <?php
-require_once __DIR__ . '/../php/program-handler.php';
+require_once __DIR__ . '/../php/program-core.php';
 
 // Ensure required vars exist from parent page
 $programId = isset($program_id) ? (int)$program_id : 0;
