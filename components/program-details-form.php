@@ -21,7 +21,7 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <form id="programDetailsForm" method="POST" action="../../php/program-handler.php" enctype="multipart/form-data" class="space-y-8">
+        <form id="programDetailsForm" method="POST" action="../../php/program-core.php" enctype="multipart/form-data" class="space-y-8">
             <input type="hidden" name="action" value="<?= $program ? 'update_program' : 'create_program' ?>">
             <?php if ($program): ?>
                 <input type="hidden" name="programID" value="<?= (int)$program['programID'] ?>">
@@ -258,7 +258,7 @@ function submitNewChapter() {
     if (!programId) { Swal.fire({ title:'Program Not Found', text:'Please save the program first.', icon:'error', confirmButtonColor:'#3b82f6' }); return; }
     Swal.fire({ title:'Creating Chapter...', allowOutsideClick:false, allowEscapeKey:false, showConfirmButton:false, didOpen:()=>Swal.showLoading() });
     const fd = new FormData(); fd.append('action','create_chapter'); fd.append('programID', String(programId)); fd.append('title', title);
-    fetch('../../php/program-handler.php', { method:'POST', body: fd })
+    fetch('../../php/program-core.php', { method:'POST', body: fd })
     .then(r=>r.json())
     .then(data=>{ if (data.success) { Swal.fire({ title:'Chapter Created!', text:'Redirecting to content...', icon:'success', confirmButtonColor:'#3b82f6' }).then(()=>{ window.location.href = `teacher-programs.php?action=edit_chapter&program_id=${programId}&chapter_id=${data.chapter_id}`; }); } else { Swal.fire({ title:'Error', text:data.message||'Failed to create chapter.', icon:'error', confirmButtonColor:'#3b82f6' }); } })
     .catch(()=> Swal.fire({ title:'Error', text:'Network error. Please try again.', icon:'error', confirmButtonColor:'#3b82f6' }));
@@ -289,7 +289,7 @@ function deleteChapter(programId, chapterId) {
             const fd = new FormData();
             fd.append('action', 'delete_chapter');
             fd.append('chapter_id', chapterId);
-            fetch('../../php/program-handler.php', { method: 'POST', body: fd })
+            fetch('../../php/program-core.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(data => {
                 if (data.success) {

@@ -21,7 +21,7 @@ $stories = getchapter_stories($conn, $chapterId);
             </div>
         </div>
         
-        <form id="chapterForm" method="POST" action="../../php/program-handler.php" class="w-full space-y-6">
+        <form id="chapterForm" method="POST" action="../../php/program-core.php" class="w-full space-y-6">
             <input type="hidden" name="action" value="update_chapter">
             <input type="hidden" name="program_id" value="<?= $programId ?>">
             <input type="hidden" name="chapter_id" value="<?= $chapterId ?>">
@@ -241,7 +241,7 @@ function deleteStory(storyId) {
             fd.append('action', 'delete_story');
             fd.append('story_id', storyId);
             
-            fetch('../../php/program-handler.php', { method: 'POST', body: fd })
+            fetch('../../php/program-core.php', { method: 'POST', body: fd })
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {

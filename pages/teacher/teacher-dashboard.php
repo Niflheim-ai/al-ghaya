@@ -11,7 +11,8 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
 
 require_once '../../php/dbConnection.php';
 require_once '../../php/functions.php';
-require_once '../../php/program-core.php'; // unified core
+require_once '../../php/program-handler.php'; // Include program-handler for getTeacherPrograms function
+require_once '../../php/program-helpers.php';
 
 ?>
 
@@ -32,16 +33,17 @@ require_once '../../php/program-core.php'; // unified core
                 
                 // Function to get status badge with text and color
                 function getStatusBadge($status) {
-                    switch (strtolower($status ?: 'draft')) {
+                    switch (strtolower($status)) {
                         case 'published':
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-green-800 bg-green-100 rounded-full border border-green-200"><i class="ph-check-circle-fill mr-1.5 text-green-600"></i>Published</span>';
                         case 'draft':
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-yellow-800 bg-yellow-100 rounded-full border border-yellow-200"><i class="ph-file-dashed-fill mr-1.5 text-yellow-600"></i>Draft</span>';
                         case 'archived':
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-gray-800 bg-gray-100 rounded-full border border-gray-200"><i class="ph-archive-fill mr-1.5 text-gray-600"></i>Archived</span>';
-                        case 'pending_review':
                         case 'pending':
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-blue-800 bg-blue-100 rounded-full border border-blue-200"><i class="ph-clock-fill mr-1.5 text-blue-600"></i>Pending Review</span>';
+                        case 'rejected':
+                            return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-red-800 bg-red-100 rounded-full border border-red-200"><i class="ph-x-circle-fill mr-1.5 text-red-600"></i>Rejected</span>';
                         default:
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-gray-800 bg-gray-100 rounded-full border border-gray-200"><i class="ph-question-fill mr-1.5 text-gray-600"></i>' . ucfirst($status) . '</span>';
                     }
@@ -65,7 +67,7 @@ require_once '../../php/program-core.php'; // unified core
                                     <!-- Status Badge -->
                                     <div class="flex justify-between items-start">
                                         <h2 class="price-sub-header">₱<?= number_format($recentProgram['price'], 2) ?></h2>
-                                        <?= getStatusBadge($recentProgram['status'] ?? 'draft') ?>
+                                        <?= getStatusBadge($recentProgram['status']) ?>
                                     </div>
                                     <div class="flex flex-col gap-y-[10px] w-full h-fit">
                                         <div class="flex flex-col gap-y-[5px] w-full h-fit">
@@ -149,15 +151,15 @@ require_once '../../php/program-core.php'; // unified core
                         <div class="text-sm text-gray-600">Total Programs</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-green-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return ($p['status'] ?? 'draft') === 'published'; })) : 0 ?></div>
+                        <div class="text-2xl font-bold text-green-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return $p['status'] === 'published'; })) : 0 ?></div>
                         <div class="text-sm text-gray-600">Published</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-yellow-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return ($p['status'] ?? 'draft') === 'draft'; })) : 0 ?></div>
+                        <div class="text-2xl font-bold text-yellow-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return $p['status'] === 'draft'; })) : 0 ?></div>
                         <div class="text-sm text-gray-600">Drafts</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-gray-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return ($p['status'] ?? 'draft') === 'archived'; })) : 0 ?></div>
+                        <div class="text-2xl font-bold text-gray-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return $p['status'] === 'archived'; })) : 0 ?></div>
                         <div class="text-sm text-gray-600">Archived</div>
                     </div>
                 </div>
@@ -181,7 +183,7 @@ require_once '../../php/program-core.php'; // unified core
                                 alt="<?= htmlspecialchars($program['title']) ?>" class="w-full h-32 object-cover">
                             <!-- Status Badge on Image -->
                             <div class="absolute top-2 right-2">
-                                <?= getStatusBadge($program['status'] ?? 'draft') ?>
+                                <?= getStatusBadge($program['status']) ?>
                             </div>
                         </div>
                         <div class="p-4">
@@ -248,6 +250,39 @@ require_once '../../php/program-core.php'; // unified core
             btn.classList.add('hidden');
         }
     });
+
+    // Confirmation dialogs using SweetAlert2
+    function confirmAction(actionType, message) {
+        Swal.fire({
+            title: 'Confirm Action',
+            text: message,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, proceed',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Handle the confirmed action here
+                Swal.fire(
+                    'Action Confirmed',
+                    'Your action has been processed.',
+                    'success'
+                );
+
+                // You would add your specific action handling here
+                // For example: window.location.href = 'process-' + actionType + '.php';
+            }
+        });
+    }
+
+    // Example function for handling edit action
+    function handleEdit() {
+        // This would be called after confirmation
+        // You can implement your edit logic here
+        console.log('Edit action confirmed');
+    }
 </script>
 </body>
 

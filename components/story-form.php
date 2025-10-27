@@ -21,7 +21,7 @@ $storyData = $story ?? null;
     </div>
 
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <form id="storyForm" method="POST" action="../../php/program-handler.php" class="space-y-8">
+        <form id="storyForm" method="POST" action="../../php/program-core.php" class="space-y-8">
             <input type="hidden" name="action" value="<?= $storyData ? 'update_story' : 'create_story' ?>">
             <!-- Align names to program-handler expected keys -->
             <input type="hidden" name="programID" value="<?= $programId ?>">
