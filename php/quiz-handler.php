@@ -6,9 +6,9 @@
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 require_once 'dbConnection.php';
-require_once 'program-handler.php';
+require_once 'program-core.php';
 
-// Guard against redeclaration if loaded alongside program-handler
+// Guard against redeclaration if loaded alongside core
 if (!function_exists('validateTeacherAccess')) {
     function validateTeacherAccess() {
         return isset($_SESSION['userID']) && (($_SESSION['role'] ?? '') === 'teacher');
