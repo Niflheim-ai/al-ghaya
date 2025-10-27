@@ -8,7 +8,7 @@ if (!isset($_SESSION['userID']) || (($_SESSION['role'] ?? '') !== 'teacher')) { 
 
 require_once '../../php/dbConnection.php';
 require_once '../../php/functions.php';
-require_once '../../php/program-helpers.php';
+require_once '../../php/program-core.php'; // unified core (handlers + helpers)
 
 $user_id = (int)$_SESSION['userID'];
 $action = $_GET['action'] ?? 'list';
@@ -16,7 +16,7 @@ $program_id = isset($_GET['program_id']) ? (int)$_GET['program_id'] : null;
 $chapter_id = isset($_GET['chapter_id']) ? (int)$_GET['chapter_id'] : null;
 $story_id = isset($_GET['story_id']) ? (int)$_GET['story_id'] : null;
 
-$teacher_id = ph_getTeacherIdFromSession($conn, $user_id);
+$teacher_id = getTeacherIdFromSession($conn, $user_id);
 if (!$teacher_id) { $_SESSION['error_message']='Teacher profile not found or inactive.'; header('Location: ../teacher/teacher-dashboard.php'); exit(); }
 
 switch ($action) {
@@ -196,17 +196,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 <script src="../../components/navbar.js"></script>
 
 <script>
-const currentProgramId = <?= json_encode($program_id) ?>;
-const currentAction = <?= json_encode($action) ?>;
-const teacherId = <?= json_encode($teacher_id) ?>;
-
-<?php if ($success): ?>
-Swal.fire({ title: 'Success!', text: '<?= addslashes($success) ?>', icon: 'success' });
-<?php endif; ?>
-<?php if ($error): ?>
-Swal.fire({ title: 'Error!', text: '<?= addslashes($error) ?>', icon: 'error' });
-<?php endif; ?>
-
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 window.addEventListener('scroll', function() { const btn = document.getElementById('scroll-to-top'); if (btn) { if (window.pageYOffset > 300) { btn.classList.remove('hidden'); } else { btn.classList.add('hidden'); } } });
 
