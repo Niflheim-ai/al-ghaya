@@ -277,7 +277,7 @@ function getStory($conn,$story_id){ return story_getById($conn,$story_id); }
 if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
     // Validate teacher access for form endpoints
     if (!validateTeacherAccess()) {
-        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story','update_story'])) { 
+        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program'])) { 
             $_SESSION['error_message'] = 'Unauthorized access'; 
             header('Location: ../pages/teacher/teacher-programs.php'); exit; 
         }
@@ -287,7 +287,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
     $user_id = $_SESSION['userID']; 
     $teacher_id = getTeacherIdFromSession($conn, $user_id); 
     if (!$teacher_id) { 
-        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story','update_story'])) { 
+        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program'])) { 
             $_SESSION['error_message'] = 'Teacher profile not found'; 
             header('Location: ../pages/teacher/teacher-programs.php'); exit; 
         }
@@ -304,11 +304,14 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
         switch ($action) {
             case 'create_program':
                 $status = normalize_status($_POST['status'] ?? 'draft');
+                if (!$status) { $status = 'draft'; }
                 $data = [ 'teacherID'=>$teacher_id, 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'thumbnail'=>'default-thumbnail.jpg', 'overview_video_url'=>trim($_POST['overview_video_url'] ?? '') ];
                 if (empty($data['title']) || strlen($data['title']) < 3) { $_SESSION['error_message'] = 'Program title must be at least 3 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
                 if (empty($data['description']) || strlen($data['description']) < 10) { $_SESSION['error_message'] = 'Program description must be at least 10 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
                 if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) { $t = uploadThumbnail($_FILES['thumbnail']); if ($t) $data['thumbnail'] = $t; }
                 $program_id = program_create($conn, $data);
+                // Defensive follow-up: ensure status isn't NULL
+                if ($program_id) { $conn->query("UPDATE programs SET status = COALESCE(status, 'draft') WHERE programID = ".$program_id); }
                 if ($program_id) { chapter_add($conn, $program_id, 'Introduction', 'Welcome to this program!', ''); $_SESSION['success_message']='Program created successfully!'; header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit; }
                 $_SESSION['error_message']='Failed to create program. Please try again.'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit;
                 
@@ -316,10 +319,22 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 $program_id = intval($_POST['programID'] ?? 0);
                 if (!$program_id) { $_SESSION['error_message']='Program ID is required.'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
                 $status = normalize_status($_POST['status'] ?? 'draft');
+                if (!$status) { $status = 'draft'; }
                 $data = [ 'teacherID'=>$teacher_id, 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'overview_video_url'=>trim($_POST['overview_video_url'] ?? '') ];
                 if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) { $t = uploadThumbnail($_FILES['thumbnail']); if ($t) { $thumbStmt = $conn->prepare("UPDATE programs SET thumbnail = ?, dateUpdated = NOW() WHERE programID = ?"); if ($thumbStmt) { $thumbStmt->bind_param("si", $t, $program_id); $thumbStmt->execute(); $thumbStmt->close(); } } }
-                if (program_update($conn, $program_id, $data)) { $_SESSION['success_message']='Program updated successfully!'; } else { $_SESSION['error_message']='No changes made or error updating program.'; }
+                if (program_update($conn, $program_id, $data)) { 
+                    // Defensive follow-up: ensure status isn't NULL
+                    $conn->query("UPDATE programs SET status = COALESCE(status, 'draft') WHERE programID = ".$program_id);
+                    $_SESSION['success_message']='Program updated successfully!'; 
+                } else { $_SESSION['error_message']='No changes made or error updating program.'; }
                 header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit;
+
+            case 'archive_program':
+                $program_id = intval($_POST['programID'] ?? 0);
+                if (!$program_id) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Program ID required']); exit; }
+                $stmt = $conn->prepare("UPDATE programs SET status='archived', dateUpdated=NOW() WHERE programID=? AND teacherID=?");
+                if ($stmt) { $stmt->bind_param("ii", $program_id, $teacher_id); $stmt->execute(); $stmt->close(); }
+                echo json_encode(['success'=>true]); exit;
 
             case 'delete_program':
                 $program_id = intval($_POST['programID'] ?? 0);
@@ -394,7 +409,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 echo json_encode(['success'=> $count > 0, 'updated'=>$count]); exit;
 
             default:
-                if (in_array($action, ['create_program','update_program','create_story','update_story'])) { 
+                if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program'])) { 
                     $_SESSION['error_message']='Invalid action: ' . $action; 
                     header('Location: ../pages/teacher/teacher-programs.php'); exit; 
                 }
@@ -403,7 +418,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
         }
     } catch (Exception $e) {
         error_log("Program Core Handler Error: " . $e->getMessage());
-        if (in_array($action, ['create_program','update_program','create_story','update_story'])) { 
+        if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program'])) { 
             $_SESSION['error_message']='Server error: ' . $e->getMessage(); 
             header('Location: ../pages/teacher/teacher-programs.php'); exit; 
         }
