@@ -31,6 +31,24 @@ require_once '../../php/program-helpers.php';
                 $user_id = $_SESSION['userID'];
                 $teacher_id = getTeacherIdFromSession($conn, $user_id);
                 
+                // Function to get status badge with text and color
+                function getStatusBadge($status) {
+                    switch (strtolower($status)) {
+                        case 'published':
+                            return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-green-800 bg-green-100 rounded-full border border-green-200"><i class="ph-check-circle-fill mr-1.5 text-green-600"></i>Published</span>';
+                        case 'draft':
+                            return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-yellow-800 bg-yellow-100 rounded-full border border-yellow-200"><i class="ph-file-dashed-fill mr-1.5 text-yellow-600"></i>Draft</span>';
+                        case 'archived':
+                            return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-gray-800 bg-gray-100 rounded-full border border-gray-200"><i class="ph-archive-fill mr-1.5 text-gray-600"></i>Archived</span>';
+                        case 'pending':
+                            return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-blue-800 bg-blue-100 rounded-full border border-blue-200"><i class="ph-clock-fill mr-1.5 text-blue-600"></i>Pending Review</span>';
+                        case 'rejected':
+                            return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-red-800 bg-red-100 rounded-full border border-red-200"><i class="ph-x-circle-fill mr-1.5 text-red-600"></i>Rejected</span>';
+                        default:
+                            return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-gray-800 bg-gray-100 rounded-full border border-gray-200"><i class="ph-question-fill mr-1.5 text-gray-600"></i>' . ucfirst($status) . '</span>';
+                    }
+                }
+                
                 if ($teacher_id) {
                     // Fetch teacher's programs sorted by dateUpdated
                     $programs = getTeacherPrograms($conn, $teacher_id, 'dateUpdated');
@@ -46,7 +64,11 @@ require_once '../../php/program-helpers.php';
                                     alt="Program Image" class="w-[221px] h-[500px] object-cover flex-grow flex-shrink-0 basis-1/4">
                                 <!-- Content -->
                                 <div class="overflow-hidden p-[30px] h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-y-[25px]">
-                                    <h2 class="price-sub-header">₱<?= number_format($recentProgram['price'], 2) ?></h2>
+                                    <!-- Status Badge -->
+                                    <div class="flex justify-between items-start">
+                                        <h2 class="price-sub-header">₱<?= number_format($recentProgram['price'], 2) ?></h2>
+                                        <?= getStatusBadge($recentProgram['status']) ?>
+                                    </div>
                                     <div class="flex flex-col gap-y-[10px] w-full h-fit">
                                         <div class="flex flex-col gap-y-[5px] w-full h-fit">
                                             <p class="arabic body-text2-semibold"><?= htmlspecialchars($recentProgram['title']) ?></p>
@@ -75,12 +97,9 @@ require_once '../../php/program-helpers.php';
                                     Last edited: <?= date('M d, Y', strtotime($recentProgram['dateUpdated'])) ?>
                                 </span>
                                 <div class="flex gap-2">
-                                    <span class="px-2 py-1 text-xs rounded-full <?= $recentProgram['status'] === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' ?>">
-                                        <?= ucfirst($recentProgram['status']) ?>
-                                    </span>
                                     <a href="teacher-programs.php?action=create&program_id=<?= $recentProgram['programID'] ?>"
-                                        class="text-blue-500 hover:text-blue-700 text-sm flex items-center">
-                                        <i class="ph-pencil-simple text-[16px]"></i> Edit
+                                        class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                                        <i class="ph-pencil-simple text-[16px] mr-1.5"></i> Edit Program
                                     </a>
                                 </div>
                             </div>
@@ -126,18 +145,22 @@ require_once '../../php/program-helpers.php';
                 <h1 class="section-title text-xl md:text-2xl font-bold">Analytics Overview</h1>
             </div>
             <div class="section-card bg-white p-4 md:p-6 rounded-lg shadow-md">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div class="text-center">
                         <div class="text-2xl font-bold text-blue-600"><?= count($programs ?? []) ?></div>
                         <div class="text-sm text-gray-600">Total Programs</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-green-600">0</div>
-                        <div class="text-sm text-gray-600">Total Enrollments</div>
+                        <div class="text-2xl font-bold text-green-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return $p['status'] === 'published'; })) : 0 ?></div>
+                        <div class="text-sm text-gray-600">Published</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-purple-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return $p['status'] === 'published'; })) : 0 ?></div>
-                        <div class="text-sm text-gray-600">Published Programs</div>
+                        <div class="text-2xl font-bold text-yellow-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return $p['status'] === 'draft'; })) : 0 ?></div>
+                        <div class="text-sm text-gray-600">Drafts</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-gray-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return $p['status'] === 'archived'; })) : 0 ?></div>
+                        <div class="text-sm text-gray-600">Archived</div>
                     </div>
                 </div>
             </div>
@@ -154,22 +177,31 @@ require_once '../../php/program-helpers.php';
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <?php foreach (array_slice($programs, 0, 6) as $program): ?>
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                        <img src="<?= !empty($program['thumbnail']) ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/blog-bg.svg' ?>"
-                            alt="<?= htmlspecialchars($program['title']) ?>" class="w-full h-32 object-cover">
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow">
+                        <div class="relative">
+                            <img src="<?= !empty($program['thumbnail']) ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/blog-bg.svg' ?>"
+                                alt="<?= htmlspecialchars($program['title']) ?>" class="w-full h-32 object-cover">
+                            <!-- Status Badge on Image -->
+                            <div class="absolute top-2 right-2">
+                                <?= getStatusBadge($program['status']) ?>
+                            </div>
+                        </div>
                         <div class="p-4">
-                            <h3 class="font-semibold text-lg mb-2"><?= htmlspecialchars($program['title']) ?></h3>
-                            <p class="text-sm text-gray-600 mb-2"><?= htmlspecialchars(substr($program['description'], 0, 100)) ?>...</p>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm font-semibold text-blue-600">₱<?= number_format($program['price'], 2) ?></span>
-                                <span class="px-2 py-1 text-xs rounded-full <?= $program['status'] === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' ?>">
-                                    <?= ucfirst($program['status']) ?>
+                            <h3 class="font-semibold text-lg mb-2 line-clamp-2"><?= htmlspecialchars($program['title']) ?></h3>
+                            <p class="text-sm text-gray-600 mb-3 line-clamp-3"><?= htmlspecialchars(substr($program['description'], 0, 100)) ?>...</p>
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-lg font-bold text-blue-600">₱<?= number_format($program['price'], 2) ?></span>
+                                <span class="text-xs text-gray-500">
+                                    <?= ucfirst($program['category']) ?> Level
                                 </span>
                             </div>
-                            <div class="mt-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-500">
+                                    Updated: <?= date('M d', strtotime($program['dateUpdated'])) ?>
+                                </span>
                                 <a href="teacher-programs.php?action=create&program_id=<?= $program['programID'] ?>"
-                                    class="text-blue-500 hover:text-blue-700 text-sm flex items-center">
-                                    <i class="ph-pencil-simple text-[16px] mr-1"></i> Edit Program
+                                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors">
+                                    <i class="ph-pencil-simple text-[12px] mr-1"></i> Edit
                                 </a>
                             </div>
                         </div>
