@@ -11,8 +11,7 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
 
 require_once '../../php/dbConnection.php';
 require_once '../../php/functions.php';
-require_once '../../php/program-handler.php'; // Include program-handler for getTeacherPrograms function
-require_once '../../php/program-helpers.php';
+require_once '../../php/program-core.php';
 
 ?>
 

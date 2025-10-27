@@ -203,7 +203,7 @@ function archiveProgram(id){
   Swal.fire({ title:'Archive Program?', text:'You can restore later by editing status.', icon:'warning', showCancelButton:true, confirmButtonText:'Archive' }).then(res=>{
     if(!res.isConfirmed) return;
     const fd = new FormData(); fd.append('action','update_program'); fd.append('programID', id); fd.append('status','archived');
-    fetch('../../php/program-handler.php', { method:'POST', body: fd }).then(()=>location.reload());
+    fetch('../../php/program-core.php', { method:'POST', body: fd }).then(()=>location.reload());
   });
 }
 
@@ -211,7 +211,7 @@ function deleteProgram(id){
   Swal.fire({ title:'Delete Program?', text:'This action cannot be undone.', icon:'error', showCancelButton:true, confirmButtonText:'Delete' }).then(res=>{
     if(!res.isConfirmed) return;
     const fd = new FormData(); fd.append('action','delete_program'); fd.append('programID', id);
-    fetch('../../php/program-handler.php', { method:'POST', body: fd }).then(()=>location.reload());
+    fetch('../../php/program-core.php', { method:'POST', body: fd }).then(()=>location.reload());
   });
 }
 </script>
