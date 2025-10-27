@@ -2,6 +2,7 @@
 /**
  * PROGRAM CORE (Complete Unified)
  * All program functions, handlers, and HTTP endpoints in one file
+ * With explicit status enforcement and diagnostic logging
  */
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
@@ -42,6 +43,44 @@ function normalize_status($status) {
     if ($status === 'ready_for_review') $status = 'pending_review'; 
     $allowed=['draft','pending_review','published','archived']; 
     return in_array($status,$allowed,true)?$status:'draft'; 
+}
+
+// Status enforcement - ensures status is NEVER NULL/empty after write
+function enforce_program_status($conn, $program_id, $intended_status) {
+    error_log("STATUS ENFORCE: programID=$program_id intended='$intended_status'");
+    
+    // Explicit UPDATE to force the intended status
+    $enforceStmt = $conn->prepare("UPDATE programs SET status = ? WHERE programID = ?");
+    if ($enforceStmt) {
+        $enforceStmt->bind_param("si", $intended_status, $program_id);
+        $enforceStmt->execute();
+        $enforceStmt->close();
+    }
+    
+    // Readback and verify what's actually stored
+    $readStmt = $conn->prepare("SELECT status FROM programs WHERE programID = ?");
+    if ($readStmt) {
+        $readStmt->bind_param("i", $program_id);
+        $readStmt->execute();
+        $readResult = $readStmt->get_result();
+        $row = $readResult->fetch_assoc();
+        $stored_status = $row['status'] ?? 'NULL';
+        $readStmt->close();
+        
+        error_log("STATUS READBACK: programID=$program_id intended='$intended_status' stored='$stored_status'");
+        
+        if ($stored_status !== $intended_status) {
+            error_log("STATUS MISMATCH ALERT: programID=$program_id - external process overwrote status after our handler!");
+            // One more attempt to force it
+            $forceStmt = $conn->prepare("UPDATE programs SET status = ? WHERE programID = ?");
+            if ($forceStmt) {
+                $forceStmt->bind_param("si", $intended_status, $program_id);
+                $forceStmt->execute();
+                $forceStmt->close();
+                error_log("STATUS FORCE APPLIED: programID=$program_id forced to '$intended_status'");
+            }
+        }
+    }
 }
 
 function mapDifficultyToCategory($difficulty_level) { 
@@ -310,13 +349,13 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
         }
     } 
     // Teacher-only actions
-    else if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program'])) {
+    else if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program','get_draft_programs','submit_for_publishing'])) {
         if (!validateTeacherAccess()) {
             if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','archive_program'])) { 
                 $_SESSION['error_message'] = 'Unauthorized access'; 
                 header('Location: ../pages/teacher/teacher-programs.php'); exit; 
             }
-            http_response_code(403); echo json_encode(['success'=>false,'message'=>'Unauthorized access']); exit;
+            http_response_code(403); echo json_encode(['success'=>false,'message'=>'Teacher access required']); exit;
         }
         
         $user_id = $_SESSION['userID']; 
@@ -356,30 +395,42 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 $count = program_bulkApprove($conn, $program_ids);
                 echo json_encode(['success'=> $count > 0, 'approved'=>$count, 'message'=>"$count programs approved"]); exit;
                 
-            // Teacher actions
+            // Teacher actions with status enforcement
             case 'create_program':
-                $status = normalize_status($_POST['status'] ?? 'draft');
-                if (!$status) { $status = 'draft'; }
+                $incoming_status = $_POST['status'] ?? 'MISSING';
+                $status = normalize_status($incoming_status);
+                if (!$status || empty(trim($status))) { $status = 'draft'; }
+                error_log("CREATE PROGRAM: incoming='$incoming_status' normalized='$status'");
+                
                 $data = [ 'teacherID'=>$teacher_id, 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'thumbnail'=>'default-thumbnail.jpg', 'overview_video_url'=>trim($_POST['overview_video_url'] ?? '') ];
+                
                 if (empty($data['title']) || strlen($data['title']) < 3) { $_SESSION['error_message'] = 'Program title must be at least 3 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
                 if (empty($data['description']) || strlen($data['description']) < 10) { $_SESSION['error_message'] = 'Program description must be at least 10 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
                 if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) { $t = uploadThumbnail($_FILES['thumbnail']); if ($t) $data['thumbnail'] = $t; }
+                
                 $program_id = program_create($conn, $data);
-                // Defensive follow-up: ensure status isn't NULL
-                if ($program_id) { $conn->query("UPDATE programs SET status = COALESCE(status, 'draft') WHERE programID = ".$program_id); }
-                if ($program_id) { chapter_add($conn, $program_id, 'Introduction', 'Welcome to this program!', ''); $_SESSION['success_message']='Program created successfully!'; header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit; }
+                if ($program_id) { 
+                    enforce_program_status($conn, $program_id, $status);
+                    chapter_add($conn, $program_id, 'Introduction', 'Welcome to this program!', ''); 
+                    $_SESSION['success_message']='Program created successfully!'; 
+                    header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit; 
+                }
                 $_SESSION['error_message']='Failed to create program. Please try again.'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit;
                 
             case 'update_program':
                 $program_id = intval($_POST['programID'] ?? 0);
                 if (!$program_id) { $_SESSION['error_message']='Program ID is required.'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
-                $status = normalize_status($_POST['status'] ?? 'draft');
-                if (!$status) { $status = 'draft'; }
-                $data = [ 'teacherID'=>$teacher_id, 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'overview_video_url'=>trim($_POST['overview_video_url'] ?? '') ];
+                $incoming_status = $_POST['status'] ?? 'MISSING';
+                $status = normalize_status($incoming_status);
+                if (!$status || empty(trim($status))) { $status = 'draft'; }
+                error_log("UPDATE PROGRAM: programID=$program_id incoming='$incoming_status' normalized='$status'");
+                
+                $data = [ 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'overview_video_url'=>trim($_POST['overview_video_url'] ?? '') ];
+                
                 if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) { $t = uploadThumbnail($_FILES['thumbnail']); if ($t) { $thumbStmt = $conn->prepare("UPDATE programs SET thumbnail = ?, dateUpdated = NOW() WHERE programID = ?"); if ($thumbStmt) { $thumbStmt->bind_param("si", $t, $program_id); $thumbStmt->execute(); $thumbStmt->close(); } } }
+                
                 if (program_update($conn, $program_id, $data)) { 
-                    // Defensive follow-up: ensure status isn't NULL
-                    $conn->query("UPDATE programs SET status = COALESCE(status, 'draft') WHERE programID = ".$program_id);
+                    enforce_program_status($conn, $program_id, $status);
                     $_SESSION['success_message']='Program updated successfully!'; 
                 } else { $_SESSION['error_message']='No changes made or error updating program.'; }
                 header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit;
