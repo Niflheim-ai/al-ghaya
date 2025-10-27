@@ -1,4 +1,4 @@
-<!-- Quick Access Toolbar Component - Fixed to use redirect flow -->
+<!-- Quick Access Toolbar Component - Hardened with fallbacks and better error handling -->
 <div class="quick-access-card">
     <button type="button" class="group btn-blue" onclick="createNewProgram()">
         <i class="ph ph-plus-square text-[24px] group-hover:hidden"></i>
@@ -112,6 +112,7 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 function createNewProgram() {
     // Show loading state
@@ -153,56 +154,97 @@ function closePublishModal() {
 }
 
 function loadDraftPrograms() {
-    // Determine correct API path
+    // Multiple fallback paths
     const currentPath = window.location.pathname;
-    let apiUrl;
+    const possiblePaths = [
+        currentPath.includes('/pages/teacher/') ? '../../php/program-core.php' : 
+        currentPath.includes('/pages/') ? '../php/program-core.php' : 
+        'php/program-core.php',
+        '../../php/program-core.php',
+        '../php/program-core.php',
+        'php/program-core.php'
+    ];
     
-    if (currentPath.includes('/pages/teacher/')) {
-        apiUrl = '../../php/program-core.php';
-    } else if (currentPath.includes('/pages/')) {
-        apiUrl = '../php/program-core.php';
-    } else {
-        apiUrl = 'php/program-core.php';
+    // Remove duplicates
+    const apiUrls = [...new Set(possiblePaths)];
+    
+    function tryFetch(urlIndex = 0) {
+        if (urlIndex >= apiUrls.length) {
+            const programsList = document.getElementById('publishProgramsList');
+            if (programsList) {
+                programsList.innerHTML = '<p class="text-red-500 text-center py-4">Unable to load programs. Please check your connection.</p>';
+            }
+            return;
+        }
+        
+        const apiUrl = apiUrls[urlIndex];
+        
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'get_draft_programs' }),
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 403) {
+                    return response.json().then(data => {
+                        throw new Error('unauthorized');
+                    });
+                }
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const programsList = document.getElementById('publishProgramsList');
+            if (programsList) {
+                if (data.success && data.programs && data.programs.length > 0) {
+                    programsList.innerHTML = data.programs.map(program => `
+                        <label class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
+                            <input type="checkbox" name="publish_programs[]" value="${program.programID}" class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-900">${program.title || 'Untitled Program'}</div>
+                                <div class="text-sm text-gray-500">₱${parseFloat(program.price || 0).toFixed(2)} • ${program.category || 'beginner'}</div>
+                            </div>
+                        </label>
+                    `).join('');
+                } else {
+                    programsList.innerHTML = '<p class="text-gray-500 text-center py-4">No draft programs available for publishing.</p>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error(`Error with URL ${apiUrl}:`, error);
+            
+            if (error.message === 'unauthorized') {
+                const programsList = document.getElementById('publishProgramsList');
+                if (programsList) {
+                    programsList.innerHTML = '<p class="text-orange-500 text-center py-4">This action requires a teacher account. Please log in as a teacher.</p>';
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Teacher Access Required',
+                        text: 'The Publish function requires a teacher account. Please log in as a teacher to continue.',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                }
+                return;
+            }
+            
+            // Try next URL
+            tryFetch(urlIndex + 1);
+        });
     }
     
-    fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'get_draft_programs' }),
-        credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-        const programsList = document.getElementById('publishProgramsList');
-        if (programsList) {
-            if (data.success && data.programs && data.programs.length > 0) {
-                programsList.innerHTML = data.programs.map(program => `
-                    <label class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
-                        <input type="checkbox" name="publish_programs[]" value="${program.programID}" class="rounded border-gray-300 text-green-600 focus:ring-green-500">
-                        <div class="flex-1">
-                            <div class="font-medium text-gray-900">${program.title || 'Untitled Program'}</div>
-                            <div class="text-sm text-gray-500">₱${parseFloat(program.price || 0).toFixed(2)} • ${program.category || 'beginner'}</div>
-                        </div>
-                    </label>
-                `).join('');
-            } else {
-                programsList.innerHTML = '<p class="text-gray-500 text-center py-4">No draft programs available for publishing.</p>';
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Error loading draft programs:', error);
-        const programsList = document.getElementById('publishProgramsList');
-        if (programsList) {
-            programsList.innerHTML = '<p class="text-red-500 text-center py-4">Error loading programs.</p>';
-        }
-    });
+    tryFetch();
 }
 
 function submitForPublishing() {
-    const selectedPrograms = Array.from(document.querySelectorAll('input[name="publish_programs[]"]')).filter(cb => cb.checked).map(cb => cb.value);
+    const selectedPrograms = Array.from(document.querySelectorAll('input[name="publish_programs[]"]:checked')).map(cb => cb.value);
     
     if (selectedPrograms.length === 0) {
         if (typeof Swal !== 'undefined') {
@@ -217,17 +259,18 @@ function submitForPublishing() {
         return;
     }
 
-    // Determine correct API path
+    // Use same path logic as loadDraftPrograms
     const currentPath = window.location.pathname;
-    let apiUrl;
-    
-    if (currentPath.includes('/pages/teacher/')) {
-        apiUrl = '../../php/program-core.php';
-    } else if (currentPath.includes('/pages/')) {
-        apiUrl = '../php/program-core.php';
-    } else {
-        apiUrl = 'php/program-core.php';
-    }
+    const possiblePaths = [
+        currentPath.includes('/pages/teacher/') ? '../../php/program-core.php' : 
+        currentPath.includes('/pages/') ? '../php/program-core.php' : 
+        'php/program-core.php',
+        '../../php/program-core.php',
+        '../php/program-core.php',
+        'php/program-core.php'
+    ];
+    const apiUrls = [...new Set(possiblePaths)];
+    const apiUrl = apiUrls[0]; // Use first (most likely correct) path
 
     fetch(apiUrl, {
         method: 'POST',
@@ -240,7 +283,12 @@ function submitForPublishing() {
         }),
         credentials: 'same-origin'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             if (typeof Swal !== 'undefined') {
