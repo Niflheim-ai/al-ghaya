@@ -11,6 +11,7 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
 
 require_once '../../php/dbConnection.php';
 require_once '../../php/functions.php';
+require_once '../../php/program-handler.php'; // Include program-handler for getTeacherPrograms function
 require_once '../../php/program-helpers.php';
 
 ?>
@@ -26,71 +27,84 @@ require_once '../../php/program-helpers.php';
             <h1 class="section-title md:text-2xl font-bold">Recently Edited</h1>
             <div class="w-full overflow-x-auto">
                 <?php
-                // Fetch teacher's programs sorted by dateUpdated
-                if (!isset($teacher_id) && isset($_SESSION['userID'])) {
-                    $teacher_id = $_SESSION['userID'];
-                }
-                if (!function_exists('getTeacherPrograms')) {
-                    require '../../php/functions.php';
-                }
-                $programs = getTeacherPrograms($conn, $teacher_id, 'dateUpdated');
+                // Get the proper teacher ID from the teacher table
+                $user_id = $_SESSION['userID'];
+                $teacher_id = getTeacherIdFromSession($conn, $user_id);
+                
+                if ($teacher_id) {
+                    // Fetch teacher's programs sorted by dateUpdated
+                    $programs = getTeacherPrograms($conn, $teacher_id, 'dateUpdated');
 
-                if (!empty($programs)) {
-                    // Display the most recent program
-                    $recentProgram = $programs[0];
+                    if (!empty($programs)) {
+                        // Display the most recent program
+                        $recentProgram = $programs[0];
                 ?>
-                    <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-company_white border-[1px] border-primary relative">
-                        <div class="w-full h-fit overflow-hidden rounded-[20px] flex flex-wrap">
-                            <!-- Image -->
-                            <img src="<?= !empty($recentProgram['image']) ? '../../uploads/program_thumbnails/' . $recentProgram['image'] : '../../images/blog-bg.svg' ?>"
-                                alt="Program Image" class="w-[221px] h-[500px] object-cover flex-grow flex-shrink-0 basis-1/4">
-                            <!-- Content -->
-                            <div class="overflow-hidden p-[30px] h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-y-[25px]">
-                                <h2 class="price-sub-header">₱<?= number_format($recentProgram['price'], 2) ?></h2>
-                                <div class="flex flex-col gap-y-[10px] w-full h-fit">
-                                    <div class="flex flex-col gap-y-[5px] w-full h-fit">
-                                        <p class="arabic body-text2-semibold"><?= htmlspecialchars($recentProgram['title']) ?></p>
-                                        <div class="mask-b-from-20% mask-b-to-80% w-full h-[120px]">
-                                            <p><?= htmlspecialchars(substr($recentProgram['description'], 0, 150)) ?>...</p>
+                        <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-company_white border-[1px] border-primary relative">
+                            <div class="w-full h-fit overflow-hidden rounded-[20px] flex flex-wrap">
+                                <!-- Image -->
+                                <img src="<?= !empty($recentProgram['thumbnail']) ? '../../uploads/thumbnails/' . $recentProgram['thumbnail'] : '../../images/blog-bg.svg' ?>"
+                                    alt="Program Image" class="w-[221px] h-[500px] object-cover flex-grow flex-shrink-0 basis-1/4">
+                                <!-- Content -->
+                                <div class="overflow-hidden p-[30px] h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-y-[25px]">
+                                    <h2 class="price-sub-header">₱<?= number_format($recentProgram['price'], 2) ?></h2>
+                                    <div class="flex flex-col gap-y-[10px] w-full h-fit">
+                                        <div class="flex flex-col gap-y-[5px] w-full h-fit">
+                                            <p class="arabic body-text2-semibold"><?= htmlspecialchars($recentProgram['title']) ?></p>
+                                            <div class="mask-b-from-20% mask-b-to-80% w-full h-[120px]">
+                                                <p><?= htmlspecialchars(substr($recentProgram['description'], 0, 150)) ?>...</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col gap-y-[5px] w-full h-fit">
+                                            <p class="font-semibold">Enrollees</p>
+                                            <div class="flex gap-x-[10px]">
+                                                <p>0</p>
+                                                <p>Enrolled</p>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="flex flex-col gap-y-[5px] w-full h-fit">
-                                        <p class="font-semibold">Enrollees</p>
-                                        <div class="flex gap-x-[10px]">
-                                            <p>0</p>
-                                            <p>Enrolled</p>
-                                        </div>
+                                    <div class="proficiency-badge">
+                                        <i class="ph-fill ph-barbell text-[15px]"></i>
+                                        <p class="text-[14px]/[2em] font-semibold">
+                                            <?= htmlspecialchars(ucfirst(strtolower($recentProgram['category']))); ?> Difficulty
+                                        </p>
                                     </div>
                                 </div>
-                                <div class="proficiency-badge">
-                                    <i class="ph-fill ph-barbell text-[15px]"></i>
-                                    <p class="text-[14px]/[2em] font-semibold">
-                                        <?= htmlspecialchars(ucfirst(strtolower($recentProgram['category']))); ?> Difficulty
-                                    </p>
+                            </div>
+                            <div class="p-4 flex justify-between items-center">
+                                <span class="text-sm text-gray-500">
+                                    Last edited: <?= date('M d, Y', strtotime($recentProgram['dateUpdated'])) ?>
+                                </span>
+                                <div class="flex gap-2">
+                                    <span class="px-2 py-1 text-xs rounded-full <?= $recentProgram['status'] === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' ?>">
+                                        <?= ucfirst($recentProgram['status']) ?>
+                                    </span>
+                                    <a href="teacher-programs.php?action=create&program_id=<?= $recentProgram['programID'] ?>"
+                                        class="text-blue-500 hover:text-blue-700 text-sm flex items-center">
+                                        <i class="ph-pencil-simple text-[16px]"></i> Edit
+                                    </a>
                                 </div>
                             </div>
                         </div>
-                        <div class="p-4 flex justify-between items-center">
-                            <span class="text-sm text-gray-500">
-                                Last edited: <?= date('M d, Y', strtotime($recentProgram['dateUpdated'])) ?>
-                            </span>
-                            <div class="flex gap-2">
-                                <span class="px-2 py-1 text-xs rounded-full <?= $recentProgram['status'] === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' ?>">
-                                    <?= ucfirst($recentProgram['status']) ?>
-                                </span>
-                                <a href="teacher-programs.php?action=create&program_id=<?= $recentProgram['programID'] ?>"
-                                    class="text-blue-500 hover:text-blue-700 text-sm flex items-center">
-                                    <i class="ph-pencil-simple text-[16px]"></i> Edit
+                <?php
+                    } else {
+                        // If no programs exist
+                ?>
+                        <div class="w-full text-center py-8">
+                            <p class="text-gray-500">No recently edited programs found.</p>
+                            <div class="mt-4">
+                                <a href="teacher-programs.php?action=create" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                                    <i class="ph-plus text-[16px] mr-2"></i>
+                                    Create Your First Program
                                 </a>
                             </div>
                         </div>
-                    </div>
                 <?php
+                    }
                 } else {
-                    // If no programs exist
+                    // If teacher profile not found
                 ?>
                     <div class="w-full text-center py-8">
-                        <p class="text-gray-500">No recently edited programs found.</p>
+                        <p class="text-red-500">Teacher profile not found. Please contact administrator.</p>
                     </div>
                 <?php
                 }
@@ -112,10 +126,58 @@ require_once '../../php/program-helpers.php';
                 <h1 class="section-title text-xl md:text-2xl font-bold">Analytics Overview</h1>
             </div>
             <div class="section-card bg-white p-4 md:p-6 rounded-lg shadow-md">
-                <p class="text-gray-600">Your analytics data will appear here.</p>
-                <!-- Add your analytics content here -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600"><?= count($programs ?? []) ?></div>
+                        <div class="text-sm text-gray-600">Total Programs</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600">0</div>
+                        <div class="text-sm text-gray-600">Total Enrollments</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-purple-600"><?= isset($programs) ? count(array_filter($programs, function($p) { return $p['status'] === 'published'; })) : 0 ?></div>
+                        <div class="text-sm text-gray-600">Published Programs</div>
+                    </div>
+                </div>
             </div>
         </section>
+
+        <?php if (isset($programs) && !empty($programs) && count($programs) > 1): ?>
+        <!-- 4TH Section - All Programs -->
+        <section class="content-section">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="section-title text-xl md:text-2xl font-bold">All Programs</h1>
+                <a href="teacher-programs.php" class="text-blue-500 hover:text-blue-700 text-sm flex items-center">
+                    View All <i class="ph-arrow-right text-[16px] ml-1"></i>
+                </a>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <?php foreach (array_slice($programs, 0, 6) as $program): ?>
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                        <img src="<?= !empty($program['thumbnail']) ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/blog-bg.svg' ?>"
+                            alt="<?= htmlspecialchars($program['title']) ?>" class="w-full h-32 object-cover">
+                        <div class="p-4">
+                            <h3 class="font-semibold text-lg mb-2"><?= htmlspecialchars($program['title']) ?></h3>
+                            <p class="text-sm text-gray-600 mb-2"><?= htmlspecialchars(substr($program['description'], 0, 100)) ?>...</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-semibold text-blue-600">₱<?= number_format($program['price'], 2) ?></span>
+                                <span class="px-2 py-1 text-xs rounded-full <?= $program['status'] === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' ?>">
+                                    <?= ucfirst($program['status']) ?>
+                                </span>
+                            </div>
+                            <div class="mt-3">
+                                <a href="teacher-programs.php?action=create&program_id=<?= $program['programID'] ?>"
+                                    class="text-blue-500 hover:text-blue-700 text-sm flex items-center">
+                                    <i class="ph-pencil-simple text-[16px] mr-1"></i> Edit Program
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
+        <?php endif; ?>
     </div>
 </div>
 
