@@ -10,6 +10,7 @@ require_once __DIR__ . '/functions.php';
 
 // Access control
 function validateTeacherAccess() { return isset($_SESSION['userID']) && (($_SESSION['role'] ?? '') === 'teacher'); }
+function validateAdminAccess() { return isset($_SESSION['userID']) && (($_SESSION['role'] ?? '') === 'admin'); }
 
 // Teacher identity
 function getTeacherIdFromSession($conn, $user_id) {
@@ -95,6 +96,29 @@ function program_getByTeacher($conn, $teacher_id, $sortBy='dateCreated'){
     if(!$stmt){return [];} 
     $stmt->bind_param("i",$teacher_id); $stmt->execute(); $res=$stmt->get_result(); 
     $rows=$res?$res->fetch_all(MYSQLI_ASSOC):[]; $stmt->close(); return $rows; 
+}
+
+// Admin functions
+function program_approve($conn, $program_id) {
+    $stmt = $conn->prepare("UPDATE programs SET status = 'published', dateUpdated = NOW() WHERE programID = ?");
+    if (!$stmt) { return false; }
+    $stmt->bind_param("i", $program_id); $ok = $stmt->execute(); $stmt->close(); return $ok;
+}
+
+function program_reject($conn, $program_id) {
+    $stmt = $conn->prepare("UPDATE programs SET status = 'draft', dateUpdated = NOW() WHERE programID = ?");
+    if (!$stmt) { return false; }
+    $stmt->bind_param("i", $program_id); $ok = $stmt->execute(); $stmt->close(); return $ok;
+}
+
+function program_bulkApprove($conn, $program_ids) {
+    if (empty($program_ids)) { return 0; }
+    $in = implode(',', array_fill(0, count($program_ids), '?'));
+    $types = str_repeat('i', count($program_ids));
+    $sql = "UPDATE programs SET status = 'published', dateUpdated = NOW() WHERE programID IN ($in)";
+    $stmt = $conn->prepare($sql); if (!$stmt) { return 0; }
+    $stmt->bind_param($types, ...array_map('intval', $program_ids)); $stmt->execute();
+    $affected = $stmt->affected_rows; $stmt->close(); return $affected;
 }
 
 // Chapters
@@ -275,26 +299,37 @@ function getStory($conn,$story_id){ return story_getById($conn,$story_id); }
 
 // HTTP Handler for all POST/GET endpoints - only run when directly accessed as program-core.php
 if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
-    // Validate teacher access for form endpoints
-    if (!validateTeacherAccess()) {
-        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program'])) { 
-            $_SESSION['error_message'] = 'Unauthorized access'; 
-            header('Location: ../pages/teacher/teacher-programs.php'); exit; 
-        }
-        http_response_code(403); echo json_encode(['success'=>false,'message'=>'Unauthorized access']); exit;
-    }
-
-    $user_id = $_SESSION['userID']; 
-    $teacher_id = getTeacherIdFromSession($conn, $user_id); 
-    if (!$teacher_id) { 
-        if (isset($_POST['action']) && in_array($_POST['action'], ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program'])) { 
-            $_SESSION['error_message'] = 'Teacher profile not found'; 
-            header('Location: ../pages/teacher/teacher-programs.php'); exit; 
-        }
-        http_response_code(403); echo json_encode(['success'=>false,'message'=>'Teacher profile not found']); exit; 
-    }
-
     $action = $_POST['action'] ?? $_GET['action'] ?? '';
+    
+    // Admin-only actions
+    if (in_array($action, ['approve_program', 'reject_program', 'bulk_approve_programs'])) {
+        if (!validateAdminAccess()) {
+            http_response_code(403);
+            echo json_encode(['success'=>false,'message'=>'Admin access required']);
+            exit;
+        }
+    } 
+    // Teacher-only actions
+    else if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program'])) {
+        if (!validateTeacherAccess()) {
+            if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','archive_program'])) { 
+                $_SESSION['error_message'] = 'Unauthorized access'; 
+                header('Location: ../pages/teacher/teacher-programs.php'); exit; 
+            }
+            http_response_code(403); echo json_encode(['success'=>false,'message'=>'Unauthorized access']); exit;
+        }
+        
+        $user_id = $_SESSION['userID']; 
+        $teacher_id = getTeacherIdFromSession($conn, $user_id); 
+        if (!$teacher_id) { 
+            if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','archive_program'])) { 
+                $_SESSION['error_message'] = 'Teacher profile not found'; 
+                header('Location: ../pages/teacher/teacher-programs.php'); exit; 
+            }
+            http_response_code(403); echo json_encode(['success'=>false,'message'=>'Teacher profile not found']); exit; 
+        }
+    }
+    
     if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) { 
         $input = json_decode(file_get_contents('php://input'), true); 
         if ($input) { $action = $input['action'] ?? $action; $_POST = array_merge($_POST, $input); } 
@@ -302,6 +337,26 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
 
     try {
         switch ($action) {
+            // Admin actions
+            case 'approve_program':
+                header('Content-Type: application/json');
+                $program_id = intval($_POST['programID'] ?? 0);
+                if (!$program_id) { echo json_encode(['success'=>false,'message'=>'Program ID required']); exit; }
+                echo json_encode(program_approve($conn, $program_id) ? ['success'=>true,'message'=>'Program approved and published'] : ['success'=>false,'message'=>'Failed to approve program']); exit;
+            
+            case 'reject_program':
+                header('Content-Type: application/json');
+                $program_id = intval($_POST['programID'] ?? 0);
+                if (!$program_id) { echo json_encode(['success'=>false,'message'=>'Program ID required']); exit; }
+                echo json_encode(program_reject($conn, $program_id) ? ['success'=>true,'message'=>'Program rejected and sent back to draft'] : ['success'=>false,'message'=>'Failed to reject program']); exit;
+            
+            case 'bulk_approve_programs':
+                header('Content-Type: application/json');
+                $program_ids = json_decode($_POST['program_ids'] ?? '[]', true);
+                $count = program_bulkApprove($conn, $program_ids);
+                echo json_encode(['success'=> $count > 0, 'approved'=>$count, 'message'=>"$count programs approved"]); exit;
+                
+            // Teacher actions
             case 'create_program':
                 $status = normalize_status($_POST['status'] ?? 'draft');
                 if (!$status) { $status = 'draft'; }
@@ -409,7 +464,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 echo json_encode(['success'=> $count > 0, 'updated'=>$count]); exit;
 
             default:
-                if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program'])) { 
+                if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program','approve_program','reject_program','bulk_approve_programs'])) { 
                     $_SESSION['error_message']='Invalid action: ' . $action; 
                     header('Location: ../pages/teacher/teacher-programs.php'); exit; 
                 }
