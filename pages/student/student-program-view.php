@@ -9,6 +9,8 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     exit();
 }
 
+$page_title = "student-programs";
+
 $studentID = (int)$_SESSION['userID'];
 $programID = isset($_GET['program_id']) ? (int)$_GET['program_id'] : 0;
 if ($programID <= 0) { header('Location: student-programs.php'); exit(); }

@@ -105,7 +105,7 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
                             </div>
                         <?php else: ?>
                             <div class="flex items-center justify-between">
-                                <span class="text-[#10375B] font-bold text-lg">
+                                <span class="text-[#10375B] font-bold text-3xl">
                                     <?= $symbol ? htmlspecialchars($symbol) : htmlspecialchars(strtoupper($currency)).' ' ?><?= number_format($price, 2) ?>
                                 </span>
                             </div>
