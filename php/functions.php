@@ -58,6 +58,177 @@
         }
     }
 
+    // Fetch enrolled programs for a student with filters
+    function fetchEnrolledPrograms($conn, $studentID, $difficulty = 'all', $status = 'all', $search = '') {
+        try {
+            $sql = "
+                SELECT DISTINCT p.programID, p.title, p.description, p.category, p.image, p.thumbnail,
+                       spe.completion_percentage, spe.enrollment_date, spe.last_accessed,
+                       CASE 
+                           WHEN spe.completion_percentage >= 100 THEN 'completed'
+                           WHEN spe.completion_percentage > 0 THEN 'in-progress'
+                           ELSE 'not-started'
+                       END as status
+                FROM programs p
+                JOIN student_program_enrollments spe ON p.programID = spe.program_id
+                WHERE spe.student_id = ? AND p.status = 'published'
+            ";
+            
+            $params = [$studentID];
+            $types = 'i';
+            
+            // Add difficulty filter
+            if ($difficulty !== 'all') {
+                $sql .= " AND p.category = ?";
+                $params[] = $difficulty;
+                $types .= 's';
+            }
+            
+            // Add status filter
+            if ($status !== 'all') {
+                if ($status === 'completed') {
+                    $sql .= " AND spe.completion_percentage >= 100";
+                } elseif ($status === 'in-progress') {
+                    $sql .= " AND spe.completion_percentage > 0 AND spe.completion_percentage < 100";
+                }
+            }
+            
+            // Add search filter
+            if (!empty($search)) {
+                $sql .= " AND p.title LIKE ?";
+                $params[] = "%{$search}%";
+                $types .= 's';
+            }
+            
+            $sql .= " ORDER BY spe.last_accessed DESC";
+            
+            $stmt = $conn->prepare($sql);
+            if (!empty($params)) {
+                $stmt->bind_param($types, ...$params);
+            }
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error fetching enrolled programs: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Fetch published programs (available for enrollment) with filters
+    function fetchPublishedPrograms($conn, $studentID, $difficulty = 'all', $status = 'all', $search = '') {
+        try {
+            $sql = "
+                SELECT DISTINCT p.programID, p.title, p.description, p.category, p.image, p.thumbnail,
+                       p.dateCreated, p.datePublished,
+                       COALESCE(spe.completion_percentage, 0) as completion_percentage,
+                       CASE 
+                           WHEN spe.student_id IS NULL THEN 'not-enrolled'
+                           WHEN spe.completion_percentage >= 100 THEN 'completed'
+                           WHEN spe.completion_percentage > 0 THEN 'in-progress'
+                           ELSE 'enrolled'
+                       END as enrollment_status
+                FROM programs p
+                LEFT JOIN student_program_enrollments spe ON p.programID = spe.program_id AND spe.student_id = ?
+                WHERE p.status = 'published'
+            ";
+            
+            $params = [$studentID];
+            $types = 'i';
+            
+            // Add difficulty filter
+            if ($difficulty !== 'all') {
+                $sql .= " AND p.category = ?";
+                $params[] = $difficulty;
+                $types .= 's';
+            }
+            
+            // Add status filter (for available programs, this doesn't make much sense, but we'll handle it)
+            if ($status !== 'all') {
+                if ($status === 'completed') {
+                    $sql .= " AND spe.completion_percentage >= 100";
+                } elseif ($status === 'in-progress') {
+                    $sql .= " AND spe.completion_percentage > 0 AND spe.completion_percentage < 100";
+                }
+            }
+            
+            // Add search filter
+            if (!empty($search)) {
+                $sql .= " AND p.title LIKE ?";
+                $params[] = "%{$search}%";
+                $types .= 's';
+            }
+            
+            $sql .= " ORDER BY p.datePublished DESC, p.dateCreated DESC";
+            
+            $stmt = $conn->prepare($sql);
+            if (!empty($params)) {
+                $stmt->bind_param($types, ...$params);
+            }
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error fetching published programs: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Enroll student in a program
+    function enrollStudentInProgram($conn, $studentID, $programID) {
+        try {
+            // Check if already enrolled
+            $checkStmt = $conn->prepare("SELECT enrollment_id FROM student_program_enrollments WHERE student_id = ? AND program_id = ?");
+            $checkStmt->bind_param("ii", $studentID, $programID);
+            $checkStmt->execute();
+            $result = $checkStmt->get_result();
+            
+            if ($result->num_rows > 0) {
+                return false; // Already enrolled
+            }
+            
+            // Enroll student
+            $enrollStmt = $conn->prepare("
+                INSERT INTO student_program_enrollments (student_id, program_id, completion_percentage, enrollment_date, last_accessed) 
+                VALUES (?, ?, 0, NOW(), NOW())
+            ");
+            $enrollStmt->bind_param("ii", $studentID, $programID);
+            $success = $enrollStmt->execute();
+            
+            return $success;
+        } catch (Exception $e) {
+            error_log("Error enrolling student in program: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Get program details with enrollment status
+    function getProgramDetails($conn, $programID, $studentID = null) {
+        try {
+            $sql = "
+                SELECT p.*, 
+                       CASE WHEN spe.student_id IS NOT NULL THEN 1 ELSE 0 END as is_enrolled,
+                       COALESCE(spe.completion_percentage, 0) as completion_percentage,
+                       spe.enrollment_date, spe.last_accessed
+                FROM programs p
+                LEFT JOIN student_program_enrollments spe ON p.programID = spe.program_id AND spe.student_id = ?
+                WHERE p.programID = ?
+            ";
+            
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("ii", $studentID, $programID);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            return $result->fetch_assoc();
+        } catch (Exception $e) {
+            error_log("Error getting program details: " . $e->getMessage());
+            return null;
+        }
+    }
+
     // Fetching program data
     function fetchProgramData($conn) {
         if (isset($_GET['title']) && isset($_GET['category'])) {
