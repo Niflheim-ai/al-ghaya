@@ -15,50 +15,79 @@ if ($activeTab === 'my') {
 } else {
     $programs = fetchPublishedPrograms($conn, $_SESSION['userID'], $difficulty, $status, $search);
 }
+
+// Helper: compute enrollees count per program (batch-friendly)
+function getEnrolleeCounts($conn, $programIds) {
+    if (empty($programIds)) return [];
+    $placeholders = implode(',', array_fill(0, count($programIds), '?'));
+    $types = str_repeat('i', count($programIds));
+    $sql = "SELECT program_id, COUNT(*) AS cnt FROM student_program_enrollments WHERE program_id IN ($placeholders) GROUP BY program_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param($types, ...$programIds);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $counts = [];
+    while ($row = $res->fetch_assoc()) { $counts[(int)$row['program_id']] = (int)$row['cnt']; }
+    return $counts;
+}
+
+// Collect program IDs and get enrollee counts in one query
+$programIds = array_map(fn($p) => (int)$p['programID'], $programs);
+$enrolleeCounts = getEnrolleeCounts($conn, $programIds);
 ?>
 
 <?php if (empty($programs)): ?>
     <div class="w-full text-center py-8">
         <p class="text-gray-500">
-            <?php
-            if ($activeTab === 'my') {
-                echo "No enrolled programs found.";
-            } else {
-                echo "No available programs found.";
-            }
-            ?>
+            <?= $activeTab === 'my' ? 'No enrolled programs found.' : 'No available programs found.' ?>
         </p>
     </div>
 <?php else: ?>
     <?php foreach ($programs as $program): ?>
-        <a href="student-program-view.php?program_id=<?= $program['programID'] ?>" class="block">
-            <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-company_white border-[1px] border-primary mb-4 hover:shadow-lg transition-shadow duration-300">
-                <div class="w-full h-fit overflow-hidden rounded-[20px] flex flex-wrap">
+        <?php
+            $pid = (int)$program['programID'];
+            $price = isset($program['price']) ? (float)$program['price'] : 0.0;
+            $currency = isset($program['currency']) && $program['currency'] !== '' ? $program['currency'] : 'PHP';
+            $enrollees = $enrolleeCounts[$pid] ?? 0;
+        ?>
+        <a href="student-program-view.php?program_id=<?= $pid ?>" class="block">
+            <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300">
+                <div class="w-full overflow-hidden rounded-[20px] flex flex-wrap">
                     <!-- Image -->
-                    <img src="<?= !empty($program['image']) ? '../../uploads/program_thumbnails/'.$program['image'] : '../../images/blog-bg.svg' ?>"
-                            alt="Program Image"
-                            class="h-auto min-w-[221px] min-h-[170px] object-cover flex-grow flex-shrink-0 basis-1/4">
-                    <!-- Content -->
-                    <div class="overflow-hidden p-[30px] h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-y-[25px]">
-                        <!-- Chapter Checkpoint -->
-                        <div class="flex flex-col gap-y-[5px] w-full h-fit">
-                            <p class="font-semibold">Chapter Checkpoint</p>
-                            <p>Chapter 1</p>
+                    <img src="<?= !empty($program['image']) ? '../../uploads/program_thumbnails/'.htmlspecialchars($program['image']) : '../../images/blog-bg.svg' ?>"
+                         alt="Program Image"
+                         class="h-auto min-w-[221px] min-h-[170px] object-cover flex-grow flex-shrink-0 basis-1/4">
+                    
+                    <!-- Content (Right) -->
+                    <div class="overflow-hidden p-6 h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-3">
+                        <!-- Price at top -->
+                        <div class="flex items-center justify-between">
+                            <span class="text-[#10375B] font-bold text-lg">
+                                <?= htmlspecialchars($currency) ?> <?= number_format($price, 2) ?>
+                            </span>
                         </div>
-                        <!-- Program Name -->
-                        <div class="flex flex-col gap-y-[10px] w-full h-fit">
-                            <div class="flex flex-col gap-y-[5px] w-full h-fit">
-                                <p class="arabic body-text2-semibold"><?= htmlspecialchars($program['title']) ?></p>
-                                <div class="mask-b-from-20% mask-b-to-80% w-full h-[120px]">
-                                    <p><?= htmlspecialchars(substr($program['description'], 0, 150)) ?>...</p>
-                                </div>
-                            </div>
+
+                        <!-- Title -->
+                        <h3 class="text-xl font-semibold text-gray-900 arabic">
+                            <?= htmlspecialchars($program['title']) ?>
+                        </h3>
+
+                        <!-- Description -->
+                        <div class="text-gray-700 text-sm leading-relaxed">
+                            <?= htmlspecialchars(mb_strimwidth($program['description'] ?? '', 0, 220, '...')) ?>
                         </div>
-                        <!-- Difficulty -->
-                        <div class="proficiency-badge">
+
+                        <!-- Enrollees count -->
+                        <div class="mt-auto flex items-center gap-2 text-gray-600 text-sm">
+                            <i class="ph ph-users-three text-[18px]"></i>
+                            <span><?= $enrollees ?> enrollees</span>
+                        </div>
+
+                        <!-- Difficulty at bottom -->
+                        <div class="proficiency-badge mt-2">
                             <i class="ph-fill ph-barbell text-[15px]"></i>
                             <p class="text-[14px]/[2em] font-semibold">
-                                <?= htmlspecialchars(ucfirst(strtolower($program['category']))); ?> Difficulty
+                                <?= htmlspecialchars(ucfirst(strtolower($program['category']))) ?> Difficulty
                             </p>
                         </div>
                     </div>
