@@ -31,14 +31,17 @@
     $recentTransactions = $gamification->getRecentTransactions($studentID, 5);
     $achievements = $gamification->getUserAchievements($studentID);
 
-    // Get recent program progress
+    // Get recent program progress (Fixed table reference)
     $stmt = $conn->prepare("
-        SELECT p.*, sp.progress, sp.current_chapter, sp.lastAccessedAt,
-               (SELECT title FROM program_chapters pc WHERE pc.program_id = p.programID AND pc.chapter_order = sp.current_chapter LIMIT 1) as current_chapter_title
+        SELECT p.*, 
+               spe.completion_percentage as progress, 
+               1 as current_chapter, 
+               spe.last_accessed as lastAccessedAt,
+               'Continue Learning' as current_chapter_title
         FROM programs p 
-        JOIN student_program sp ON p.programID = sp.programID 
-        WHERE sp.studentID = ? AND sp.status != 'dropped'
-        ORDER BY sp.lastAccessedAt DESC 
+        JOIN student_program_enrollments spe ON p.programID = spe.program_id 
+        WHERE spe.student_id = ?
+        ORDER BY spe.last_accessed DESC 
         LIMIT 1
     ");
     $stmt->bind_param("i", $studentID);
@@ -50,7 +53,7 @@
         SELECT p.* FROM programs p
         WHERE p.status = 'published' 
         AND p.category = ? 
-        AND p.programID NOT IN (SELECT programID FROM student_program WHERE studentID = ?)
+        AND p.programID NOT IN (SELECT program_id FROM student_program_enrollments WHERE student_id = ?)
         ORDER BY RAND()
         LIMIT 3
     ");
@@ -58,14 +61,14 @@
     $stmt->execute();
     $recommendedPrograms = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-    // Daily challenge - random question from enrolled programs
+    // Daily challenge - random question from enrolled programs (Fixed table reference)
     $dailyChallenge = null;
     $stmt = $conn->prepare("
         SELECT pc.*, p.title as program_title
         FROM program_chapters pc
-        JOIN programs p ON pc.program_id = p.programID
-        JOIN student_program sp ON p.programID = sp.programID
-        WHERE sp.studentID = ? AND pc.question IS NOT NULL AND pc.question != ''
+        JOIN programs p ON pc.programID = p.programID
+        JOIN student_program_enrollments spe ON p.programID = spe.program_id
+        WHERE spe.student_id = ? AND pc.question IS NOT NULL AND pc.question != ''
         ORDER BY RAND()
         LIMIT 1
     ");
