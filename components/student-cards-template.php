@@ -9,11 +9,17 @@ $status = isset($_GET['status']) ? $_GET['status'] : 'all';
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 
 $programs = [];
+$studentId = $_SESSION['userID'] ?? 0;
 
 if ($activeTab === 'my') {
-    $programs = fetchEnrolledPrograms($conn, $_SESSION['userID'], $difficulty, $status, $search);
+    $programs = fetchEnrolledPrograms($conn, $studentId, $difficulty, $status, $search);
 } else {
-    $programs = fetchPublishedPrograms($conn, $_SESSION['userID'], $difficulty, $status, $search);
+    // All Programs: must EXCLUDE any programs the student is enrolled in
+    $programs = fetchPublishedPrograms($conn, $studentId, $difficulty, $status, $search);
+    // Filter out enrolled ones defensively in case function returns them
+    $programs = array_values(array_filter($programs, function($p){
+        return !isset($p['enrollment_status']) || $p['enrollment_status'] === 'not-enrolled';
+    }));
 }
 
 // Helper: compute enrollees count per program (batch-friendly)
@@ -29,6 +35,16 @@ function getEnrolleeCounts($conn, $programIds) {
     $counts = [];
     while ($row = $res->fetch_assoc()) { $counts[(int)$row['program_id']] = (int)$row['cnt']; }
     return $counts;
+}
+
+// Currency symbol map
+function currency_symbol($code){
+    $map = [
+        'USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥', 'CNY' => '¥', 'KRW' => '₩',
+        'INR' => '₹', 'PHP' => '₱', 'AUD' => 'A$', 'CAD' => 'C$', 'SGD' => 'S$', 'HKD' => 'HK$'
+    ];
+    $uc = strtoupper($code ?: 'PHP');
+    return $map[$uc] ?? '';
 }
 
 // Collect program IDs and get enrollee counts in one query
@@ -49,9 +65,25 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
             $price = isset($program['price']) ? (float)$program['price'] : 0.0;
             $currency = isset($program['currency']) && $program['currency'] !== '' ? $program['currency'] : 'PHP';
             $enrollees = $enrolleeCounts[$pid] ?? 0;
+            $symbol = currency_symbol($currency);
+            $isMyTab = ($activeTab === 'my');
+            $completion = isset($program['completion_percentage']) ? (float)$program['completion_percentage'] : 0.0;
+            $isInProgress = $isMyTab && $completion > 0 && $completion < 100;
+            $isCompleted = $isMyTab && $completion >= 100;
         ?>
         <a href="student-program-view.php?program_id=<?= $pid ?>" class="block">
-            <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300">
+            <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300 relative">
+                <!-- Resume indicator (My Programs only) -->
+                <?php if ($isInProgress): ?>
+                    <div class="absolute top-3 right-3 bg-[#10375B] text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
+                        Resume
+                    </div>
+                <?php endif; ?>
+                <?php if ($isCompleted): ?>
+                    <div class="absolute top-3 right-3 bg-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
+                        Completed
+                    </div>
+                <?php endif; ?>
                 <div class="w-full overflow-hidden rounded-[20px] flex flex-wrap">
                     <!-- Image -->
                     <img src="<?= !empty($program['image']) ? '../../uploads/program_thumbnails/'.htmlspecialchars($program['image']) : '../../images/blog-bg.svg' ?>"
@@ -60,12 +92,24 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
                     
                     <!-- Content (Right) -->
                     <div class="overflow-hidden p-6 h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-3">
-                        <!-- Price at top -->
-                        <div class="flex items-center justify-between">
-                            <span class="text-[#10375B] font-bold text-lg">
-                                <?= htmlspecialchars($currency) ?> <?= number_format($price, 2) ?>
-                            </span>
-                        </div>
+                        <!-- Top line: Price for All Programs; Progress bar for My Programs -->
+                        <?php if ($isMyTab): ?>
+                            <div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-700">Progress</span>
+                                    <span class="text-sm font-semibold text-[#10375B]"><?= number_format($completion, 1) ?>%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div class="bg-[#A58618] h-2 rounded-full" style="width: <?= max(0, min(100, $completion)) ?>%"></div>
+                                </div>
+                            </div>
+                        <?php else: ?>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[#10375B] font-bold text-lg">
+                                    <?= $symbol ? htmlspecialchars($symbol) : htmlspecialchars(strtoupper($currency)).' ' ?><?= number_format($price, 2) ?>
+                                </span>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- Title -->
                         <h3 class="text-xl font-semibold text-gray-900 arabic">
