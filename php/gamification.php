@@ -141,6 +141,9 @@ class GamificationSystem {
      */
     public function unlockAchievement($userID, $achievementType, $description) {
         try {
+            // First, ensure the user_achievements table exists (create if not)
+            $this->ensureUserAchievementsTable();
+            
             // Check if achievement already exists
             $stmt = $this->conn->prepare("
                 SELECT id FROM user_achievements 
@@ -166,6 +169,31 @@ class GamificationSystem {
         } catch (Exception $e) {
             error_log("Error unlocking achievement: " . $e->getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Ensure user_achievements table exists
+     */
+    private function ensureUserAchievementsTable() {
+        try {
+            $createTable = "
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    id INT(11) NOT NULL AUTO_INCREMENT,
+                    userID INT(11) NOT NULL,
+                    achievement_type VARCHAR(100) NOT NULL,
+                    description TEXT DEFAULT NULL,
+                    dateUnlocked TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY idx_userID (userID),
+                    KEY idx_achievement_type (achievement_type),
+                    UNIQUE KEY unique_user_achievement (userID, achievement_type),
+                    CONSTRAINT fk_user_achievements_user FOREIGN KEY (userID) REFERENCES user (userID) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ";
+            $this->conn->query($createTable);
+        } catch (Exception $e) {
+            error_log("Error ensuring user_achievements table: " . $e->getMessage());
         }
     }
 
@@ -230,6 +258,9 @@ class GamificationSystem {
      */
     public function getUserAchievements($userID) {
         try {
+            // Ensure table exists first
+            $this->ensureUserAchievementsTable();
+            
             $stmt = $this->conn->prepare("
                 SELECT achievement_type, description, dateUnlocked 
                 FROM user_achievements 
@@ -252,6 +283,9 @@ class GamificationSystem {
      */
     public function updateProgramProgress($studentID, $programID, $chapterID, $completed = false) {
         try {
+            // Create student_chapter_progress table if it doesn't exist
+            $this->ensureStudentProgressTables();
+            
             // Update chapter completion
             if ($completed) {
                 $stmt = $this->conn->prepare("
@@ -269,11 +303,11 @@ class GamificationSystem {
             // Calculate overall program progress
             $progress = $this->calculateProgramProgress($studentID, $programID);
             
-            // Update student_program table
+            // Update student_program_enrollments table (use correct table name)
             $stmt = $this->conn->prepare("
-                INSERT INTO student_program (studentID, programID, progress, enrolledAt)
-                VALUES (?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE progress = ?
+                INSERT INTO student_program_enrollments (student_id, program_id, completion_percentage, enrollment_date, last_accessed)
+                VALUES (?, ?, ?, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE completion_percentage = ?, last_accessed = NOW()
             ");
             $stmt->bind_param("iidi", $studentID, $programID, $progress, $progress);
             $stmt->execute();
@@ -292,13 +326,43 @@ class GamificationSystem {
     }
 
     /**
+     * Ensure student progress tables exist
+     */
+    private function ensureStudentProgressTables() {
+        try {
+            // Create student_chapter_progress table if it doesn't exist
+            $createChapterProgressTable = "
+                CREATE TABLE IF NOT EXISTS student_chapter_progress (
+                    id INT(11) NOT NULL AUTO_INCREMENT,
+                    studentID INT(11) NOT NULL,
+                    programID INT(11) NOT NULL,
+                    chapterID INT(11) NOT NULL,
+                    completed TINYINT(1) DEFAULT 0,
+                    completedAt TIMESTAMP NULL DEFAULT NULL,
+                    dateCreated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    UNIQUE KEY unique_student_chapter (studentID, programID, chapterID),
+                    KEY idx_studentID (studentID),
+                    KEY idx_programID (programID),
+                    KEY idx_chapterID (chapterID),
+                    CONSTRAINT fk_chapter_progress_user FOREIGN KEY (studentID) REFERENCES user (userID) ON DELETE CASCADE,
+                    CONSTRAINT fk_chapter_progress_program FOREIGN KEY (programID) REFERENCES programs (programID) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ";
+            $this->conn->query($createChapterProgressTable);
+        } catch (Exception $e) {
+            error_log("Error ensuring student progress tables: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Calculate program completion percentage
      */
     private function calculateProgramProgress($studentID, $programID) {
         try {
             // Get total chapters in program
             $stmt = $this->conn->prepare(
-                "SELECT COUNT(*) as total FROM program_chapters WHERE program_id = ?"
+                "SELECT COUNT(*) as total FROM program_chapters WHERE programID = ?"
             );
             $stmt->bind_param("i", $programID);
             $stmt->execute();
