@@ -70,20 +70,25 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
             $completion = isset($program['completion_percentage']) ? (float)$program['completion_percentage'] : 0.0;
             $isInProgress = $isMyTab && $completion > 0 && $completion < 100;
             $isCompleted = $isMyTab && $completion >= 100;
+            $isFree = !$isMyTab && $price === 0.0;
         ?>
         <a href="student-program-view.php?program_id=<?= $pid ?>" class="block">
             <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300 relative">
-                <!-- Resume indicator (My Programs only) -->
+                <!-- Status indicators -->
                 <?php if ($isInProgress): ?>
                     <div class="absolute top-3 right-3 bg-[#10375B] text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
                         Resume
                     </div>
-                <?php endif; ?>
-                <?php if ($isCompleted): ?>
+                <?php elseif ($isCompleted): ?>
                     <div class="absolute top-3 right-3 bg-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
                         Completed
                     </div>
+                <?php elseif ($isFree): ?>
+                    <div class="absolute top-3 right-3 bg-emerald-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
+                        Free
+                    </div>
                 <?php endif; ?>
+                
                 <div class="w-full overflow-hidden rounded-[20px] flex flex-wrap">
                     <!-- Image -->
                     <img src="<?= !empty($program['image']) ? '../../uploads/program_thumbnails/'.htmlspecialchars($program['image']) : '../../images/blog-bg.svg' ?>"
@@ -105,8 +110,8 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
                             </div>
                         <?php else: ?>
                             <div class="flex items-center justify-between">
-                                <span class="text-[#10375B] font-bold text-3xl">
-                                    <?= $symbol ? htmlspecialchars($symbol) : htmlspecialchars(strtoupper($currency)).' ' ?><?= number_format($price, 2) ?>
+                                <span class="text-[#10375B] font-bold text-lg">
+                                    <?= $isFree ? 'Free' : (($symbol ? htmlspecialchars($symbol) : htmlspecialchars(strtoupper($currency)).' ').number_format($price, 2)) ?>
                                 </span>
                             </div>
                         <?php endif; ?>
