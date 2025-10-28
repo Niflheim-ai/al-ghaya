@@ -209,7 +209,7 @@ function confirmStudentSignOut() {
         if (result.isConfirmed) {
             // Show motivational message for students
             Swal.fire({
-                title: 'Great Progress Today! 🌟',
+                title: 'Great Progress Today!',
                 html: 'Keep up the excellent work on your Arabic learning journey!<br><br><div class="text-sm text-gray-600">Signing out securely...</div>',
                 icon: 'success',
                 showConfirmButton: false,
