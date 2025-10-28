@@ -152,7 +152,7 @@ $page_title = 'Program Details';
           <div>
             <h2 class="text-xl font-bold mb-2">Overview</h2>
             <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg">
-              <iframe class="absolute top-0 left-0 w-full h-full" src="<?= htmlspecialchars($embedUrl) ?>" title="Program Overview" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+              <iframe class="absolute top-0 left-0 w-full h-full" src="<?= htmlspecialchars($embedUrl) ?>" title="Program Overview" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;" allowfullscreen></iframe>
             </div>
           </div>
           <?php elseif (!empty($program['overview_video_url'])): ?>
