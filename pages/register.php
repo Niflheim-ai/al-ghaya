@@ -33,7 +33,7 @@ try {
     </style>
 </head>
 <body class="bg-gray-50">
-    <!-- Your existing register form HTML here -->
+    <!-- Content -->
     <div class="content flex justify-center items-center min-h-screen px-6">
         <div class="form-container flex w-full bg-white rounded-xl shadow-lg overflow-hidden">
             <!-- Back Button -->
@@ -86,16 +86,32 @@ try {
                         <!-- Password -->
                         <div>
                             <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                            <input type="password" id="password" name="password" placeholder="••••••••" required 
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+                            <div class="relative">
+                                <input type="password" id="password" name="password" placeholder="••••••••" required 
+                                       class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+                                <button type="button" onclick="togglePassword('password', 'eye-icon-1')" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                    <svg id="eye-icon-1" class="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <p class="mt-1 text-sm text-gray-500">Minimum 8 characters</p>
                         </div>
 
                         <!-- Confirm Password -->
                         <div>
                             <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
-                            <input type="password" id="confirm-password" name="confirm-password" placeholder="••••••••" required 
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+                            <div class="relative">
+                                <input type="password" id="confirm-password" name="confirm-password" placeholder="••••••••" required 
+                                       class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+                                <button type="button" onclick="togglePassword('confirm-password', 'eye-icon-2')" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                    <svg id="eye-icon-2" class="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Terms -->
@@ -153,25 +169,59 @@ try {
 
     <?php
     // Handle registration form submission
+    $alertScript = '';
     if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['create-account'])) {
-        // Your existing registration logic here
         $inputFirstName = trim($_POST['first-name'] ?? '');
         $inputLastName = trim($_POST['last-name'] ?? '');
         $inputEmail = trim($_POST['email'] ?? '');
         $inputPassword = $_POST['password'] ?? '';
         $inputConfirmPassword = $_POST['confirm-password'] ?? '';
 
+        // Validation
         if (empty($inputFirstName) || empty($inputLastName) || empty($inputEmail) || empty($inputPassword) || empty($inputConfirmPassword)) {
-            echo '<script>showAlert("error", "Registration Failed", "All fields are required.");</script>';
+            $alertScript = "showAlert('error', 'Registration Failed', 'All fields are required.');";  
         } elseif (!filter_var($inputEmail, FILTER_VALIDATE_EMAIL)) {
-            echo '<script>showAlert("error", "Registration Failed", "Invalid email format.");</script>';
+            $alertScript = "showAlert('error', 'Registration Failed', 'Invalid email format.');";  
         } elseif (strlen($inputPassword) < 8) {
-            echo '<script>showAlert("error", "Registration Failed", "Password must be at least 8 characters long.");</script>';
+            $alertScript = "showAlert('error', 'Registration Failed', 'Password must be at least 8 characters long.');";  
         } elseif ($inputPassword !== $inputConfirmPassword) {
-            echo '<script>showAlert("error", "Registration Failed", "Passwords do not match.");</script>';
+            $alertScript = "showAlert('error', 'Registration Failed', 'Passwords do not match.');";  
         } else {
-            // Registration logic here...
-            echo '<script>showAlert("success", "Account Created!", "Welcome to Al-Ghaya!");</script>';
+            // Check if email already exists
+            $checkStmt = $conn->prepare("SELECT userID FROM user WHERE email = ? LIMIT 1");
+            if ($checkStmt) {
+                $checkStmt->bind_param("s", $inputEmail);
+                $checkStmt->execute();
+                $checkStmt->store_result();
+                
+                if ($checkStmt->num_rows > 0) {
+                    $alertScript = "showAlert('error', 'Registration Failed', 'An account with this email already exists.');";  
+                } else {
+                    // Create new account
+                    $hashedPassword = password_hash($inputPassword, PASSWORD_BCRYPT, ['cost' => 12]);
+                    $role = 'student';
+                    $level = 1;
+                    $points = 0;
+                    $proficiency = 'beginner';
+                    
+                    $insertStmt = $conn->prepare("INSERT INTO user (email, password, fname, lname, role, level, points, proficiency, dateCreated, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1)");
+                    if ($insertStmt) {
+                        $insertStmt->bind_param("sssssiis", $inputEmail, $hashedPassword, $inputFirstName, $inputLastName, $role, $level, $points, $proficiency);
+                        
+                        if ($insertStmt->execute()) {
+                            $alertScript = "showAlert('success', 'Account Created!', 'Welcome to Al-Ghaya! You can now log in to your account.', function() { window.location.href = 'login.php'; });";  
+                        } else {
+                            $alertScript = "showAlert('error', 'Registration Failed', 'Failed to create account. Please try again.');";  
+                        }
+                        $insertStmt->close();
+                    } else {
+                        $alertScript = "showAlert('error', 'System Error', 'Database error. Please try again later.');";  
+                    }
+                }
+                $checkStmt->close();
+            } else {
+                $alertScript = "showAlert('error', 'System Error', 'Database connection error. Please try again.');";  
+            }
         }
     }
     ?>
@@ -188,6 +238,27 @@ try {
                 if (callback) callback();
             });
         }
+        
+        function togglePassword(fieldId, iconId) {
+            const passwordInput = document.getElementById(fieldId);
+            const eyeIcon = document.getElementById(iconId);
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>`;
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>`;
+            }
+        }
     </script>
+    
+    <?php if (!empty($alertScript)) : ?>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            <?= $alertScript ?>
+        });
+    </script>
+    <?php endif; ?>
 </body>
 </html>
