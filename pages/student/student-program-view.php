@@ -57,7 +57,53 @@ $page_title = htmlspecialchars($program['title']);
 <?php include '../../components/student-nav.php'; ?>
 
 <div class="page-container">
-  <div class="page-content">
+  <div class="page-content grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Sticky Sidebar  --> <!--move this to the left side of the page -->
+    <aside class="lg:col-span-4">
+        <div class="lg:sticky lg:top-6 space-y-4">
+        <!-- Progress Card -->
+        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">Progress</span>
+            <span class="text-sm font-bold text-[#10375B]"><?= number_format($completion, 1) ?>%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-[#10375B] h-2 rounded-full" style="width: <?= max(0,min(100,$completion)) ?>%"></div>
+            </div>
+        </div>
+
+        <!-- Chapters Card -->
+        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-bold">Chapters</h2>
+            <button id="collapseAll" class="text-sm text-gray-600 hover:text-gray-900">Collapse</button>
+            </div>
+            <?php if (empty($chapters)): ?>
+            <p class="text-gray-500 text-sm">No chapters available.</p>
+            <?php else: ?>
+            <ul class="space-y-2">
+                <?php foreach ($chapters as $chapter): ?>
+                <li class="border border-gray-200 rounded-md overflow-hidden">
+                    <button class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50" onclick="toggleChapter(<?= $chapter['chapter_id'] ?>)">
+                    <span class="flex items-center gap-2 <?php if($currentChapter && $currentChapter['chapter_id']==$chapter['chapter_id']) echo 'font-semibold text-[#10375B]'; ?>">
+                        <i class="ph ph-book-open"></i>
+                        <?= htmlspecialchars($chapter['title']) ?>
+                    </span>
+                    <i id="chev-<?= $chapter['chapter_id'] ?>" class="ph ph-caret-down text-gray-400"></i>
+                    </button>
+                    <div id="panel-<?= $chapter['chapter_id'] ?>" class="px-3 pb-3 <?php if(!$currentChapter || $currentChapter['chapter_id']!=$chapter['chapter_id']) echo 'hidden'; ?>">
+                    <a href="?program_id=<?= $programID ?>&chapter_id=<?= $chapter['chapter_id'] ?>" class="block pl-6 py-2 text-sm rounded hover:bg-gray-100">
+                        <i class="ph ph-file-text text-[#A58618] mr-2"></i> Story: <?= htmlspecialchars($chapter['title']) ?>
+                    </a>
+                    </div>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+            <?php endif; ?>
+        </div>
+        </div>
+    </aside>
+
     <section class="content-section">
       <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <!-- Top: program IMAGE (same as original) -->
@@ -81,53 +127,6 @@ $page_title = htmlspecialchars($program['title']);
 
         <!-- Main two-column layout: Left sticky sidebar (progress + chapters); Right content card -->
         <div class="px-6 pb-6">
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <!-- Sticky Sidebar -->
-            <aside class="lg:col-span-4">
-              <div class="lg:sticky lg:top-6 space-y-4">
-                <!-- Progress Card -->
-                <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-medium text-gray-700">Progress</span>
-                    <span class="text-sm font-bold text-[#10375B]"><?= number_format($completion, 1) ?>%</span>
-                  </div>
-                  <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="bg-[#10375B] h-2 rounded-full" style="width: <?= max(0,min(100,$completion)) ?>%"></div>
-                  </div>
-                </div>
-
-                <!-- Chapters Card -->
-                <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                  <div class="flex items-center justify-between mb-3">
-                    <h2 class="text-lg font-bold">Chapters</h2>
-                    <button id="collapseAll" class="text-sm text-gray-600 hover:text-gray-900">Collapse</button>
-                  </div>
-                  <?php if (empty($chapters)): ?>
-                    <p class="text-gray-500 text-sm">No chapters available.</p>
-                  <?php else: ?>
-                    <ul class="space-y-2">
-                      <?php foreach ($chapters as $chapter): ?>
-                        <li class="border border-gray-200 rounded-md overflow-hidden">
-                          <button class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50" onclick="toggleChapter(<?= $chapter['chapter_id'] ?>)">
-                            <span class="flex items-center gap-2 <?php if($currentChapter && $currentChapter['chapter_id']==$chapter['chapter_id']) echo 'font-semibold text-[#10375B]'; ?>">
-                              <i class="ph ph-book-open"></i>
-                              <?= htmlspecialchars($chapter['title']) ?>
-                            </span>
-                            <i id="chev-<?= $chapter['chapter_id'] ?>" class="ph ph-caret-down text-gray-400"></i>
-                          </button>
-                          <div id="panel-<?= $chapter['chapter_id'] ?>" class="px-3 pb-3 <?php if(!$currentChapter || $currentChapter['chapter_id']!=$chapter['chapter_id']) echo 'hidden'; ?>">
-                            <a href="?program_id=<?= $programID ?>&chapter_id=<?= $chapter['chapter_id'] ?>" class="block pl-6 py-2 text-sm rounded hover:bg-gray-100">
-                              <i class="ph ph-file-text text-[#A58618] mr-2"></i> Story: <?= htmlspecialchars($chapter['title']) ?>
-                            </a>
-                          </div>
-                        </li>
-                      <?php endforeach; ?>
-                    </ul>
-                  <?php endif; ?>
-                </div>
-              </div>
-            </aside>
-
             <!-- Right Content Column -->
             <div class="lg:col-span-8 space-y-6">
               <!-- Description block (separate from content card) -->
@@ -193,7 +192,6 @@ $page_title = htmlspecialchars($program['title']);
                 <div class="text-center py-10 text-gray-500">Select a chapter from the sidebar to begin.</div>
               <?php endif; ?>
             </div>
-          </div>
         </div>
       </div>
     </section>
