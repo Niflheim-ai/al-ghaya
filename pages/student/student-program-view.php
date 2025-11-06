@@ -56,10 +56,10 @@ $page_title = htmlspecialchars($program['title']);
 <?php include '../../components/header.php'; ?>
 <?php include '../../components/student-nav.php'; ?>
 
-<div class="page-container">
-  <div class="page-content grid grid-cols-1 lg:grid-cols-12 gap-6">
+<div class="page-container max-w-full">
+  <div class="page-content grid md:grid-cols-12 gap-6">
     <!-- Sticky Sidebar - NOW ON THE LEFT SIDE -->
-    <aside class="lg:col-span-4 lg:order-first">
+    <aside class="md:col-span-4 order-first">
         <div class="lg:sticky lg:top-6 space-y-4">
         <!-- Progress Card -->
         <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
@@ -105,7 +105,7 @@ $page_title = htmlspecialchars($program['title']);
     </aside>
 
     <!-- Main Content - NOW ON THE RIGHT SIDE -->
-    <section class="content-section lg:col-span-8">
+    <section class="content-section md:col-span-8">
       <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <!-- Top: program IMAGE (same as original) -->
         <div class="w-full">
