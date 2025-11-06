@@ -57,9 +57,9 @@ $page_title = htmlspecialchars($program['title']);
 <?php include '../../components/student-nav.php'; ?>
 
 <div class="page-container">
-  <div class="page-content grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Sticky Sidebar  --> <!--move this to the left side of the page -->
-    <aside class="lg:col-span-4">
+  <div class="page-content grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Sticky Sidebar - NOW ON THE LEFT SIDE -->
+    <aside class="lg:col-span-4 lg:order-first">
         <div class="lg:sticky lg:top-6 space-y-4">
         <!-- Progress Card -->
         <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
@@ -104,7 +104,8 @@ $page_title = htmlspecialchars($program['title']);
         </div>
     </aside>
 
-    <section class="content-section">
+    <!-- Main Content - NOW ON THE RIGHT SIDE -->
+    <section class="content-section lg:col-span-8">
       <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <!-- Top: program IMAGE (same as original) -->
         <div class="w-full">
@@ -125,73 +126,70 @@ $page_title = htmlspecialchars($program['title']);
           </div>
         </div>
 
-        <!-- Main two-column layout: Left sticky sidebar (progress + chapters); Right content card -->
-        <div class="px-6 pb-6">
-            <!-- Right Content Column -->
-            <div class="lg:col-span-8 space-y-6">
-              <!-- Description block (separate from content card) -->
-              <div class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
-                <h2 class="text-xl font-bold mb-2">Description</h2>
-                <p class="text-gray-700 leading-relaxed"><?= nl2br(htmlspecialchars($program['description'] ?? '')) ?></p>
-              </div>
+        <!-- Content sections -->
+        <div class="px-6 pb-6 space-y-6">
+          <!-- Description block (separate from content card) -->
+          <div class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+            <h2 class="text-xl font-bold mb-2">Description</h2>
+            <p class="text-gray-700 leading-relaxed"><?= nl2br(htmlspecialchars($program['description'] ?? '')) ?></p>
+          </div>
 
-              <?php if ($currentChapter): ?>
-                <!-- Chapter Content Card -->
-                <div class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
-                  <h3 class="text-lg font-semibold mb-4"><?= htmlspecialchars($currentChapter['title']) ?></h3>
+          <?php if ($currentChapter): ?>
+            <!-- Chapter Content Card -->
+            <div class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+              <h3 class="text-lg font-semibold mb-4"><?= htmlspecialchars($currentChapter['title']) ?></h3>
 
-                  <?php if (!empty($currentChapter['video_url'])): ?>
-                    <?php $embedUrl = toYouTubeEmbedUrl($currentChapter['video_url']); ?>
-                    <?php if ($embedUrl): ?>
-                      <div class="mb-6">
-                        <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg">
-                          <iframe class="absolute top-0 left-0 w-full h-full" src="<?= htmlspecialchars($embedUrl) ?>" title="Chapter Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;" allowfullscreen></iframe>
-                        </div>
-                      </div>
-                    <?php endif; ?>
-                  <?php endif; ?>
-
-                  <?php if (!empty($currentChapter['content'])): ?>
-                    <div class="prose max-w-none">
-                      <?= nl2br(htmlspecialchars($currentChapter['content'])) ?>
+              <?php if (!empty($currentChapter['video_url'])): ?>
+                <?php $embedUrl = toYouTubeEmbedUrl($currentChapter['video_url']); ?>
+                <?php if ($embedUrl): ?>
+                  <div class="mb-6">
+                    <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg">
+                      <iframe class="absolute top-0 left-0 w-full h-full" src="<?= htmlspecialchars($embedUrl) ?>" title="Chapter Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;" allowfullscreen></iframe>
                     </div>
-                  <?php endif; ?>
-
-                  <?php if (!empty($currentChapter['question'])): ?>
-                    <div class="mt-6 p-4 bg-gray-50 rounded border">
-                      <h4 class="font-semibold mb-2">Interactive Section</h4>
-                      <p class="text-gray-700 mb-3"><?= nl2br(htmlspecialchars($currentChapter['question'])) ?></p>
-                      <?php if (!empty($currentChapter['answer_options'])): ?>
-                        <?php $opts = json_decode($currentChapter['answer_options'], true) ?: []; ?>
-                        <?php foreach ($opts as $i => $opt): ?>
-                          <div class="mb-2 p-3 bg-white border rounded"> <span class="font-medium"><?= chr(65+$i) ?>.</span> <?= htmlspecialchars($opt) ?> </div>
-                        <?php endforeach; ?>
-                      <?php endif; ?>
-                      <p class="text-xs text-gray-500 mt-2">Note: Validation and locking will be added after DB migration.</p>
-                    </div>
-                  <?php endif; ?>
-                </div>
-
-                <!-- Next Chapter button -->
-                <?php 
-                  $next = null; 
-                  if (!empty($chapters)) {
-                    foreach ($chapters as $idx => $c) {
-                      if ($c['chapter_id'] == $currentChapter['chapter_id'] && isset($chapters[$idx+1])) { $next = $chapters[$idx+1]; break; }
-                    }
-                  }
-                ?>
-                <?php if ($next): ?>
-                  <div class="text-center">
-                    <a href="?program_id=<?= $programID ?>&chapter_id=<?= $next['chapter_id'] ?>" class="inline-flex items-center px-6 py-3 bg-[#A58618] text-white rounded-lg font-semibold shadow hover:bg-[#8a6f15]">
-                      Next: <?= htmlspecialchars($next['title']) ?>
-                    </a>
                   </div>
                 <?php endif; ?>
-              <?php else: ?>
-                <div class="text-center py-10 text-gray-500">Select a chapter from the sidebar to begin.</div>
+              <?php endif; ?>
+
+              <?php if (!empty($currentChapter['content'])): ?>
+                <div class="prose max-w-none">
+                  <?= nl2br(htmlspecialchars($currentChapter['content'])) ?>
+                </div>
+              <?php endif; ?>
+
+              <?php if (!empty($currentChapter['question'])): ?>
+                <div class="mt-6 p-4 bg-gray-50 rounded border">
+                  <h4 class="font-semibold mb-2">Interactive Section</h4>
+                  <p class="text-gray-700 mb-3"><?= nl2br(htmlspecialchars($currentChapter['question'])) ?></p>
+                  <?php if (!empty($currentChapter['answer_options'])): ?>
+                    <?php $opts = json_decode($currentChapter['answer_options'], true) ?: []; ?>
+                    <?php foreach ($opts as $i => $opt): ?>
+                      <div class="mb-2 p-3 bg-white border rounded"> <span class="font-medium"><?= chr(65+$i) ?>.</span> <?= htmlspecialchars($opt) ?> </div>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
+                  <p class="text-xs text-gray-500 mt-2">Note: Validation and locking will be added after DB migration.</p>
+                </div>
               <?php endif; ?>
             </div>
+
+            <!-- Next Chapter button -->
+            <?php 
+              $next = null; 
+              if (!empty($chapters)) {
+                foreach ($chapters as $idx => $c) {
+                  if ($c['chapter_id'] == $currentChapter['chapter_id'] && isset($chapters[$idx+1])) { $next = $chapters[$idx+1]; break; }
+                }
+              }
+            ?>
+            <?php if ($next): ?>
+              <div class="text-center">
+                <a href="?program_id=<?= $programID ?>&chapter_id=<?= $next['chapter_id'] ?>" class="inline-flex items-center px-6 py-3 bg-[#A58618] text-white rounded-lg font-semibold shadow hover:bg-[#8a6f15]">
+                  Next: <?= htmlspecialchars($next['title']) ?>
+                </a>
+              </div>
+            <?php endif; ?>
+          <?php else: ?>
+            <div class="text-center py-10 text-gray-500">Select a chapter from the sidebar to begin.</div>
+          <?php endif; ?>
         </div>
       </div>
     </section>
