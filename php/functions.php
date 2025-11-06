@@ -175,4 +175,226 @@
             return $result->fetch_all(MYSQLI_ASSOC);
         } catch (Exception $e) { error_log('Error fetching chapters: ' . $e->getMessage()); return []; }
     }
+
+    // ===============================
+    // ENHANCED PROGRAM VIEW FUNCTIONS
+    // ===============================
+
+    // Fetch chapters with stories and progress tracking
+    function fetchChaptersWithStories($conn, $programID) {
+        try {
+            // Get chapters
+            $chaptersStmt = $conn->prepare("
+                SELECT 
+                    pc.chapter_id, 
+                    pc.title, 
+                    pc.content, 
+                    pc.video_url, 
+                    pc.question, 
+                    pc.question_type, 
+                    pc.answer_options, 
+                    pc.correct_answer, 
+                    pc.chapter_order,
+                    pc.is_required
+                FROM program_chapters pc 
+                WHERE pc.programID = ? 
+                ORDER BY pc.chapter_order ASC
+            ");
+            $chaptersStmt->bind_param("i", $programID);
+            $chaptersStmt->execute();
+            $chapters = $chaptersStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+            // For each chapter, get stories (using content as stories for now)
+            foreach ($chapters as &$chapter) {
+                $chapter['stories'] = [];
+                $chapter['is_unlocked'] = true; // For now, all chapters are unlocked
+                $chapter['is_completed'] = false; // TODO: Implement completion tracking
+                
+                // Create mock stories from chapter content if available
+                if (!empty($chapter['content'])) {
+                    $chapter['stories'][] = [
+                        'story_id' => $chapter['chapter_id'] . '01', // Mock story ID
+                        'title' => 'Story: ' . $chapter['title'],
+                        'content' => $chapter['content'],
+                        'video_url' => $chapter['video_url'],
+                        'is_unlocked' => true,
+                        'is_completed' => false
+                    ];
+                }
+            }
+
+            return $chapters;
+        } catch (Exception $e) {
+            error_log('Error fetching chapters with stories: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Get teacher information for a program
+    function getTeacherInfo($conn, $programID) {
+        try {
+            $stmt = $conn->prepare("
+                SELECT t.teacherID, t.fname, t.lname, t.specialization, t.profile_picture 
+                FROM teacher t 
+                JOIN programs p ON t.teacherID = p.teacherID 
+                WHERE p.programID = ?
+            ");
+            $stmt->bind_param("i", $programID);
+            $stmt->execute();
+            return $stmt->get_result()->fetch_assoc();
+        } catch (Exception $e) {
+            error_log('Error fetching teacher info: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // Get student progress for a program
+    function getStudentProgress($conn, $studentID, $programID) {
+        try {
+            $stmt = $conn->prepare("
+                SELECT 
+                    spe.completion_percentage,
+                    spe.enrollment_date,
+                    spe.last_accessed
+                FROM student_program_enrollments spe 
+                WHERE spe.student_id = ? AND spe.program_id = ?
+            ");
+            $stmt->bind_param("ii", $studentID, $programID);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            
+            return $result ?: [
+                'completion_percentage' => 0,
+                'enrollment_date' => date('Y-m-d H:i:s'),
+                'last_accessed' => date('Y-m-d H:i:s')
+            ];
+        } catch (Exception $e) {
+            error_log('Error fetching student progress: ' . $e->getMessage());
+            return ['completion_percentage' => 0, 'enrollment_date' => date('Y-m-d H:i:s'), 'last_accessed' => date('Y-m-d H:i:s')];
+        }
+    }
+
+    // Get story content with progress tracking
+    function getStoryContent($conn, $storyID, $studentID) {
+        // For now, treating story as chapter content since we don't have separate stories table
+        $chapterID = intval($storyID / 100); // Extract chapter ID from mock story ID
+        return getChapterContent($conn, $chapterID, $studentID, 'story');
+    }
+
+    // Get chapter content with progress tracking
+    function getChapterContent($conn, $chapterID, $studentID, $type = 'chapter') {
+        try {
+            $stmt = $conn->prepare("
+                SELECT 
+                    pc.chapter_id as id,
+                    pc.title,
+                    pc.content,
+                    pc.video_url,
+                    pc.question,
+                    pc.question_type,
+                    pc.answer_options,
+                    pc.correct_answer
+                FROM program_chapters pc 
+                WHERE pc.chapter_id = ?
+            ");
+            $stmt->bind_param("i", $chapterID);
+            $stmt->execute();
+            $content = $stmt->get_result()->fetch_assoc();
+            
+            if ($content) {
+                $content['type'] = $type;
+                $content['video_watched'] = true; // TODO: Implement video tracking
+                $content['interactive_completed'] = false; // TODO: Implement interactive tracking
+                $content['can_proceed'] = true; // TODO: Implement security checks
+                $content['next_content'] = null; // TODO: Implement next content logic
+            }
+            
+            return $content;
+        } catch (Exception $e) {
+            error_log('Error fetching chapter content: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // Get first available content for a program
+    function getFirstAvailableContent($conn, $programID, $studentID) {
+        try {
+            $stmt = $conn->prepare("
+                SELECT chapter_id 
+                FROM program_chapters 
+                WHERE programID = ? 
+                ORDER BY chapter_order ASC 
+                LIMIT 1
+            ");
+            $stmt->bind_param("i", $programID);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            
+            if ($result) {
+                return getChapterContent($conn, $result['chapter_id'], $studentID);
+            }
+            
+            return null;
+        } catch (Exception $e) {
+            error_log('Error fetching first available content: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // Mark video as watched
+    function markVideoWatched($conn, $studentID, $contentID, $contentType) {
+        try {
+            // TODO: Implement video watching tracking in database
+            // For now, just return success
+            return true;
+        } catch (Exception $e) {
+            error_log('Error marking video watched: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Submit interactive answers
+    function submitInteractiveAnswers($conn, $studentID, $contentID, $answers) {
+        try {
+            // Get the correct answer
+            $stmt = $conn->prepare("SELECT correct_answer, question_type FROM program_chapters WHERE chapter_id = ?");
+            $stmt->bind_param("i", $contentID);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            
+            if (!$result) {
+                return ['correct' => false, 'message' => 'Content not found.'];
+            }
+            
+            $correctAnswer = $result['correct_answer'];
+            $questionType = $result['question_type'];
+            $submittedAnswer = $answers['answer'] ?? '';
+            
+            $isCorrect = false;
+            
+            switch ($questionType) {
+                case 'multiple_choice':
+                    $isCorrect = ($submittedAnswer == $correctAnswer);
+                    break;
+                case 'true_false':
+                    $isCorrect = (strtolower($submittedAnswer) == strtolower($correctAnswer));
+                    break;
+                case 'short_answer':
+                case 'essay':
+                    // For text answers, do a simple comparison (can be enhanced)
+                    $isCorrect = (strtolower(trim($submittedAnswer)) == strtolower(trim($correctAnswer)));
+                    break;
+            }
+            
+            // TODO: Save the attempt to database
+            
+            return [
+                'correct' => $isCorrect,
+                'message' => $isCorrect ? 'Great job!' : 'Please review the content and try again.'
+            ];
+        } catch (Exception $e) {
+            error_log('Error submitting interactive answers: ' . $e->getMessage());
+            return ['correct' => false, 'message' => 'An error occurred. Please try again.'];
+        }
+    }
 ?>
