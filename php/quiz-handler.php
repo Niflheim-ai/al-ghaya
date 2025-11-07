@@ -331,10 +331,10 @@ if ($__SELF__ === 'quiz-handler.php') {
 
 // Legacy aliases for backward compatibility
 function getQuiz($conn, $quiz_id) { return quiz_getById($conn, $quiz_id); }
-function getChapterQuiz($conn, $chapter_id) { return quiz_getByChapter($conn, $chapter_id); }
+// function getChapterQuiz($conn, $chapter_id) { return quiz_getByChapter($conn, $chapter_id); }
 function getQuizQuestions($conn, $quiz_id) { return quizQuestion_getByQuiz($conn, $quiz_id); }
 function getQuestionOptions($conn, $question_id) { return quizQuestionOption_getByQuestion($conn, $question_id); }
-function getStoryInteractiveSections($conn, $story_id) { return interactiveSection_getByStory($conn, $story_id); }
-function getSectionQuestions($conn, $section_id) { return interactiveQuestion_getBySection($conn, $section_id); }
+// function getStoryInteractiveSections($conn, $story_id) { return interactiveSection_getByStory($conn, $story_id); }
+// function getSectionQuestions($conn, $section_id) { return interactiveQuestion_getBySection($conn, $section_id); }
 function createQuiz($conn, $chapter_id, $title) { return quiz_create($conn, $chapter_id, $title); }
 function deleteQuiz($conn, $quiz_id) { return quiz_delete($conn, $quiz_id); }
