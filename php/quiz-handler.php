@@ -16,10 +16,10 @@ if (!function_exists('validateTeacherAccess')) {
 }
 
 // Quiz CRUD functions
-function quiz_create($conn, $chapter_id, $title) {
-    $stmt = $conn->prepare("INSERT INTO chapter_quizzes (chapter_id, title, dateCreated, dateUpdated) VALUES (?, ?, NOW(), NOW())");
+function quiz_create($conn, $chapter_id, $program_id, $title) {
+    $stmt = $conn->prepare("INSERT INTO chapter_quizzes (chapter_id, program_id, title, dateCreated, dateUpdated) VALUES (?, ?, ?, NOW(), NOW())");
     if (!$stmt) { error_log("quiz_create prepare failed: " . $conn->error); return false; }
-    $stmt->bind_param("is", $chapter_id, $title);
+    $stmt->bind_param("iis", $chapter_id, $program_id, $title);
     if ($stmt->execute()) { $quiz_id = $stmt->insert_id; $stmt->close(); return $quiz_id; }
     error_log("quiz_create execute failed: " . $stmt->error); $stmt->close(); return false;
 }
@@ -202,6 +202,25 @@ if ($__SELF__ === 'quiz-handler.php') {
                     exit;
                 }
                 
+                // Get program_id from chapter
+                $chapterStmt = $conn->prepare("SELECT programID FROM program_chapters WHERE chapter_id = ?");
+                if (!$chapterStmt) {
+                    echo json_encode(['success' => false, 'message' => 'Failed to get chapter information']);
+                    exit;
+                }
+                $chapterStmt->bind_param("i", $chapter_id);
+                $chapterStmt->execute();
+                $chapterResult = $chapterStmt->get_result();
+                $chapterData = $chapterResult->fetch_assoc();
+                $chapterStmt->close();
+                
+                if (!$chapterData) {
+                    echo json_encode(['success' => false, 'message' => 'Chapter not found']);
+                    exit;
+                }
+                
+                $program_id = intval($chapterData['programID']);
+                
                 $conn->begin_transaction();
                 try {
                     $quiz = quiz_getByChapter($conn, $chapter_id);
@@ -210,7 +229,7 @@ if ($__SELF__ === 'quiz-handler.php') {
                         quiz_update($conn, $quiz_id, $quiz_title);
                         quizQuestion_deleteByQuiz($conn, $quiz_id);
                     } else {
-                        $quiz_id = quiz_create($conn, $chapter_id, $quiz_title);
+                        $quiz_id = quiz_create($conn, $chapter_id, $program_id, $quiz_title);
                         if (!$quiz_id) throw new Exception('Failed to create quiz');
                     }
                     
@@ -331,10 +350,10 @@ if ($__SELF__ === 'quiz-handler.php') {
 
 // Legacy aliases for backward compatibility
 function getQuiz($conn, $quiz_id) { return quiz_getById($conn, $quiz_id); }
-// function getChapterQuiz($conn, $chapter_id) { return quiz_getByChapter($conn, $chapter_id); }
+function getChapterQuiz($conn, $chapter_id) { return quiz_getByChapter($conn, $chapter_id); }
 function getQuizQuestions($conn, $quiz_id) { return quizQuestion_getByQuiz($conn, $quiz_id); }
 function getQuestionOptions($conn, $question_id) { return quizQuestionOption_getByQuestion($conn, $question_id); }
-// function getStoryInteractiveSections($conn, $story_id) { return interactiveSection_getByStory($conn, $story_id); }
-// function getSectionQuestions($conn, $section_id) { return interactiveQuestion_getBySection($conn, $section_id); }
-function createQuiz($conn, $chapter_id, $title) { return quiz_create($conn, $chapter_id, $title); }
+function getStoryInteractiveSections($conn, $story_id) { return interactiveSection_getByStory($conn, $story_id); }
+function getSectionQuestions($conn, $section_id) { return interactiveQuestion_getBySection($conn, $section_id); }
+function createQuiz($conn, $chapter_id, $program_id, $title) { return quiz_create($conn, $chapter_id, $program_id, $title); }
 function deleteQuiz($conn, $quiz_id) { return quiz_delete($conn, $quiz_id); }
