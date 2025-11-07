@@ -9,6 +9,7 @@ if (!isset($_SESSION['userID']) || (($_SESSION['role'] ?? '') !== 'teacher')) { 
 require_once '../../php/dbConnection.php';
 require_once '../../php/functions.php';
 require_once '../../php/program-core.php'; // unified core (handlers + helpers)
+require_once '../../php/quiz-handler.php'; // quiz functions
 
 $user_id = (int)$_SESSION['userID'];
 $action = $_GET['action'] ?? 'list';
@@ -43,7 +44,8 @@ switch ($action) {
     $program = $program_id ? getProgram($conn, $program_id, $teacher_id) : null;
     $chapter = $chapter_id ? getChapter($conn, $chapter_id) : null;
     if (!$program || !$chapter || (int)($program['programID']??0)!==(int)($chapter['programID']??-1)) { $_SESSION['error_message']='Invalid program or no permission'; header('Location: ?action=create&program_id='.(int)$program_id); exit(); }
-    $quiz = $chapter_id ? getChapterQuiz($conn, $chapter_id) : null;
+    $quiz = getChapterQuiz($conn, $chapter_id);
+    $quiz_questions = $quiz ? quizQuestion_getByQuiz($conn, $quiz['quiz_id']) : [];
     break;
   default:
     $pageContent='programs_list';
@@ -170,6 +172,8 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             <?php include '../../components/chapter-content-form.php'; ?>
         <?php elseif ($pageContent === 'story_form'): ?>
             <?php include '../../components/story-form.php'; ?>
+        <?php elseif ($pageContent === 'quiz_form'): ?>
+            <?php include '../../components/quiz-form.php'; ?>
         <?php else: ?>
             <section class="content-section">
                 <div class="bg-white rounded-xl shadow-md p-6">
