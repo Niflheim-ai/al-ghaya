@@ -202,6 +202,43 @@ $page_title = htmlspecialchars($program['title']);
             <div class="w-full bg-gray-200 rounded-full h-2.5">
               <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all" style="width: <?= max(0,min(100,$completion)) ?>%"></div>
             </div>
+
+            <!-- For Testing Only (Reset Progress/Unenroll) -->
+            <?php if ($_SESSION['role'] === 'student'): ?>
+            <div class="bg-yellow-50 rounded-lg p-3 my-4 text-center border border-yellow-300">
+              <strong>Development Only:</strong>
+              <form id="devResetForm" class="inline-flex gap-2 mt-2">
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded">Reset Progress</button>
+                <button type="button" onclick="unenrollDev()" class="px-4 py-2 bg-red-600 text-white rounded">Unenroll</button>
+              </form>
+            </div>
+            <script>
+              function getProgramId() { return <?= $programID ?>; }
+              document.getElementById('devResetForm').onsubmit = function(e) {
+                e.preventDefault();
+                fetch('../../php/progress-reset-handler.php', {
+                  method:'POST',
+                  headers:{'Content-Type':'application/json'},
+                  body:JSON.stringify({program_id:getProgramId()})
+                }).then(r=>r.json()).then(data => {
+                  alert(data.message||'Progress reset!');
+                  if(data.success) location.reload();
+                });
+              }
+              function unenrollDev() {
+                fetch('../../php/progress-reset-handler.php', {
+                  method:'POST',
+                  headers:{'Content-Type':'application/json'},
+                  body:JSON.stringify({action:'unenroll',program_id:getProgramId()})
+                }).then(r=>r.json()).then(data => {
+                  alert(data.message||'Unenrolled!');
+                  if(data.success) location.href = 'student-programs.php';
+                });
+              }
+            </script>
+          <?php endif; ?>
+
+
           </div>
           <div class="bg-white border border-gray-200 rounded-lg shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto">
             <div class="p-4 border-b border-gray-200 sticky top-0 bg-white">
