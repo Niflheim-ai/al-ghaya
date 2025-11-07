@@ -153,10 +153,10 @@ $page_title = htmlspecialchars($program['title']);
           <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
             <div class="flex items-center justify-between mb-2">
               <span class="text-sm font-medium text-gray-700">Progress</span>
-              <span class="text-sm font-bold text-blue-600"><?= number_format($completion, 1) ?>%</span>
+              <span id="progressPercent" class="text-sm font-bold text-blue-600"><?= number_format($completion, 1) ?>%</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2.5">
-              <div class="bg-blue-600 h-2.5 rounded-full transition-all" style="width: <?= max(0,min(100,$completion)) ?>%"></div>
+              <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all" style="width: <?= max(0,min(100,$completion)) ?>%"></div>
             </div>
           </div>
 
@@ -322,8 +322,8 @@ $page_title = htmlspecialchars($program['title']);
               </div>
             <?php endif; ?>
             
-            <!-- Next Story Button (Hidden until quiz passed) -->
-            <div id="nextStorySection" class="<?= empty($currentContent['quiz_question']) ? '' : 'hidden' ?> text-center pt-4">
+            <!-- Next Story Button (ALWAYS HIDDEN until quiz passed) -->
+            <div id="nextStorySection" class="hidden text-center pt-4">
               <?php
                 // Find next story
                 $nextStory = null;
@@ -394,6 +394,34 @@ function toggleChapter(chapterId) {
 toggleChapter(<?= $currentContent['chapter_id'] ?>);
 <?php endif; ?>
 
+// Update progress bar
+function updateProgress() {
+  fetch('../../php/quiz-answer-handler.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'get_progress',
+      program_id: programId
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const percentage = data.completion_percentage || 0;
+      const progressBar = document.getElementById('progressBar');
+      const progressPercent = document.getElementById('progressPercent');
+      
+      if (progressBar) {
+        progressBar.style.width = percentage + '%';
+      }
+      if (progressPercent) {
+        progressPercent.textContent = percentage.toFixed(1) + '%';
+      }
+    }
+  })
+  .catch(error => console.error('Progress update error:', error));
+}
+
 // Handle quiz submission
 const quizForm = document.getElementById('quizForm');
 if (quizForm) {
@@ -451,6 +479,9 @@ if (quizForm) {
         submitBtn.disabled = true;
         quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
         nextSection.classList.remove('hidden');
+        
+        // Update progress bar
+        updateProgress();
         
       } else {
         // Wrong answer
