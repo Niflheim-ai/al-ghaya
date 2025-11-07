@@ -71,13 +71,11 @@ $showCertificate = $certificateEarned;
 // For exam view: compile list of up to 50 random questions from all chapter quizzes
 $compiledExamQuestions = [];
 if ($viewExam && $showExam) {
-    // Get all quizzes in program
     $quizIds = [];
     foreach($chapters as $ch) {
         $quiz = getChapterQuiz($conn, $ch['chapter_id']);
         if($quiz) $quizIds[] = $quiz['quiz_id'];
     }
-    // Collect all questions
     $questions = [];
     foreach($quizIds as $qid) {
         $result = quizQuestion_getByQuiz($conn, $qid);
@@ -202,8 +200,6 @@ $page_title = htmlspecialchars($program['title']);
             <div class="w-full bg-gray-200 rounded-full h-2.5">
               <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all" style="width: <?= max(0,min(100,$completion)) ?>%"></div>
             </div>
-
-            <!-- For Testing Only (Reset Progress/Unenroll) -->
             <?php if ($_SESSION['role'] === 'student'): ?>
             <div class="bg-yellow-50 rounded-lg p-3 my-4 text-center border border-yellow-300">
               <strong>Development Only:</strong>
@@ -237,8 +233,6 @@ $page_title = htmlspecialchars($program['title']);
               }
             </script>
           <?php endif; ?>
-
-
           </div>
           <div class="bg-white border border-gray-200 rounded-lg shadow-sm max-h-[calc(100vh-200px)] overflow-y-auto">
             <div class="p-4 border-b border-gray-200 sticky top-0 bg-white">
@@ -270,154 +264,30 @@ $page_title = htmlspecialchars($program['title']);
                         <?php endforeach; ?>
                       <?php endif; ?>
                       <?php if ($navItem['quiz']): ?>
-                        <div class="sidebar-item flex items-center gap-2 p-2 pl-6 text-sm rounded-lg text-gray-500">
+                        <a href="?program_id=<?= $programID ?>&quiz_id=<?= $navItem['quiz']['quiz_id'] ?>" class="sidebar-item flex items-center gap-2 p-2 pl-6 text-sm rounded-lg text-orange-700 hover:bg-orange-50 font-semibold">
                           <i class="ph ph-exam text-orange-600"></i>
                           <?= htmlspecialchars($navItem['quiz']['title']) ?>
-                        </div>
+                        </a>
                       <?php endif; ?>
                     </div>
                   </div>
                 <?php endforeach; ?>
               <?php endif; ?>
-              <?php if ($showExam): ?>
-                <a href="?program_id=<?= $programID ?>&take_exam=1" class="sidebar-item flex items-center gap-2 p-3 mt-6 mb-2 rounded-lg bg-yellow-50 font-bold text-orange-800 border border-orange-300">
-                  <i class="ph ph-exam text-orange-600"></i>
-                  Program Exam
-                </a>
-              <?php endif; ?>
-              <?php if ($showCertificate): ?>
-                <div class="sidebar-item flex items-center gap-2 p-3 mt-6 mb-2 rounded-lg bg-green-50 font-bold text-green-800 border border-green-300">
-                  <i class="ph ph-certificate text-green-600"></i>
-                  <a href="<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>" target="_blank">Certificate</a>
-                </div>
-              <?php endif; ?>
             </div>
           </div>
+          <!-- Place Exam and Certificate at the fixed end of sidebar, outside the scroll container -->
+          <?php if ($showExam): ?>
+            <a href="?program_id=<?= $programID ?>&take_exam=1" class="sidebar-item flex items-center gap-2 p-3 mt-6 mb-2 rounded-lg bg-yellow-50 font-bold text-orange-800 border border-orange-300">
+              <i class="ph ph-exam text-orange-600"></i>
+              Program Exam
+            </a>
+          <?php endif; ?>
+          <?php if ($showCertificate): ?>
+            <div class="sidebar-item flex items-center gap-2 p-3 mb-2 rounded-lg bg-green-50 font-bold text-green-800 border border-green-300">
+              <i class="ph ph-certificate text-green-600"></i>
+              <a href="<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>" target="_blank">Certificate</a>
+            </div>
+          <?php endif; ?>
         </div>
       </aside>
-      <section class="lg:col-span-9 lg:order-last space-y-6">
-        <div class="bg-white rounded-xl shadow-md overflow-hidden">
-          <div class="w-full">
-            <?php $heroImg = !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/'.htmlspecialchars($program['thumbnail']) : '../../images/default-program.jpg'; ?>
-            <img src="<?= $heroImg ?>" alt="Program Image" class="w-full h-48 md:h-64 object-cover">
-          </div>
-          <div class="p-6">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-              <?= htmlspecialchars($program['title']) ?>
-            </h1>
-            <div class="inline-flex items-center gap-2 mb-4">
-              <i class="ph-fill ph-barbell text-blue-600"></i>
-              <span class="text-sm font-semibold text-gray-700"><?= htmlspecialchars(ucfirst($program['category'])) ?> Level</span>
-            </div>
-          </div>
-        </div>
-        <?php if ($currentType === 'final_exam'): ?>
-        <div class="bg-white rounded-xl shadow-md p-6 mt-8">
-          <h2 class="text-2xl font-bold text-orange-800 mb-4 flex items-center gap-2"><i class="ph ph-exam text-orange-500"></i> Program Final Exam</h2>
-          <form id="finalExamForm">
-            <?php foreach ($compiledExamQuestions as $i => $question): ?>
-            <div class="mb-6 border-b pb-5">
-              <div class="font-semibold mb-2">Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?></div>
-              <?php foreach ($question['options'] as $opt): ?>
-              <div class="mb-2">
-                <label class="flex gap-2 items-center">
-                  <input type="radio" name="exam_answer_<?= $i ?>" value="<?= $opt['quiz_option_id'] ?>" required> <?= htmlspecialchars($opt['option_text']) ?>
-                </label>
-              </div>
-              <?php endforeach; ?>
-              <input type="hidden" name="exam_question_id_<?= $i ?>" value="<?= $question['quiz_question_id'] ?>">
-            </div>
-            <?php endforeach; ?>
-            <input type="hidden" name="total_questions" value="<?= count($compiledExamQuestions) ?>">
-            <div class="mt-8 text-center">
-              <button type="submit" class="px-8 py-3 bg-orange-700 text-white rounded-lg font-semibold shadow hover:bg-orange-900">Submit Exam</button>
-            </div>
-          </form>
-          <div id="examResult" class="hidden mt-8"></div>
-        </div>
-        <script>
-document.getElementById('finalExamForm').onsubmit = function(e) {
-  e.preventDefault();
-  const formData = new FormData(this);
-  const answers = {};
-  for (var [k, v] of formData.entries()) {
-    if (k.startsWith('exam_answer_')) {
-      const idx = k.replace('exam_answer_', '');
-      answers[idx] = v;
-    }
-  }
-  const questionIDs = [];
-  for (let i = 0; i < formData.get('total_questions'); i++) {
-    questionIDs.push(formData.get('exam_question_id_' + i));
-  }
-  fetch('../../php/exam-answer-handler.php', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      action: 'submit_final_exam',
-      answers,
-      questionIDs,
-      program_id: <?= $programID ?>
-    })
-  }).then(r=>r.json()).then(data => {
-    const resultDiv = document.getElementById('examResult');
-    resultDiv.classList.remove('hidden');
-    if(data.passed) {
-      resultDiv.innerHTML = `<div class='bg-green-100 text-green-900 border-green-400 border-2 rounded-lg p-6 text-xl font-bold'>Congratulations! You have earned a certificate for this program! <a href='<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>' class='underline text-green-700' target='_blank'>View Certificate</a></div>`;
-      setTimeout(()=>window.location = '?program_id=<?= $programID ?>', 2200);
-    } else {
-      resultDiv.innerHTML = `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>You did not pass the exam. All progress has been reset; you must restart the program.</div>`;
-      setTimeout(()=>window.location = '?program_id=<?= $programID ?>', 2200);
-    }
-  });
-};
-</script>
-        <?php elseif ($currentContent && $currentType === 'story'): ?>
-          <div class="bg-white rounded-xl shadow-md p-6 space-y-6">
-            <div class="border-b pb-4">
-              <h2 class="text-2xl font-bold text-gray-900"><?= htmlspecialchars($currentContent['title']) ?></h2>
-            </div>
-            <?php if (!empty($currentContent['synopsis_arabic'])): ?>
-              <div class="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-5 border-r-4 border-blue-600">
-                <h3 class="text-lg font-semibold text-blue-900 mb-2 flex items-center gap-2"><i class="ph ph-book-open"></i> ملخص القصة (Arabic Synopsis)</h3>
-                <p class="text-gray-800 leading-relaxed text-right" dir="rtl"><?= nl2br(htmlspecialchars($currentContent['synopsis_arabic'])) ?></p>
-              </div>
-            <?php endif; ?>
-            <?php if (!empty($currentContent['synopsis_english'])): ?>
-              <div class="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-5 border-l-4 border-green-600">
-                <h3 class="text-lg font-semibold text-green-900 mb-2 flex items-center gap-2"><i class="ph ph-book-open"></i> English Synopsis</h3>
-                <p class="text-gray-800 leading-relaxed"><?= nl2br(htmlspecialchars($currentContent['synopsis_english'])) ?></p>
-              </div>
-            <?php endif; ?>
-            <?php if (!empty($currentContent['video_url'])): ?>
-              <?php $embedUrl = toYouTubeEmbedUrl($currentContent['video_url']); ?>
-              <?php if ($embedUrl): ?>
-                <div class="space-y-3">
-                  <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2"><i class="ph ph-video-camera text-red-600"></i> Watch Story Video</h3>
-                  <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg shadow-lg"><iframe id="storyVideo" class="absolute top-0 left-0 w-full h-full" src="<?= htmlspecialchars($embedUrl) ?>" title="Story Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;" allowfullscreen></iframe></div>
-                </div>
-              <?php endif; ?>
-            <?php endif; ?>
-            <?php if ($is_completed): ?>
-              <div class="mt-8 bg-green-50 border-2 border-green-200 rounded-xl shadow-sm p-8 flex items-center gap-4"><i class="ph ph-check-circle text-4xl text-green-500"></i><div><h3 class="text-lg font-bold text-green-800 mb-2">Story Completed!</h3><p class="text-green-900">You have finished this interactive section. You can proceed using the sidebar or Next button below.</p></div></div>
-            <?php elseif (!empty($currentContent['quiz_question'])): ?>
-              <?php $question = $currentContent['quiz_question']; ?>
-              <div id="quizSection" class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-6 border-2 border-orange-300"><div class="flex items-center gap-2 mb-4"><i class="ph ph-brain text-3xl text-orange-600"></i><h3 class="text-xl font-bold text-orange-900">Knowledge Check</h3></div><p class="text-gray-800 font-medium mb-4 text-lg"><?= htmlspecialchars($question['question_text']) ?></p><form id="quizForm" class="space-y-3"><?php foreach ($question['options'] as $index => $option): ?><label class="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-orange-400 cursor-pointer transition-all"><input type="radio" name="answer" value="<?= $option['quiz_option_id'] ?>" class="w-5 h-5 text-orange-600 focus:ring-orange-500" required><span class="text-gray-800"><?= htmlspecialchars($option['option_text']) ?></span></label><?php endforeach; ?><input type="hidden" name="question_id" value="<?= $question['quiz_question_id'] ?>"><input type="hidden" name="story_id" value="<?= $currentContent['story_id'] ?>"><input type="hidden" name="chapter_id" value="<?= $currentContent['chapter_id'] ?>"><div class="flex gap-3 mt-6"><button type="submit" class="flex-1 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold shadow-lg transition-colors"><i class="ph ph-check-circle mr-2"></i>Submit Answer</button><button type="button" id="retryBtn" class="hidden px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors" onclick="retryQuestion()"><i class="ph ph-arrow-clockwise mr-2"></i>Retry</button></div></form><div id="answerFeedback" class="hidden mt-4 p-4 rounded-lg"></div></div>
-            <?php endif; ?>
-            <div id="nextStorySection" class="<?= $is_completed ? '' : 'hidden' ?> text-center pt-4"><?php $nextStory = null; $foundCurrent = false; foreach ($navigation as $chapter) { foreach ($chapter['stories'] as $story) { if ($foundCurrent) { $nextStory = $story; break 2; } if ($currentContent && $story['story_id'] == $currentContent['story_id']) { $foundCurrent = true; } } } ?><?php if ($nextStory): ?><a href="?program_id=<?= $programID ?>&story_id=<?= $nextStory['story_id'] ?>" class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-lg transition-colors">Next Story: <?= htmlspecialchars($nextStory['title']) ?><i class="ph ph-arrow-right"></i></a><?php else: ?><div class="text-gray-600 font-medium"><i class="ph ph-check-circle text-green-600 text-2xl"></i><p class="mt-2">You've completed all stories!</p><?php if ($showExam): ?><p class="mt-1 text-orange-700"><a href="?program_id=<?= $programID ?>&take_exam=1" class="font-bold underline">Ready for the Program Exam?</a></p><?php elseif ($showCertificate): ?><p class="mt-1 text-green-700"><a href="<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>" target="_blank" class="font-semibold underline">Download your Certificate</a></p><?php endif; ?></div><?php endif; ?></div>
-          </div>
-        <?php else: ?>
-          <div class="bg-white rounded-xl shadow-md p-12 text-center">
-            <i class="ph ph-graduation-cap text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-semibold text-gray-700 mb-2">Welcome to the Program!</h3>
-            <p class="text-gray-500">Select a story from the sidebar to begin your learning journey.</p>
-          </div>
-        <?php endif; ?>
-      </section>
-    </div>
-  </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>const programId = <?= $programID ?>;let canProceed = false;function toggleChapter(chapterId) {const panel = document.getElementById('chapter-panel-' + chapterId);const chevron = document.getElementById('chev-' + chapterId);if (panel.classList.contains('hidden')) {panel.classList.remove('hidden');chevron.style.transform = 'rotate(0deg)';} else {panel.classList.add('hidden');chevron.style.transform = 'rotate(-90deg)';}}<?php if ($currentContent && isset($currentContent['chapter_id'])): ?>toggleChapter(<?= $currentContent['chapter_id'] ?>);<?php endif; ?>function updateProgress() {fetch('../../php/quiz-answer-handler.php', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({action: 'get_progress',program_id: programId})}).then(response => response.json()).then(data => {if (data.success) {const percentage = data.completion_percentage || 0;const progressBar = document.getElementById('progressBar');const progressPercent = document.getElementById('progressPercent');if (progressBar) progressBar.style.width = percentage + '%';if (progressPercent) progressPercent.textContent = percentage.toFixed(1) + '%';if (percentage >= 100) {Swal.fire({title:'Congratulations!',text:'Program completed!',icon:'success',confirmButtonColor:'#10375B'});}}}).catch(error => console.error('Progress update error:', error));}const quizForm = document.getElementById('quizForm');if (quizForm) {quizForm.addEventListener('submit', function(e) {e.preventDefault();const formData = new FormData(quizForm);const selectedAnswer = formData.get('answer');const questionId = formData.get('question_id');if (!selectedAnswer) {Swal.fire({title:'No Answer Selected',text:'Please select an answer before submitting.',icon:'warning',confirmButtonColor:'#ea580c'}); return;}fetch('../../php/quiz-answer-handler.php', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({action:'check_answer',question_id:questionId,option_id:selectedAnswer,story_id:formData.get('story_id')})}).then(response => response.json()).then(data => {const feedbackDiv = document.getElementById('answerFeedback');const retryBtn = document.getElementById('retryBtn');const nextSection = document.getElementById('nextStorySection');const submitBtn = quizForm.querySelector('button[type="submit"]');feedbackDiv.classList.remove('hidden');if (data.correct) {feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-green-100 border-2 border-green-500';feedbackDiv.innerHTML = `<div class=\"flex items-center gap-3\"><i class=\"ph ph-check-circle text-3xl text-green-600\"></i><div><h4 class=\"font-bold text-green-900\">Correct! Well Done! 🎉</h4><p class=\"text-green-800 text-sm\">${data.message || 'You can now proceed to the next story.'}</p></div></div>`;canProceed = true;submitBtn.disabled = true;quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);nextSection.classList.remove('hidden');updateProgress();} else {feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500';feedbackDiv.innerHTML = `<div class=\"flex items-center gap-3\"><i class=\"ph ph-x-circle text-3xl text-red-600\"></i><div><h4 class=\"font-bold text-red-900\">Incorrect Answer</h4><p class=\"text-red-800 text-sm\">${data.message || 'Please review the story and try again.'}</p></div></div>`;canProceed = false;submitBtn.style.display = 'none';retryBtn.classList.remove('hidden');}}).catch(error => {Swal.fire({title: 'Error',text: 'Failed to submit answer. Please try again.',icon: 'error',confirmButtonColor: '#dc2626'});});});}function retryQuestion() {const feedbackDiv = document.getElementById('answerFeedback');const retryBtn = document.getElementById('retryBtn');const submitBtn = quizForm.querySelector('button[type="submit"]');const radios = quizForm.querySelectorAll('input[type="radio"]');feedbackDiv.classList.add('hidden');retryBtn.classList.add('hidden');submitBtn.style.display = '';submitBtn.disabled = false;radios.forEach(radio => { radio.checked = false; radio.disabled = false; });canProceed = false;}
-</script>
-<?php include '../../components/footer.php'; ?>
+      ...
