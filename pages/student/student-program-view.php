@@ -115,20 +115,16 @@ $page_title = htmlspecialchars($program['title']);
             <img src="<?= $heroImg ?>" alt="Program Image" class="w-full h-64 md:h-80 object-cover">
           </div>
           <div class="p-6">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
+            <h1 class="text-2xl md:text-4xl font-bold text-gray-900">
               <?= htmlspecialchars($program['title']) ?>
             </h1>
-            <div class="inline-flex items-center gap-2 mt-2">
+            <div class="inline-flex items-center gap-2 mt-2 mb-5">
               <i class="ph-fill ph-barbell text-[16px]"></i>
               <span class="text-sm font-semibold"><?= htmlspecialchars(ucfirst(strtolower($program['category']))) ?> Difficulty</span>
             </div>
+            <h2 class="text-xl font-bold mb-2">Description</h2>
+            <p class="text-gray-700 leading-relaxed"><?= nl2br(htmlspecialchars($program['description'] ?? '')) ?></p>  
           </div>
-        </div>
-
-        <!-- Description Card -->
-        <div class="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
-          <h2 class="text-xl font-bold mb-2">Description</h2>
-          <p class="text-gray-700 leading-relaxed"><?= nl2br(htmlspecialchars($program['description'] ?? '')) ?></p>
         </div>
 
         <!-- Chapter Content Card -->
