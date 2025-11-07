@@ -34,18 +34,11 @@ $isEdit = $quiz !== null;
         </div>
 
         <!-- Quiz Title -->
-        <form id="quizForm" method="POST" action="../../php/quiz-handler.php" class="space-y-8">
-            <input type="hidden" name="action" value="<?= $isEdit ? 'update_quiz' : 'create_quiz' ?>">
-            <input type="hidden" name="program_id" value="<?= $programId ?>">
-            <input type="hidden" name="chapter_id" value="<?= $chapterId ?>">
-            <?php if ($isEdit): ?>
-                <input type="hidden" name="quiz_id" value="<?= (int)$quiz['quiz_id'] ?>">
-            <?php endif; ?>
-
+        <form id="quizForm" class="space-y-8">
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Quiz Title</label>
-                    <input type="text" name="title" 
+                    <input type="text" id="quizTitle" 
                            value="<?= htmlspecialchars($quiz['title'] ?? $chapter['title'] . ' Quiz') ?>" 
                            class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                            required>
@@ -88,7 +81,7 @@ $isEdit = $quiz !== null;
                 </button>
                 <button type="submit" id="saveButton" disabled
                         class="px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors">
-                    <i class="ph ph-check mr-1"></i> <?= $isEdit ? 'Update Quiz' : 'Create Quiz' ?>
+                    <i class="ph ph-check mr-1"></i> <?= $isEdit ? 'Update Quiz' : 'Save Quiz' ?>
                 </button>
             </div>
         </form>
@@ -109,9 +102,8 @@ $isEdit = $quiz !== null;
             <!-- Question Text -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Question Text *</label>
-                <textarea name="questions[][question_text]" rows="3" 
-                          class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                          placeholder="Enter your question here..." required></textarea>
+                <textarea class="question-text w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                          rows="3" placeholder="Enter your question here..." required></textarea>
             </div>
 
             <!-- Answer Options -->
@@ -133,9 +125,8 @@ $isEdit = $quiz !== null;
 <!-- Option Template (Hidden) -->
 <template id="optionTemplate">
     <div class="flex items-center gap-3 option-item">
-        <input type="radio" name="questions[][correct_option]" value="" class="text-blue-600 focus:ring-blue-500">
-        <input type="text" name="questions[][options][]" 
-               class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+        <input type="radio" class="correct-option text-blue-600 focus:ring-blue-500">
+        <input type="text" class="option-text flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                placeholder="Enter answer option..." required>
         <button type="button" onclick="removeOption(this)" class="text-red-500 hover:text-red-700 remove-option-btn" style="display: none;">
             <i class="ph ph-x text-lg"></i>
@@ -174,16 +165,12 @@ function addQuestion() {
     questionItem.setAttribute('data-question-index', questionIndex);
     questionItem.querySelector('.question-number').textContent = questionIndex;
     
-    // Update name attributes for proper form submission
-    const textarea = questionItem.querySelector('textarea');
-    textarea.name = `questions[${questionIndex}][question_text]`;
-    
     document.getElementById('questionsContainer').appendChild(clone);
     
     // Add initial options
-    const optionsContainer = questionItem.querySelector('.options-container');
-    addOption(questionItem.querySelector('.add-option-btn'), true);
-    addOption(questionItem.querySelector('.add-option-btn'), true);
+    const addBtn = questionItem.querySelector('.add-option-btn');
+    addOption(addBtn, true);
+    addOption(addBtn, true);
     
     updateUI();
 }
@@ -212,13 +199,10 @@ function addOption(button, isInitial = false) {
     const questionIndex = questionItem.getAttribute('data-question-index');
     const optionIndex = currentOptions.length;
     
-    // Update name attributes
-    const radio = optionItem.querySelector('input[type="radio"]');
-    const textInput = optionItem.querySelector('input[type="text"]');
-    
-    radio.name = `questions[${questionIndex}][correct_option]`;
+    // Set unique name for radio buttons within this question
+    const radio = optionItem.querySelector('.correct-option');
+    radio.name = `correct_option_${questionIndex}`;
     radio.value = optionIndex;
-    textInput.name = `questions[${questionIndex}][options][${optionIndex}]`;
     
     optionsContainer.appendChild(clone);
     
@@ -255,15 +239,13 @@ function updateOptionButtons(questionItem) {
 }
 
 function reindexOptions(questionItem) {
-    const questionIndex = questionItem.getAttribute('data-question-index');
+    const questionIndexVal = questionItem.getAttribute('data-question-index');
     const options = questionItem.querySelectorAll('.option-item');
     
     options.forEach((option, index) => {
-        const radio = option.querySelector('input[type="radio"]');
-        const textInput = option.querySelector('input[type="text"]');
-        
+        const radio = option.querySelector('.correct-option');
+        radio.name = `correct_option_${questionIndexVal}`;
         radio.value = index;
-        textInput.name = `questions[${questionIndex}][options][${index}]`;
     });
 }
 
@@ -295,14 +277,6 @@ function reindexQuestions() {
         questionIndex++;
         question.setAttribute('data-question-index', questionIndex);
         question.querySelector('.question-number').textContent = questionIndex;
-        
-        // Update form field names
-        const textarea = question.querySelector('textarea');
-        textarea.name = `questions[${questionIndex}][question_text]`;
-        
-        const radio = question.querySelector('input[type="radio"]');
-        if (radio) radio.name = `questions[${questionIndex}][correct_option]`;
-        
         reindexOptions(question);
     });
 }
@@ -326,8 +300,10 @@ function updateUI() {
     }
 }
 
-// Form submission validation
+// Form submission with AJAX
 document.getElementById('quizForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
     const questions = document.querySelectorAll('.question-item');
     let isValid = true;
     let errors = [];
@@ -337,10 +313,12 @@ document.getElementById('quizForm').addEventListener('submit', function(e) {
         isValid = false;
     }
     
+    const questionsData = [];
+    
     questions.forEach((question, index) => {
-        const questionText = question.querySelector('textarea').value.trim();
-        const options = question.querySelectorAll('input[type="text"]');
-        const selectedAnswer = question.querySelector('input[type="radio"]:checked');
+        const questionText = question.querySelector('.question-text').value.trim();
+        const options = question.querySelectorAll('.option-item');
+        const selectedAnswer = question.querySelector('.correct-option:checked');
         
         if (!questionText) {
             errors.push(`Question ${index + 1}: Question text is required.`);
@@ -348,8 +326,17 @@ document.getElementById('quizForm').addEventListener('submit', function(e) {
         }
         
         let validOptions = 0;
-        options.forEach(option => {
-            if (option.value.trim()) validOptions++;
+        const optionsData = [];
+        
+        options.forEach((option, optIndex) => {
+            const optionText = option.querySelector('.option-text').value.trim();
+            if (optionText) {
+                validOptions++;
+                optionsData.push({
+                    text: optionText,
+                    is_correct: selectedAnswer && parseInt(selectedAnswer.value) === optIndex
+                });
+            }
         });
         
         if (validOptions < 2) {
@@ -361,17 +348,74 @@ document.getElementById('quizForm').addEventListener('submit', function(e) {
             errors.push(`Question ${index + 1}: Please mark the correct answer.`);
             isValid = false;
         }
+        
+        if (isValid || errors.length === 0) {
+            questionsData.push({
+                text: questionText,
+                options: optionsData
+            });
+        }
     });
     
     if (!isValid) {
-        e.preventDefault();
         Swal.fire({
             title: 'Quiz Validation Failed',
             html: errors.join('<br>'),
             icon: 'error',
             confirmButtonColor: '#3b82f6'
         });
+        return;
     }
+    
+    // Build data for AJAX submission
+    const formData = {
+        action: 'save_quiz',
+        chapter_id: chapterId,
+        quiz_title: document.getElementById('quizTitle').value,
+        questions: questionsData
+    };
+    
+    // Show loading
+    Swal.fire({
+        title: 'Saving Quiz...',
+        text: 'Please wait while we save your quiz.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Send AJAX request
+    fetch('../../php/quiz-handler.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                title: 'Success!',
+                text: data.message || 'Quiz saved successfully!',
+                icon: 'success',
+                confirmButtonColor: '#3b82f6'
+            }).then(() => {
+                goBack();
+            });
+        } else {
+            throw new Error(data.message || 'Failed to save quiz');
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            title: 'Error',
+            text: error.message || 'Failed to save quiz. Please try again.',
+            icon: 'error',
+            confirmButtonColor: '#dc2626'
+        });
+    });
 });
 
 // Initialize UI
@@ -383,16 +427,21 @@ updateUI();
 <?php foreach ($quiz_questions as $index => $question): ?>
 addQuestion();
 const question<?= $index ?> = document.querySelector(`[data-question-index="<?= $index + 1 ?>"]`);
-question<?= $index ?>.querySelector('textarea').value = <?= json_encode($question['question_text']) ?>;
+question<?= $index ?>.querySelector('.question-text').value = <?= json_encode($question['question_text']) ?>;
+
+// Clear default options first
+question<?= $index ?>.querySelector('.options-container').innerHTML = '';
 
 // Add options for this question
 <?php foreach ($question['options'] as $optIndex => $option): ?>
-<?php if ($optIndex >= 2): ?>addOption(question<?= $index ?>.querySelector('.add-option-btn'), true);<?php endif; ?>
-const option<?= $index ?>_<?= $optIndex ?> = question<?= $index ?>.querySelectorAll('input[type="text"]')[<?= $optIndex ?>];
-option<?= $index ?>_<?= $optIndex ?>.value = <?= json_encode($option['option_text']) ?>;
-<?php if ($option['is_correct']): ?>
-question<?= $index ?>.querySelectorAll('input[type="radio"]')[<?= $optIndex ?>].checked = true;
-<?php endif; ?>
+addOption(question<?= $index ?>.querySelector('.add-option-btn'), true);
+const option<?= $index ?>_<?= $optIndex ?> = question<?= $index ?>.querySelectorAll('.option-text')[<?= $optIndex ?>];
+if (option<?= $index ?>_<?= $optIndex ?>) {
+    option<?= $index ?>_<?= $optIndex ?>.value = <?= json_encode($option['option_text']) ?>;
+    <?php if ($option['is_correct']): ?>
+    question<?= $index ?>.querySelectorAll('.correct-option')[<?= $optIndex ?>].checked = true;
+    <?php endif; ?>
+}
 <?php endforeach; ?>
 <?php endforeach; ?>
 <?php endif; ?>
