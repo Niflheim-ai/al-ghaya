@@ -183,6 +183,25 @@ elseif ($storyID > 0) {
         }
     }
 }
+
+// Check if current story is last in chapter and chapter has quiz
+$currentChapterId = $currentContent['chapter_id'] ?? 0;
+$currentChapterQuiz = null;
+$isLastStoryInChapter = false;
+
+if ($currentContent && $currentType === 'story') {
+    foreach ($navigation as $chapter) {
+        if ($chapter['chapter_id'] === $currentChapterId) {
+            $lastStory = end($chapter['stories']);
+            if ($lastStory && $lastStory['story_id'] === $currentContent['story_id']) {
+                $isLastStoryInChapter = true;
+                $currentChapterQuiz = $chapter['quiz'] ?? null;
+            }
+            break;
+        }
+    }
+}
+
 $current_page = 'student-programs';
 $page_title = htmlspecialchars($program['title']);
 ?>
@@ -404,7 +423,6 @@ document.getElementById('finalExamForm').onsubmit = function(e) {
           <div id="quizResult" class="hidden mt-8"></div>
         </div>
         <script>
-// PATCHED: Chapter Quiz Submission Handler (keeps all logic & structure)
 const chapterQuizForm = document.getElementById('chapterQuizForm');
 if (chapterQuizForm) {
   chapterQuizForm.addEventListener('submit', function(e) {
@@ -471,7 +489,38 @@ if (chapterQuizForm) {
               <?php $question = $currentContent['quiz_question']; ?>
               <div id="quizSection" class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-6 border-2 border-orange-300"><div class="flex items-center gap-2 mb-4"><i class="ph ph-brain text-3xl text-orange-600"></i><h3 class="text-xl font-bold text-orange-900">Knowledge Check</h3></div><p class="text-gray-800 font-medium mb-4 text-lg"><?= htmlspecialchars($question['question_text']) ?></p><form id="quizForm" class="space-y-3"><?php foreach ($question['options'] as $index => $option): ?><label class="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-orange-400 cursor-pointer transition-all"><input type="radio" name="answer" value="<?= $option['quiz_option_id'] ?>" class="w-5 h-5 text-orange-600 focus:ring-orange-500" required><span class="text-gray-800"><?= htmlspecialchars($option['option_text']) ?></span></label><?php endforeach; ?><input type="hidden" name="question_id" value="<?= $question['quiz_question_id'] ?>"><input type="hidden" name="story_id" value="<?= $currentContent['story_id'] ?>"><input type="hidden" name="chapter_id" value="<?= $currentContent['chapter_id'] ?>"><div class="flex gap-3 mt-6"><button type="submit" class="flex-1 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold shadow-lg transition-colors"><i class="ph ph-check-circle mr-2"></i>Submit Answer</button><button type="button" id="retryBtn" class="hidden px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors" onclick="retryQuestion()"><i class="ph ph-arrow-clockwise mr-2"></i>Retry</button></div></form><div id="answerFeedback" class="hidden mt-4 p-4 rounded-lg"></div></div>
             <?php endif; ?>
-            <div id="nextStorySection" class="<?= $is_completed ? '' : 'hidden' ?> text-center pt-4"><?php $nextStory = null; $foundCurrent = false; foreach ($navigation as $chapter) { foreach ($chapter['stories'] as $story) { if ($foundCurrent) { $nextStory = $story; break 2; } if ($currentContent && $story['story_id'] == $currentContent['story_id']) { $foundCurrent = true; } } } ?><?php if ($nextStory): ?><a href="?program_id=<?= $programID ?>&story_id=<?= $nextStory['story_id'] ?>" class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-lg transition-colors">Next Story: <?= htmlspecialchars($nextStory['title']) ?><i class="ph ph-arrow-right"></i></a><?php else: ?><div class="text-gray-600 font-medium"><i class="ph ph-check-circle text-green-600 text-2xl"></i><p class="mt-2">You've completed all stories!</p><?php if ($showExam): ?><p class="mt-1 text-orange-700"><a href="?program_id=<?= $programID ?>&take_exam=1" class="font-bold underline">Ready for the Program Exam?</a></p><?php elseif ($showCertificate): ?><p class="mt-1 text-green-700"><a href="<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>" target="_blank" class="font-semibold underline">Download your Certificate</a></p><?php endif; ?></div><?php endif; ?></div>
+            <div id="nextStorySection" class="<?= $is_completed ? '' : 'hidden' ?> text-center pt-4">
+              <?php
+              // Check if current story is last in chapter with quiz
+              if ($isLastStoryInChapter && $currentChapterQuiz):
+              ?>
+                <a href="?program_id=<?= $programID ?>&quiz_id=<?= $currentChapterQuiz['quiz_id'] ?>" class="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold shadow-lg transition-colors">
+                  <i class="ph ph-exam"></i>
+                  Take Chapter Quiz
+                </a>
+              <?php
+              else:
+                // Find next story
+                $nextStory = null;
+                $foundCurrent = false;
+                foreach ($navigation as $chapter) {
+                  foreach ($chapter['stories'] as $story) {
+                    if ($foundCurrent) {
+                      $nextStory = $story;
+                      break 2;
+                    }
+                    if ($currentContent && $story['story_id'] == $currentContent['story_id']) {
+                      $foundCurrent = true;
+                    }
+                  }
+                }
+                if ($nextStory):
+              ?>
+                <a href="?program_id=<?= $programID ?>&story_id=<?= $nextStory['story_id'] ?>" class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-lg transition-colors">Next Story: <?= htmlspecialchars($nextStory['title']) ?><i class="ph ph-arrow-right"></i></a>
+              <?php else: ?>
+                <div class="text-gray-600 font-medium"><i class="ph ph-check-circle text-green-600 text-2xl"></i><p class="mt-2">You've completed all stories!</p><?php if ($showExam): ?><p class="mt-1 text-orange-700"><a href="?program_id=<?= $programID ?>&take_exam=1" class="font-bold underline">Ready for the Program Exam?</a></p><?php elseif ($showCertificate): ?><p class="mt-1 text-green-700"><a href="<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>" target="_blank" class="font-semibold underline">Download your Certificate</a></p><?php endif; ?></div>
+              <?php endif; endif; ?>
+            </div>
           </div>
         <?php else: ?>
           <div class="bg-white rounded-xl shadow-md p-12 text-center">
