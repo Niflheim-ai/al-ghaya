@@ -102,6 +102,52 @@ try {
             ]);
             break;
             
+        case 'chapter_quiz_submit':
+            $quiz_id = intval($_POST['quiz_id'] ?? 0);
+            $answers = $_POST['answers'] ?? [];
+            $questionIDs = $_POST['questionIDs'] ?? [];
+            
+            if (!$quiz_id || empty($answers) || empty($questionIDs) || count($answers) !== count($questionIDs)) {
+                echo json_encode(['success' => false, 'message' => 'Quiz ID, answers, and question IDs required']);
+                exit;
+            }
+            
+            $correct = 0;
+            $total = count($answers);
+            
+            foreach ($questionIDs as $i => $qid) {
+                $selected = intval($answers[$i]);
+                $stmt = $conn->prepare("SELECT is_correct FROM quiz_question_options WHERE quiz_option_id = ? AND quiz_question_id = ?");
+                $stmt->bind_param("ii", $selected, $qid);
+                $stmt->execute();
+                $result = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($result && $result['is_correct']) $correct++;
+            }
+            
+            $passed = $total > 0 && ($correct / $total) >= 0.7;
+            
+            // Log the quiz attempt
+            $logStmt = $conn->prepare("
+                INSERT INTO student_quiz_attempts 
+                (student_id, quiz_id, score, max_score, is_passed, attempt_date) 
+                VALUES (?, ?, ?, ?, ?, NOW())
+            ");
+            $logStmt->bind_param("iiiii", $student_id, $quiz_id, $correct, $total, $passed);
+            $logStmt->execute();
+            $logStmt->close();
+            
+            echo json_encode([
+                'success' => true,
+                'message' => $passed
+                    ? 'Quiz passed! You can now proceed to the next chapter.'
+                    : 'Quiz failed. You scored ' . $correct . '/' . $total . '. Please review the chapter and try again.',
+                'score' => $correct,
+                'total' => $total,
+                'passed' => $passed
+            ]);
+            break;
+            
         case 'mark_story_complete':
             $story_id = intval($_POST['story_id'] ?? 0);
             
