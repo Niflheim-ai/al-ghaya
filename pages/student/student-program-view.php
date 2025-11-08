@@ -424,7 +424,7 @@ if (chapterQuizForm) {
         action: 'chapter_quiz_submit',
         answers,
         questionIDs,
-        quiz_id: <?= $quizID ?>
+        quiz_id: <?= (int)$quizID ?>
       })
     }).then(r => r.json()).then(data => {
       const quizResult = document.getElementById('quizResult');
@@ -486,39 +486,5 @@ if (chapterQuizForm) {
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>const programId = <?= $programID ?>;let canProceed = false;function toggleChapter(chapterId) {const panel = document.getElementById('chapter-panel-' + chapterId);const chevron = document.getElementById('chev-' + chapterId);if (panel.classList.contains('hidden')) {panel.classList.remove('hidden');chevron.style.transform = 'rotate(0deg)';} else {panel.classList.add('hidden');chevron.style.transform = 'rotate(-90deg)';}}<?php if ($currentContent && isset($currentContent['chapter_id'])): ?>toggleChapter(<?= $currentContent['chapter_id'] ?>);<?php endif; ?>function updateProgress() {fetch('../../php/quiz-answer-handler.php', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({action: 'get_progress',program_id: programId})}).then(response => response.json()).then(data => {if (data.success) {const percentage = data.completion_percentage || 0;const progressBar = document.getElementById('progressBar');const progressPercent = document.getElementById('progressPercent');if (progressBar) progressBar.style.width = percentage + '%';if (progressPercent) progressPercent.textContent = percentage.toFixed(1) + '%';if (percentage >= 100) {Swal.fire({title:'Congratulations!',text:'Program completed!',icon:'success',confirmButtonColor:'#10375B'});}}}).catch(error => console.error('Progress update error:', error));}const quizForm = document.getElementById('quizForm');if (quizForm) {quizForm.addEventListener('submit', function(e) {e.preventDefault();const formData = new FormData(quizForm);const selectedAnswer = formData.get('answer');const questionId = formData.get('question_id');if (!selectedAnswer) {Swal.fire({title:'No Answer Selected',text:'Please select an answer before submitting.',icon:'warning',confirmButtonColor:'#ea580c'}); return;}fetch('../../php/quiz-answer-handler.php', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({action:'check_answer',question_id:questionId,option_id:selectedAnswer,story_id:formData.get('story_id')})}).then(response => response.json()).then(data => {const feedbackDiv = document.getElementById('answerFeedback');const retryBtn = document.getElementById('retryBtn');const nextSection = document.getElementById('nextStorySection');const submitBtn = quizForm.querySelector('button[type="submit"]');feedbackDiv.classList.remove('hidden');if (data.correct) {feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-green-100 border-2 border-green-500';feedbackDiv.innerHTML = `<div class=\"flex items-center gap-3\"><i class=\"ph ph-check-circle text-3xl text-green-600\"></i><div><h4 class=\"font-bold text-green-900\">Correct! Well Done! 🎉</h4><p class=\"text-green-800 text-sm\">${data.message || 'You can now proceed to the next story.'}</p></div></div>`;canProceed = true;submitBtn.disabled = true;quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true;);nextSection.classList.remove('hidden');updateProgress();} else {feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500';feedbackDiv.innerHTML = `<div class=\"flex items-center gap-3\"><i class=\"ph ph-x-circle text-3xl text-red-600\"></i><div><h4 class=\"font-bold text-red-900\">Incorrect Answer</h4><p class=\"text-red-800 text-sm\">${data.message || 'Please review the story and try again.'}</p></div></div>`;canProceed = false;submitBtn.style.display = 'none';retryBtn.classList.remove('hidden');}}).catch(error => {Swal.fire({title: 'Error',text: 'Failed to submit answer. Please try again.',icon: 'error',confirmButtonColor: '#dc2626'});});});}function retryQuestion() {const feedbackDiv = document.getElementById('answerFeedback');const retryBtn = document.getElementById('retryBtn');const submitBtn = quizForm.querySelector('button[type="submit"]');const radios = quizForm.querySelectorAll('input[type="radio"]');feedbackDiv.classList.add('hidden');retryBtn.classList.add('hidden');submitBtn.style.display = '';submitBtn.disabled = false;radios.forEach(radio => { radio.checked = false; radio.disabled = false; });canProceed = false;}
-// PATCHED: Chapter Quiz Submission Handler (keeps all logic & structure)
-const chapterQuizForm = document.getElementById('chapterQuizForm');
-if (chapterQuizForm) {
-  chapterQuizForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(chapterQuizForm);
-    const total = parseInt(formData.get('total_quiz_questions'));
-    const answers = [];
-    const questionIDs = [];
-    for (let i = 0; i < total; i++) {
-      answers.push(formData.get('quiz_answer_' + i));
-      questionIDs.push(formData.get('quiz_question_id_' + i));
-    }
-    fetch('../../php/quiz-answer-handler.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'chapter_quiz_submit',
-        answers,
-        questionIDs,
-        quiz_id: <?= $quizID ?>
-      })
-    }).then(r => r.json()).then(data => {
-      const quizResult = document.getElementById('quizResult');
-      quizResult.classList.remove('hidden');
-      if (data.success) {
-        quizResult.innerHTML = `<div class='bg-green-100 text-green-900 border-green-400 border-2 rounded-lg p-6 text-xl font-bold'>${data.message||'Chapter Quiz submitted!'}</div>`;
-        setTimeout(()=>window.location='?program_id=<?= $programID ?>', 2200);
-      } else {
-        quizResult.innerHTML = `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>${data.message||'Quiz submission error.'}</div>`;
-      }
-    });
-  });
-}
 </script>
 <?php include '../../components/footer.php'; ?>
