@@ -149,30 +149,40 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Program ID required']);
                 exit;
             }
-            $totalStmt = $conn->prepare("
-                SELECT COUNT(DISTINCT cs.story_id) as total
-                FROM program_chapters pc
-                JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
-                WHERE pc.program_id = ?
-            ");
-            $totalStmt->bind_param("i", $program_id);
-            $totalStmt->execute();
-            $totalResult = $totalStmt->get_result()->fetch_assoc();
-            $totalStmt->close();
-            $total_stories = $totalResult['total'] ?? 0;
-            $completedStmt = $conn->prepare("
-                SELECT COUNT(DISTINCT ssp.story_id) as completed
-                FROM student_story_progress ssp
-                JOIN chapter_stories cs ON ssp.story_id = cs.story_id
-                JOIN program_chapters pc ON cs.chapter_id = pc.chapter_id
-                WHERE ssp.student_id = ? AND pc.program_id = ? AND ssp.is_completed = 1
-            ");
-            $completedStmt->bind_param("ii", $student_id, $program_id);
-            $completedStmt->execute();
-            $completedResult = $completedStmt->get_result()->fetch_assoc();
-            $completedStmt->close();
-            $completed_stories = $completedResult['completed'] ?? 0;
+            
+            // Use your existing function to get chapters
+            $chapters = getChapters($conn, $program_id);
+            
+            // Count total stories across all chapters
+            $total_stories = 0;
+            $all_story_ids = [];
+            foreach ($chapters as $chapter) {
+                $stories = chapter_getStories($conn, $chapter['chapter_id']);
+                $total_stories += count($stories);
+                foreach ($stories as $story) {
+                    $all_story_ids[] = $story['story_id'];
+                }
+            }
+            
+            // Count completed stories
+            $completed_stories = 0;
+            if (!empty($all_story_ids)) {
+                $placeholders = implode(',', array_fill(0, count($all_story_ids), '?'));
+                $completedStmt = $conn->prepare("
+                    SELECT COUNT(*) as completed 
+                    FROM student_story_progress 
+                    WHERE student_id = ? AND story_id IN ($placeholders) AND is_completed = 1
+                ");
+                $params = array_merge([$student_id], $all_story_ids);
+                $types = str_repeat('i', count($params));
+                $completedStmt->bind_param($types, ...$params);
+                $completedStmt->execute();
+                $completed_stories = $completedStmt->get_result()->fetch_assoc()['completed'] ?? 0;
+                $completedStmt->close();
+            }
+            
             $completion_percentage = $total_stories > 0 ? round(($completed_stories / $total_stories) * 100, 1) : 0;
+            
             echo json_encode([
                 'success' => true,
                 'completion_percentage' => $completion_percentage,

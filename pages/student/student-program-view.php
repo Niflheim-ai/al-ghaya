@@ -436,29 +436,81 @@ document.getElementById('finalExamForm').onsubmit = function(e) {
 };
 </script>
         <?php elseif ($currentType === 'chapter_quiz' && isset($quizQuestions)): ?>
+        <?php
+        // Check if student already passed this quiz
+        $alreadyPassedStmt = $conn->prepare("SELECT score, max_score, attempt_date FROM student_quiz_attempts WHERE student_id = ? AND quiz_id = ? AND is_passed = 1 ORDER BY attempt_date DESC LIMIT 1");
+        $alreadyPassedStmt->bind_param("ii", $studentID, $quizID);
+        $alreadyPassedStmt->execute();
+        $passedResult = $alreadyPassedStmt->get_result()->fetch_assoc();
+        $alreadyPassedStmt->close();
+        $hasPassedQuiz = !empty($passedResult);
+        ?>
+        
         <div class="bg-white rounded-xl shadow-md p-6 mt-8">
-          <h2 class="text-2xl font-bold text-orange-800 mb-4 flex items-center gap-2"><i class="ph ph-exam text-orange-500"></i> Chapter Quiz</h2>
-          <form id="chapterQuizForm">
-            <?php foreach ($quizQuestions as $i => $question): ?>
-            <div class="mb-6 border-b pb-5">
-              <div class="font-semibold mb-2">Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?></div>
-              <?php foreach ($question['options'] as $opt): ?>
-              <div class="mb-2">
-                <label class="flex gap-2 items-center">
-                  <input type="radio" name="quiz_answer_<?= $i ?>" value="<?= $opt['quiz_option_id'] ?>" required> <?= htmlspecialchars($opt['option_text']) ?>
-                </label>
+          <h2 class="text-2xl font-bold text-orange-800 mb-4 flex items-center gap-2">
+            <i class="ph ph-exam text-orange-500"></i> Chapter Quiz
+          </h2>
+          
+          <?php if ($hasPassedQuiz): ?>
+            <!-- Already Passed - Show Results Only -->
+            <div class="bg-green-50 border-2 border-green-300 rounded-lg p-6 mb-6">
+              <div class="flex items-center gap-3 mb-4">
+                <i class="ph ph-check-circle text-4xl text-green-600"></i>
+                <div>
+                  <h3 class="text-xl font-bold text-green-900">Quiz Already Passed!</h3>
+                  <p class="text-green-800">You scored <?= $passedResult['score'] ?>/<?= $passedResult['max_score'] ?> on <?= date('M j, Y', strtotime($passedResult['attempt_date'])) ?></p>
+                </div>
+              </div>
+              <p class="text-gray-700 mb-4">You have already passed this quiz. You can proceed to the next chapter.</p>
+              <a href="?program_id=<?= $programID ?>" class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold">
+                <i class="ph ph-arrow-left"></i> Continue Program
+              </a>
+            </div>
+            
+            <!-- Show Questions (Read-Only) -->
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h4 class="font-semibold text-gray-700 mb-4">Quiz Questions (For Review):</h4>
+              <?php foreach ($quizQuestions as $i => $question): ?>
+                <div class="mb-6 pb-4 border-b border-gray-300">
+                  <div class="font-semibold mb-2 text-gray-800">Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?></div>
+                  <?php foreach ($question['options'] as $opt): ?>
+                    <div class="mb-2 flex items-center gap-2">
+                      <span class="text-gray-600"><?= $opt['is_correct'] ? '✓' : '○' ?></span>
+                      <span class="<?= $opt['is_correct'] ? 'font-semibold text-green-700' : 'text-gray-700' ?>">
+                        <?= htmlspecialchars($opt['option_text']) ?>
+                      </span>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endforeach; ?>
+            </div>
+            
+          <?php else: ?>
+            <!-- Quiz Not Passed Yet - Show Form -->
+            <form id="chapterQuizForm">
+              <?php foreach ($quizQuestions as $i => $question): ?>
+              <div class="mb-6 border-b pb-5">
+                <div class="font-semibold mb-2">Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?></div>
+                <?php foreach ($question['options'] as $opt): ?>
+                <div class="mb-2">
+                  <label class="flex gap-2 items-center">
+                    <input type="radio" name="quiz_answer_<?= $i ?>" value="<?= $opt['quiz_option_id'] ?>" required> 
+                    <?= htmlspecialchars($opt['option_text']) ?>
+                  </label>
+                </div>
+                <?php endforeach; ?>
+                <input type="hidden" name="quiz_question_id_<?= $i ?>" value="<?= $question['quiz_question_id'] ?>">
               </div>
               <?php endforeach; ?>
-              <input type="hidden" name="quiz_question_id_<?= $i ?>" value="<?= $question['quiz_question_id'] ?>">
-            </div>
-            <?php endforeach; ?>
-            <input type="hidden" name="total_quiz_questions" value="<?= count($quizQuestions) ?>">
-            <div class="mt-8 text-center">
-              <button type="submit" class="px-8 py-3 bg-orange-700 text-white rounded-lg font-semibold shadow hover:bg-orange-900">Submit Quiz</button>
-            </div>
-          </form>
-          <div id="quizResult" class="hidden mt-8"></div>
+              <input type="hidden" name="total_quiz_questions" value="<?= count($quizQuestions) ?>">
+              <div class="mt-8 text-center">
+                <button type="submit" class="px-8 py-3 bg-orange-700 text-white rounded-lg font-semibold shadow hover:bg-orange-900">Submit Quiz</button>
+              </div>
+            </form>
+            <div id="quizResult" class="hidden mt-8"></div>
+          <?php endif; ?>
         </div>
+
         <script>
 const chapterQuizForm = document.getElementById('chapterQuizForm');
 if (chapterQuizForm) {
@@ -630,9 +682,6 @@ function updateProgress() {
       const progressPercent = document.getElementById('progressPercent');
       if (progressBar) progressBar.style.width = percentage + '%';
       if (progressPercent) progressPercent.textContent = percentage.toFixed(1) + '%';
-      if (percentage >= 100) {
-        Swal.fire({title:'Congratulations!', text:'Program completed!', icon:'success', confirmButtonColor:'#10375B'});
-      }
     }
   }).catch(error => console.error('Progress update error:', error));
 }
@@ -696,5 +745,10 @@ function retryQuestion() {
   radios.forEach(radio => { radio.checked = false; radio.disabled = false; });
   canProceed = false;
 }
+
+// Auto-refresh progress bar on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateProgress();
+});
 </script>
 <?php include '../../components/footer.php'; ?>
