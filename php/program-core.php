@@ -8,6 +8,7 @@
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/dbConnection.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/story-sections-handler.php';
 
 // Access control
 function validateTeacherAccess() { return isset($_SESSION['userID']) && (($_SESSION['role'] ?? '') === 'teacher'); }
