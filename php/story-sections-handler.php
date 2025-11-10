@@ -113,7 +113,7 @@ function saveStoryInteractiveSections($conn, $story_id, $sections_data) {
     }
 }
 
-function story_getInteractiveSections($conn, $story_id) {
+/* function story_getInteractiveSections($conn, $story_id) {
     $check = $conn->query("SHOW TABLES LIKE 'story_interactive_sections'");
     if (!$check || $check->num_rows == 0) {
         return [];
@@ -131,4 +131,4 @@ function story_getInteractiveSections($conn, $story_id) {
     $stmt->close();
     
     return $rows;
-}
+} */
