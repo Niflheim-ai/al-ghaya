@@ -7,6 +7,7 @@
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 require_once 'dbConnection.php';
 require_once 'quiz-handler.php';
+require_once __DIR__ . '/student-progress.php';
 
 // Guard: Students only
 if (!isset($_SESSION['userID']) || ($_SESSION['role'] ?? '') !== 'student') {
@@ -102,8 +103,42 @@ try {
                 'review' => $review
             ]);
             break;
-        // ... (Unchanged logic for other cases)
-    }
+        case 'check_interactive_answer':
+            $question_id = intval($_POST['question_id'] ?? 0);
+            $option_id = intval($_POST['option_id'] ?? 0);
+            $story_id = intval($_POST['story_id'] ?? 0);
+            
+            if (!$question_id || !$option_id || !$story_id) {
+                echo json_encode(['success' => false, 'correct' => false, 'message' => 'Invalid input']);
+                exit;
+            }
+            
+            // Check if answer is correct
+            $stmt = $conn->prepare("SELECT is_correct FROM question_options WHERE option_id = ?");
+            $stmt->bind_param("i", $option_id);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            
+            $isCorrect = $result && $result['is_correct'] == 1;
+            
+            if ($isCorrect) {
+                // Mark story as completed
+                studentStoryProgress_markCompleted($conn, $studentID, $story_id);
+                echo json_encode([
+                    'success' => true,
+                    'correct' => true,
+                    'message' => 'Correct! You can proceed to the next story.'
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => true,
+                    'correct' => false,
+                    'message' => 'Incorrect. Please try again.'
+                ]);
+            }
+            exit;
+        }
 } catch (Exception $e) {
     error_log("Quiz Answer Handler Error: " . $e->getMessage());
     http_response_code(500);
