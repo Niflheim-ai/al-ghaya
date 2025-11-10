@@ -109,10 +109,18 @@ foreach ($chapters as $chapter) {
     }
     $quiz = getChapterQuiz($conn, $chapter['chapter_id']);
     if ($quiz) {
+        // Query: Has student passed this quiz?
+        $passStmt = $conn->prepare("SELECT 1 FROM student_quiz_attempts WHERE student_id = ? AND quiz_id = ? AND is_passed = 1 LIMIT 1");
+        $passStmt->bind_param("ii", $studentID, $quiz['quiz_id']);
+        $passStmt->execute();
+        $quizPassed = $passStmt->get_result()->fetch_assoc() ? true : false;
+        $passStmt->close();
+
         $chapterData['quiz'] = [
             'quiz_id' => $quiz['quiz_id'],
             'title' => $quiz['title'],
-            'type' => 'quiz'
+            'type' => 'quiz',
+            'is_completed' => $quizPassed // <-- ADD THIS
         ];
     }
     $navigation[] = $chapterData;
@@ -318,7 +326,8 @@ $page_title = htmlspecialchars($program['title']);
                         <?php endforeach; ?>
                       <?php endif; ?>
                       <?php if ($navItem['quiz']): ?>
-                        <a href="?program_id=<?= $programID ?>&quiz_id=<?= $navItem['quiz']['quiz_id'] ?>" class="sidebar-item flex items-center gap-2 p-2 pl-6 text-sm rounded-lg text-orange-700 hover:bg-orange-50 font-semibold">
+                        <a href="?program_id=<?= $programID ?>&quiz_id=<?= $navItem['quiz']['quiz_id'] ?>"
+                          class="sidebar-item flex items-center gap-2 p-2 pl-6 text-sm rounded-lg text-orange-700 hover:bg-orange-50 font-semibold<?= $navItem['quiz']['is_completed'] ? ' completed' : '' ?>">
                           <i class="ph ph-exam text-orange-600"></i>
                           <?= htmlspecialchars($navItem['quiz']['title']) ?>
                         </a>
