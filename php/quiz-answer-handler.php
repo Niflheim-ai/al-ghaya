@@ -6,7 +6,7 @@
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 require_once 'dbConnection.php';
-require_once 'quiz-handler.php';
+require_once __DIR__ . '/quiz-handler.php';
 require_once __DIR__ . '/student-progress.php';
 
 // Guard: Students only
