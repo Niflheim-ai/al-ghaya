@@ -353,17 +353,17 @@ $page_title = htmlspecialchars($program['title']);
           <?php endif; ?>
           <!-- Certificate Section -->
           <?php if ($showCertificate): ?>
-            <div class="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg mt-4">
-              <div class="flex items-center gap-2 mb-2">
-                <i class="ph ph-certificate text-2xl text-green-600"></i>
-                <h3 class="font-bold text-green-900">Certificate Earned!</h3>
-              </div>
-              <p class="text-sm text-gray-700 mb-3">Congratulations on completing this program!</p>
-              <a href="<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>" target="_blank" class="block w-full text-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
-                Download Certificate
-              </a>
+          <div class="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg mt-4">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="ph ph-certificate text-2xl text-green-600"></i>
+              <h3 class="font-bold text-green-900">Certificate Earned!</h3>
             </div>
-          <?php endif; ?>
+            <p class="text-sm text-gray-700 mb-3">Congratulations on completing this program!</p>
+            <a href="../../certificate/certificate.php?program_id=<?= $programID ?>" target="_blank" class="block w-full text-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
+              View Certificate
+            </a>
+          </div>
+        <?php endif; ?>
         </div>
       </aside>
       <section class="lg:col-span-9 lg:order-last space-y-6">

@@ -55,32 +55,25 @@ if ($action === 'submit_final_exam') {
     $stmt->close();
 
     if ($is_passed) {
-      // Generate certificate file
-      $cerDir = __DIR__ . '/../certificate/';
-      if (!is_dir($cerDir)) mkdir($cerDir, 0775, true);
-      $certFile = $cerDir . "cert_user{$student_id}_program{$program_id}.txt";
-      $userQ = $conn->prepare("SELECT fname, lname FROM user WHERE userID=?");
-      $userQ->bind_param("i", $student_id);
-      $userQ->execute();
-      $u = $userQ->get_result()->fetch_assoc();
-      $userQ->close();
-      $progQ = $conn->prepare("SELECT title FROM programs WHERE programID=?");
-      $progQ->bind_param("i", $program_id);
-      $progQ->execute();
-      $p = $progQ->get_result()->fetch_assoc();
-      $progQ->close();
-      $name = htmlspecialchars($u['fname'] . ' ' . $u['lname']);
-      $prog = htmlspecialchars($p['title']);
-      $date = date('F d, Y');
-      $text = "Certificate of Completion\n\nAwarded to: $name\nFor Completion of: $prog\nDate: $date\n\nAl-Ghaya LMS";
-      file_put_contents($certFile, $text);
-      $url = "/certificate/" . basename($certFile);
-      // Insert to certificates table
-      $stmtC = $conn->prepare("INSERT INTO student_program_certificates (student_id, program_id, certificate_url) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE certificate_url=VALUES(certificate_url)");
-      $stmtC->bind_param("iis", $student_id, $program_id, $url);
-      $stmtC->execute();
-      $stmtC->close();
-      echo json_encode(['success'=>true, 'passed'=>true, 'score'=>$score_percent, 'certificate_url'=>$url]);
+        // Create certificate record pointing to certificate.php
+        $certificateUrl = "certificate.php?program_id={$program_id}";
+        
+        $certStmt = $conn->prepare("
+            INSERT INTO student_program_certificates (student_id, program_id, certificate_url, issue_date) 
+            VALUES (?, ?, ?, NOW()) 
+            ON DUPLICATE KEY UPDATE certificate_url = VALUES(certificate_url), issue_date = NOW()
+        ");
+        $certStmt->bind_param("iis", $student_id, $program_id, $certificateUrl);
+        $certStmt->execute();
+        $certStmt->close();
+        
+        echo json_encode([
+            'success' => true,
+            'passed' => true,
+            'message' => 'Congratulations! You passed the exam and earned your certificate!',
+            'certificate_url' => $certificateUrl
+        ]);
+        exit;
     } else {
       // Reset all progress!
       $conn->query("DELETE FROM student_story_progress WHERE student_id={$student_id} AND story_id IN (SELECT cs.story_id FROM chapter_stories cs JOIN program_chapters pc ON cs.chapter_id=pc.chapter_id WHERE pc.programID={$program_id})");
