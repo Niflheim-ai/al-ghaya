@@ -69,6 +69,12 @@ $storyData = $story ?? null;
                 <p class="text-sm text-gray-500">This video will be played for students to progress through the story</p>
             </div>
 
+            <!-- Manual Interactive Section Management -->
+            <?php
+            $sid = isset($storyData['story_id']) ? $storyData['story_id'] : 0;
+            include __DIR__ . '/interactive-sections.php';
+            ?>
+
             <div class="flex justify-between items-center pt-6 border-t border-gray-200">
                 <button type="button" onclick="cancelStoryForm()" 
                         class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
