@@ -32,7 +32,6 @@ if ($storyId > 0) {
     <div class="bg-white rounded-xl shadow-lg p-8">
         <form id="storyForm" method="POST" action="../../php/program-core.php" class="space-y-8">
             <input type="hidden" name="action" value="<?= $storyData ? 'update_story' : 'create_story' ?>">
-            <!-- Align names to program-handler expected keys -->
             <input type="hidden" name="programID" value="<?= $programId ?>">
             <input type="hidden" name="chapter_id" value="<?= $chapterId ?>">
             <?php if ($storyData): ?>
@@ -83,7 +82,7 @@ if ($storyId > 0) {
                 <div class="flex items-center justify-between">
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Interactive Sections</h3>
-                        <p class="text-sm text-gray-500 mt-1">Create up to 3 interactive questions for this story (Min: 1, Max: 3)</p>
+                        <p class="text-sm text-gray-500 mt-1">Create 1-3 interactive multiple choice questions for this story</p>
                     </div>
                     <button type="button" onclick="addInteractiveSection()" id="addSectionBtn"
                             class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors inline-flex items-center gap-2"
@@ -121,15 +120,7 @@ if ($storyId > 0) {
                                         <?php foreach ($section['questions'] as $qIndex => $question): ?>
                                             <div class="question-item bg-white border border-gray-200 rounded-lg p-4">
                                                 <div class="space-y-3">
-                                                    <div class="flex items-start justify-between">
-                                                        <label class="block text-sm font-medium text-gray-700">Question <?= $qIndex + 1 ?></label>
-                                                        <select name="sections[<?= $index ?>][questions][<?= $qIndex ?>][type]" 
-                                                                class="text-sm border-gray-300 rounded px-2 py-1">
-                                                            <option value="multiple_choice" <?= ($question['question_type'] === 'multiple_choice') ? 'selected' : '' ?>>Multiple Choice</option>
-                                                            <option value="fill_blank" <?= ($question['question_type'] === 'fill_blank') ? 'selected' : '' ?>>Fill in the Blank</option>
-                                                            <option value="multiple_select" <?= ($question['question_type'] === 'multiple_select') ? 'selected' : '' ?>>Multiple Select</option>
-                                                        </select>
-                                                    </div>
+                                                    <label class="block text-sm font-medium text-gray-700">Question</label>
                                                     <input type="text" 
                                                            name="sections[<?= $index ?>][questions][<?= $qIndex ?>][text]" 
                                                            value="<?= htmlspecialchars($question['question_text']) ?>"
@@ -138,12 +129,14 @@ if ($storyId > 0) {
                                                     
                                                     <!-- Options -->
                                                     <div class="space-y-2 pl-4">
+                                                        <p class="text-xs text-gray-500 mb-2">Check the correct answer(s):</p>
                                                         <?php if (!empty($question['options'])): ?>
                                                             <?php foreach ($question['options'] as $oIndex => $option): ?>
                                                                 <div class="flex items-center gap-2">
                                                                     <input type="checkbox" 
                                                                            name="sections[<?= $index ?>][questions][<?= $qIndex ?>][options][<?= $oIndex ?>][is_correct]"
                                                                            <?= $option['is_correct'] ? 'checked' : '' ?>
+                                                                           value="1"
                                                                            class="rounded text-green-500">
                                                                     <input type="text" 
                                                                            name="sections[<?= $index ?>][questions][<?= $qIndex ?>][options][<?= $oIndex ?>][text]"
@@ -225,15 +218,7 @@ function addInteractiveSection() {
             <div class="space-y-4">
                 <div class="question-item bg-white border border-gray-200 rounded-lg p-4">
                     <div class="space-y-3">
-                        <div class="flex items-start justify-between">
-                            <label class="block text-sm font-medium text-gray-700">Question</label>
-                            <select name="sections[${sectionIndex}][questions][0][type]" 
-                                    class="text-sm border-gray-300 rounded px-2 py-1">
-                                <option value="multiple_choice">Multiple Choice</option>
-                                <option value="fill_blank">Fill in the Blank</option>
-                                <option value="multiple_select">Multiple Select</option>
-                            </select>
-                        </div>
+                        <label class="block text-sm font-medium text-gray-700">Question</label>
                         <input type="text" 
                                name="sections[${sectionIndex}][questions][0][text]" 
                                placeholder="Enter your question"
@@ -241,9 +226,11 @@ function addInteractiveSection() {
                         
                         <!-- Options -->
                         <div class="space-y-2 pl-4">
+                            <p class="text-xs text-gray-500 mb-2">Check the correct answer(s):</p>
                             <div class="flex items-center gap-2">
                                 <input type="checkbox" 
                                        name="sections[${sectionIndex}][questions][0][options][0][is_correct]"
+                                       value="1"
                                        class="rounded text-green-500">
                                 <input type="text" 
                                        name="sections[${sectionIndex}][questions][0][options][0][text]"
@@ -253,6 +240,7 @@ function addInteractiveSection() {
                             <div class="flex items-center gap-2">
                                 <input type="checkbox" 
                                        name="sections[${sectionIndex}][questions][0][options][1][is_correct]"
+                                       value="1"
                                        class="rounded text-green-500">
                                 <input type="text" 
                                        name="sections[${sectionIndex}][questions][0][options][1][text]"
@@ -262,6 +250,7 @@ function addInteractiveSection() {
                             <div class="flex items-center gap-2">
                                 <input type="checkbox" 
                                        name="sections[${sectionIndex}][questions][0][options][2][is_correct]"
+                                       value="1"
                                        class="rounded text-green-500">
                                 <input type="text" 
                                        name="sections[${sectionIndex}][questions][0][options][2][text]"
@@ -271,6 +260,7 @@ function addInteractiveSection() {
                             <div class="flex items-center gap-2">
                                 <input type="checkbox" 
                                        name="sections[${sectionIndex}][questions][0][options][3][is_correct]"
+                                       value="1"
                                        class="rounded text-green-500">
                                 <input type="text" 
                                        name="sections[${sectionIndex}][questions][0][options][3][text]"
