@@ -315,20 +315,14 @@ class AchievementHandler {
 
     /**
      * Check proficiency up achievement
+     * Should ONLY be called when proficiency actually changes
+     * Don't call this automatically - trigger it manually when updating proficiency
      */
     public function checkProficiencyUp() {
-        // Assuming you have a proficiency level in your user table
-        // Adjust based on your actual proficiency tracking
-        $stmt = $this->conn->prepare("SELECT proficiency FROM user WHERE userID = ?");
-        $stmt->bind_param("i", $this->studentID);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $proficiency = $result->fetch_assoc()['proficiency'] ?? 0;
-        $stmt->close();
-
-        if ($proficiency > 0) {
-            return $this->awardAchievement('proficiency_up');
-        }
+        // This should NOT be called in checkAllAchievements()
+        // Only call this when you manually increase a user's proficiency level
+        
+        // For now, return false to prevent auto-awarding
         return false;
     }
 
@@ -336,14 +330,14 @@ class AchievementHandler {
      * Check all achievements at once
      */
     public function checkAllAchievements() {
-        $this->checkFirstLogin();
+        // $this->checkFirstLogin();
         $this->checkFirstProgram();
         $this->checkProgramComplete();
         $this->checkPointsAchievements();
         $this->checkChapterStreak();
         $this->checkGraduateAchievements();
-        $this->checkLevelUp();
-        $this->checkProficiencyUp();
+        // $this->checkLevelUp();
+        // $this->checkProficiencyUp();
     }
 }
 

@@ -308,14 +308,19 @@ try {
                             $updateLogin->bind_param("i", $userID);
                             $updateLogin->execute();
 
-                            if ($user['role'] === 'student') {
+                            if ($role === 'student') {
                                 require_once '../php/achievement-handler.php';
-                                $achievementHandler = new AchievementHandler($conn, $_SESSION['userID']);
+                                
+                                error_log("Checking achievements for student ID: " . $userID);
+                                
+                                $achievementHandler = new AchievementHandler($conn, $userID);
                                 $achievementHandler->checkFirstLogin();
-                                $achievementHandler->checkAllAchievements();
                                 
                                 // Store newly unlocked for display on dashboard
-                                $_SESSION['new_achievements'] = $achievementHandler->getNewlyUnlocked();
+                                $newlyUnlocked = $achievementHandler->getNewlyUnlocked();
+                                $_SESSION['new_achievements'] = $newlyUnlocked;
+                                
+                                error_log("Newly unlocked on login: " . print_r($newlyUnlocked, true));
                             }
                             
                             $redirectPage = $role . '/' . $role . '-dashboard.php';
