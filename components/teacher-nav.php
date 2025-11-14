@@ -116,17 +116,13 @@ if (isset($_SESSION['userID'])) {
                                 <i class="ph ph-user-circle text-[18px] mr-3 text-gray-400"></i>
                                 Profile Settings
                             </a>
-                            <a href="teacher-courses.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
+                            <a href="teacher-programs.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
                                 <i class="ph ph-books text-[18px] mr-3 text-gray-400"></i>
                                 My Courses
                             </a>
-                            <a href="teacher-students.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
+                            <a href="teacher-analytics.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
                                 <i class="ph ph-users-three text-[18px] mr-3 text-gray-400"></i>
                                 My Students
-                            </a>
-                            <a href="teacher-settings.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
-                                <i class="ph ph-gear-six text-[18px] mr-3 text-gray-400"></i>
-                                Account Settings
                             </a>
                         </div>
 

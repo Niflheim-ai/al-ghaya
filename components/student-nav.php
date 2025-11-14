@@ -122,14 +122,6 @@ if (isset($_SESSION['userID'])) {
                                 <i class="ph ph-trophy text-[18px] mr-3 text-gray-400"></i>
                                 Achievements
                             </a>
-                            <a href="student-progress.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
-                                <i class="ph ph-chart-line text-[18px] mr-3 text-gray-400"></i>
-                                Learning Progress
-                            </a>
-                            <a href="student-settings.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
-                                <i class="ph ph-gear-six text-[18px] mr-3 text-gray-400"></i>
-                                Preferences
-                            </a>
                         </div>
 
                         <!-- Logout Section -->
