@@ -13,6 +13,10 @@
     $studentID = $_SESSION['userID'];
     $gamification = new GamificationSystem($conn);
 
+    // After updating points
+    $handler = new AchievementHandler($conn, $studentID);
+    $handler->checkPointsAchievements();
+
     // Check for new OAuth user welcome
     $showWelcomeMessage = false;
     if (isset($_GET['welcome']) && $_GET['welcome'] === 'new_oauth_user' && isset($_SESSION['new_oauth_user'])) {

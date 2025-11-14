@@ -2,6 +2,7 @@
 session_start();
 include('../php/dbConnection.php');
 require '../php/login-api.php';
+require_once '../php/achievement-handler.php';
 
 // If already logged in, redirect based on role
 if (isset($_SESSION['userID']) && isset($_SESSION['role'])) {
@@ -306,6 +307,16 @@ try {
                             $updateLogin = $conn->prepare("UPDATE user SET lastLogin = NOW() WHERE userID = ?");
                             $updateLogin->bind_param("i", $userID);
                             $updateLogin->execute();
+
+                            if ($user['role'] === 'student') {
+                                require_once '../php/achievement-handler.php';
+                                $achievementHandler = new AchievementHandler($conn, $_SESSION['userID']);
+                                $achievementHandler->checkFirstLogin();
+                                $achievementHandler->checkAllAchievements();
+                                
+                                // Store newly unlocked for display on dashboard
+                                $_SESSION['new_achievements'] = $achievementHandler->getNewlyUnlocked();
+                            }
                             
                             $redirectPage = $role . '/' . $role . '-dashboard.php';
                             $alertScript = "showAlert('success', 'Login Successful', 'Welcome back!', function() { window.location.href = '$redirectPage'; });";  

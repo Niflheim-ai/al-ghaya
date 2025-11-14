@@ -6,6 +6,17 @@
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 require_once 'dbConnection.php';
+// After marking story complete
+require_once 'achievement-handler.php';
+$studentID = $_SESSION['userID'];
+
+$handler = new AchievementHandler($conn, $studentID);
+$handler->checkChapterStreak();
+$handler->checkProgramComplete();
+
+$handler = new AchievementHandler($conn, $studentID);
+$handler->checkProgramComplete();
+$handler->checkGraduateAchievements();
 
 // Student Enrollment functions
 function student_enroll($conn, $student_id, $program_id) {

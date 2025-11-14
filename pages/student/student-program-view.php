@@ -8,6 +8,11 @@ require_once '../../php/quiz-handler.php';
 require_once '../../php/youtube-embed-helper.php';
 require_once '../../php/student-progress.php';
 
+// After successful enrollment
+require_once '../../php/achievement-handler.php';
+
+
+
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     header('Location: ../login.php');
     exit();
@@ -30,6 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'enrol
         exit();
     }
 }
+
+checkStudentAchievements($conn, $studentID);
 
 if (!$isEnrolled) {
     $current_page = 'student-programs';

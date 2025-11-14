@@ -1,5 +1,6 @@
 <?php
 include_once('dbConnection.php');
+require_once '../../php/achievement-handler.php';
 
 /**
  * Al-Ghaya Gamification System
