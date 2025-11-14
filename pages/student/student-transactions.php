@@ -106,7 +106,7 @@
 <?php include '../../components/header.php'; ?>
 <?php include '../../components/student-nav.php'; ?>
 
-<style>
+<!-- <style>
     .page-container {
         width: 100%;
         max-width: 100%;
@@ -117,7 +117,7 @@
         max-width: none;
         padding: 2rem 3rem;
     }
-</style>
+</style> -->
 
 <div class="page-container">
     <div class="page-content">

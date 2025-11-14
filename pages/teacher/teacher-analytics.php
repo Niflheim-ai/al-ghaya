@@ -1,67 +1,92 @@
 <?php
 session_start();
+require_once '../../php/dbConnection.php';
+require_once '../../php/functions.php';
+
 $current_page = "teacher-analytics";
 $page_title = "Teacher Analytics";
 
 // Check if user is logged in and is a teacher
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'teacher') {
-    $_SESSION['error_message'] = 'Please log in as a teacher to access this page.';
     header("Location: ../login.php");
     exit();
 }
 
-// Include required files
-require_once '../../php/dbConnection.php';
-require_once '../../php/functions.php';
-require_once '../../php/program-helpers.php';
+$teacher_id = (int)$_SESSION['userID'];
+$current_page = 'teacher-analytics';
+$page_title = 'Analytics Dashboard';
 
-$user_id = $_SESSION['userID'];
+// Get filter parameters
+$programFilter = $_GET['program'] ?? 'all';
+$search = $_GET['search'] ?? '';
+$order = $_GET['order'] ?? 'asc';
 
-// Get teacher ID using consolidated function
-$teacher_id = getTeacherIdFromSession($conn, $user_id);
+// Get teacher's programs ONLY
+$programsStmt = $conn->prepare("
+    SELECT programID, title, price, category, status 
+    FROM programs 
+    WHERE teacherID = ? 
+    ORDER BY title
+");
+$programsStmt->bind_param("i", $teacher_id);
+$programsStmt->execute();
+$programs = $programsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$programsStmt->close();
 
-if (!$teacher_id) {
-    $_SESSION['error_message'] = 'Teacher profile not found. Please contact administrator.';
-    header("Location: ../teacher-dashboard.php");
-    exit();
+// Debug: Check if programs are loaded
+error_log("Teacher ID: $teacher_id, Programs found: " . count($programs));
+
+// Calculate key metrics
+$totalPrograms = count($programs);
+$publishedPrograms = 0;
+$draftPrograms = 0;
+
+foreach ($programs as $prog) {
+    $status = $prog['status'] ?? 'published';
+    if ($status === 'published') {
+        $publishedPrograms++;
+    } elseif ($status === 'draft') {
+        $draftPrograms++;
+    }
 }
 
-// Get teacher's programs
-$programs = getTeacherPrograms($conn, $teacher_id);
-
-// Calculate analytics data
-$totalPrograms = count($programs);
-$publishedPrograms = count(array_filter($programs, function($p) { return $p['status'] === 'published'; }));
-$draftPrograms = count(array_filter($programs, function($p) { return $p['status'] === 'draft'; }));
-$totalRevenue = array_sum(array_column($programs, 'price'));
-
+// Get total enrollments and build programs with enrollees
+$totalEnrollees = 0;
 $programsWithEnrollees = [];
-    $totalEnrollees = 0;
+
 foreach ($programs as $program) {
     $program_id = $program['programID'];
+    
     $stmt = $conn->prepare("SELECT COUNT(*) as enrollees FROM student_program_enrollments WHERE program_id = ?");
     $stmt->bind_param("i", $program_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $enrollees = $result->fetch_assoc()['enrollees'];
     $stmt->close();
-
+    
     $program['enrollees'] = $enrollees;
     $totalEnrollees += $enrollees;
-    $programsWithEnrollees[] = $program;
+    
+    if ($enrollees > 0) {
+        $programsWithEnrollees[] = $program;
+    }
 }
 
-// --- Get students data with filters (This part was already correct) ---
-$programFilter = $_GET['program'] ?? 'all';
-$search = $_GET['search'] ?? '';
-$order = $_GET['order'] ?? 'asc';
-
-// Build SQL query for students
-$sql = "SELECT DISTINCT u.userID, u.fname, u.lname, u.email, spe.program_id AS programID, p.title AS programTitle, spe.enrollment_date AS enrollmentDate
+// Get students data with filters - FIXED QUERY
+$sql = "
+    SELECT DISTINCT 
+        u.userID, 
+        u.fname, 
+        u.lname, 
+        u.email,
+        spe.program_id AS programID, 
+        p.title AS programTitle,
+        spe.enrollment_date AS enrollmentDate
     FROM user u
-    JOIN student_program_enrollments spe ON u.userID = spe.student_id
-    JOIN programs p ON spe.program_id = p.programID
-    WHERE u.role = 'student' AND p.teacherID = ?";
+    INNER JOIN student_program_enrollments spe ON u.userID = spe.student_id
+    INNER JOIN programs p ON spe.program_id = p.programID
+    WHERE u.role = 'student' AND p.teacherID = ?
+";
 
 $params = [$teacher_id];
 $types = "i";
@@ -73,14 +98,19 @@ if ($programFilter !== 'all' && !empty($programFilter)) {
 }
 
 if (!empty($search)) {
-    $sql .= " AND (u.fname LIKE ? OR u.lname LIKE ? OR u.email LIKE ? OR p.title LIKE ?)";
+    $sql .= " AND (u.fname LIKE ? OR u.lname LIKE ? OR u.email LIKE ?)";
     $searchParam = "%$search%";
-    array_push($params, $searchParam, $searchParam, $searchParam, $searchParam);
-    $types .= "ssss";
+    array_push($params, $searchParam, $searchParam, $searchParam);
+    $types .= "sss";
 }
 
 $sql .= " ORDER BY u.lname " . ($order === 'asc' ? 'ASC' : 'DESC');
 
+// Debug query
+error_log("Students SQL: $sql");
+error_log("Params: " . print_r($params, true));
+
+$students = [];
 $stmt = $conn->prepare($sql);
 if ($stmt) {
     $stmt->bind_param($types, ...$params);
@@ -88,22 +118,27 @@ if ($stmt) {
     $result = $stmt->get_result();
     $students = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
+    
+    // Debug
+    error_log("Students found: " . count($students));
 } else {
-    $students = [];
-    error_log("Analytics student query failed: " . $conn->error);
+    error_log("Students query failed: " . $conn->error);
 }
 
-// --- CORRECTED: Get recent activity (last 7 days) ---
-// The query now uses the correct table 'student_program_enrollments' and its columns.
+// Get recent activity (last 7 days)
 $recentEnrollments = [];
-$activityStmt = $conn->prepare(
-    "SELECT p.title, COUNT(*) as count, DATE(spe.enrollment_date) as date
-     FROM student_program_enrollments spe
-     JOIN programs p ON spe.program_id = p.programID 
-     WHERE p.teacherID = ? AND spe.enrollment_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-     GROUP BY p.programID, DATE(spe.enrollment_date)
-     ORDER BY spe.enrollment_date DESC"
-);
+$activityStmt = $conn->prepare("
+    SELECT 
+        p.title, 
+        COUNT(*) as count, 
+        DATE(spe.enrollment_date) as date
+    FROM student_program_enrollments spe
+    JOIN programs p ON spe.program_id = p.programID
+    WHERE p.teacherID = ? AND spe.enrollment_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    GROUP BY p.programID, DATE(spe.enrollment_date)
+    ORDER BY spe.enrollment_date DESC
+    LIMIT 10
+");
 
 if ($activityStmt) {
     $activityStmt->bind_param("i", $teacher_id);
@@ -111,8 +146,6 @@ if ($activityStmt) {
     $activityResult = $activityStmt->get_result();
     $recentEnrollments = $activityResult->fetch_all(MYSQLI_ASSOC);
     $activityStmt->close();
-} else {
-    error_log("Recent activity query failed: " . $conn->error);
 }
 ?>
 
@@ -193,9 +226,9 @@ if ($activityStmt) {
                                 <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-2"><?= htmlspecialchars($program['title']) ?></h3>
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="px-2 py-1 text-xs rounded-full 
-                                        <?= $program['status'] === 'published' ? 'bg-green-100 text-green-800' : 
-                                           ($program['status'] === 'draft' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800') ?>">
-                                        <?= ucfirst($program['status']) ?>
+                                        <?= ($program['status'] ?? 'published') === 'published' ? 'bg-green-100 text-green-800' : 
+                                           (($program['status'] ?? 'published') === 'draft' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800') ?>">
+                                        <?= ucfirst($program['status'] ?? 'published') ?>
                                     </span>
                                     <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                                         <?= ucfirst($program['category']) ?>
@@ -226,7 +259,7 @@ if ($activityStmt) {
             </div>
 
             <!-- Main Content Grid -->
-            <p class="text-neutral-500">*Only students enrolled in your programs will be displayed</p>
+            <p class="text-neutral-500 mb-4">*Only students enrolled in your programs will be displayed</p>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Students Table -->
                 <div class="lg:col-span-2 bg-white rounded-xl shadow-md p-6">
@@ -392,7 +425,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const data = <?= json_encode(array_map(function($program) {
         return $program['enrollees'];
     }, $programsWithEnrollees)) ?>;
-    
+
     new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -400,14 +433,8 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 data: data,
                 backgroundColor: [
-                    '#3B82F6', // Blue
-                    '#10B981', // Green  
-                    '#F59E0B', // Orange
-                    '#8B5CF6', // Purple
-                    '#EF4444', // Red
-                    '#06B6D4', // Cyan
-                    '#84CC16', // Lime
-                    '#F97316'  // Orange
+                    '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6',
+                    '#EF4444', '#06B6D4', '#84CC16', '#F97316'
                 ],
                 borderWidth: 2,
                 borderColor: '#ffffff'
@@ -420,11 +447,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        padding: 20,
+                        padding: 15,
                         usePointStyle: true,
-                        font: {
-                            size: 12
-                        }
+                        font: { size: 11 }
                     }
                 }
             }
@@ -432,63 +457,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Utility functions
-function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
+// Export CSV function
 function exportData(format) {
     if (format === 'csv') {
-        Swal.fire({
-            title: 'Export Data',
-            text: 'Generate CSV report of enrolled students?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Export CSV',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Create CSV data
-                const students = <?= json_encode($students) ?>;
-                let csvContent = 'Student Name,Email,Program,Enrollment Date\n';
-                
-                students.forEach(student => {
-                    csvContent += `"${student.fname} ${student.lname}","${student.email}","${student.programTitle}","${student.enrollmentDate}"\n`;
-                });
-                
-                // Download CSV
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', 'student-analytics-' + new Date().toISOString().slice(0, 10) + '.csv');
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                Swal.fire('Exported!', 'CSV file has been downloaded.', 'success');
-            }
+        const students = <?= json_encode($students) ?>;
+        let csvContent = 'Student Name,Email,Program,Enrollment Date\n';
+        
+        students.forEach(student => {
+            csvContent += `"${student.fname} ${student.lname}","${student.email}","${student.programTitle}","${student.enrollmentDate}"\n`;
         });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'analytics-' + new Date().toISOString().slice(0, 10) + '.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        Swal.fire('Exported!', 'CSV file has been downloaded.', 'success');
     }
 }
 
+// Print Report function
 function printReport() {
     window.print();
 }
-
-// Show/hide back to top button
-window.addEventListener('scroll', function() {
-    const btn = document.getElementById('scroll-to-top');
-    if (btn) {
-        if (window.pageYOffset > 300) {
-            btn.classList.remove('hidden');
-        } else {
-            btn.classList.add('hidden');
-        }
-    }
-});
 </script>
+
+<script src="../../dist/javascript/scroll-to-top.js"></script>
 
 <style>
 @media print {
