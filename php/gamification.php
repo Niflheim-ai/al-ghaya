@@ -1,15 +1,12 @@
 <?php
-include_once('dbConnection.php');
-require_once '../../php/achievement-handler.php';
-
 /**
- * Al-Ghaya Gamification System
- * Handles points, levels, achievements, and progress tracking
+ * Gamification System
+ * Handles points, levels, achievements for students
  */
 
 class GamificationSystem {
     private $conn;
-    
+
     public function __construct($database_connection) {
         $this->conn = $database_connection;
     }
@@ -23,7 +20,7 @@ class GamificationSystem {
             $stmt = $this->conn->prepare("UPDATE user SET points = points + ? WHERE userID = ?");
             $stmt->bind_param("ii", $points, $userID);
             $stmt->execute();
-            
+
             // Log the point transaction
             $stmt = $this->conn->prepare("
                 INSERT INTO point_transactions (userID, points, activity_type, description, dateCreated) 
@@ -31,10 +28,10 @@ class GamificationSystem {
             ");
             $stmt->bind_param("iiss", $userID, $points, $activity_type, $description);
             $stmt->execute();
-            
+
             // Check if user leveled up
             $this->checkLevelUp($userID);
-            
+
             return true;
         } catch (Exception $e) {
             error_log("Error awarding points: " . $e->getMessage());
@@ -70,10 +67,24 @@ class GamificationSystem {
                 $stmt->bind_param("isi", $newLevel, $newProficiency, $userID);
                 $stmt->execute();
                 
-                // Award level up achievement
-                $this->unlockAchievement($userID, 'level_up', "Reached Level {$newLevel}");
+                // Use NEW achievement system
+                require_once __DIR__ . '/achievement-handler.php';
+                $achievementHandler = new AchievementHandler($this->conn, $userID);
                 
-                // Award proficiency achievement if changed
+                // Award level up achievement (only if level actually increased)
+                if ($newLevel > $currentLevel) {
+                    $achievementHandler->awardAchievement('level_up', "Reached Level {$newLevel}");
+                    error_log("Level up achievement awarded: User {$userID} reached level {$newLevel}");
+                }
+                
+                // Award proficiency achievement (only if proficiency changed)
+                if ($newProficiency != $currentProficiency) {
+                    $achievementHandler->awardAchievement('proficiency_up', "Advanced to {$newProficiency} proficiency");
+                    error_log("Proficiency up achievement awarded: User {$userID} advanced to {$newProficiency}");
+                }
+                
+                // Keep old system for backward compatibility
+                $this->unlockAchievement($userID, 'level_up', "Reached Level {$newLevel}");
                 if ($newProficiency != $currentProficiency) {
                     $this->unlockAchievement($userID, 'proficiency_up', "Advanced to {$newProficiency} proficiency");
                 }
@@ -87,6 +98,7 @@ class GamificationSystem {
             }
             
             return ['leveled_up' => false];
+            
         } catch (Exception $e) {
             error_log("Error checking level up: " . $e->getMessage());
             return false;
@@ -138,7 +150,7 @@ class GamificationSystem {
     }
 
     /**
-     * Unlock achievement for user
+     * Unlock achievement for user (OLD SYSTEM - for backward compatibility)
      */
     public function unlockAchievement($userID, $achievementType, $description) {
         try {
@@ -157,12 +169,11 @@ class GamificationSystem {
             if ($result->num_rows == 0) {
                 // Achievement doesn't exist, create it
                 $stmt = $this->conn->prepare("
-                    INSERT INTO user_achievements (userID, achievement_type, description, dateUnlocked)
+                    INSERT INTO user_achievements (userID, achievement_type, description, dateUnlocked) 
                     VALUES (?, ?, ?, NOW())
                 ");
                 $stmt->bind_param("iss", $userID, $achievementType, $description);
                 $stmt->execute();
-                
                 return true;
             }
             
@@ -246,7 +257,6 @@ class GamificationSystem {
             $stmt->bind_param("ii", $userID, $limit);
             $stmt->execute();
             $result = $stmt->get_result();
-            
             return $result->fetch_all(MYSQLI_ASSOC);
         } catch (Exception $e) {
             error_log("Error getting recent transactions: " . $e->getMessage());
@@ -271,7 +281,6 @@ class GamificationSystem {
             $stmt->bind_param("i", $userID);
             $stmt->execute();
             $result = $stmt->get_result();
-            
             return $result->fetch_all(MYSQLI_ASSOC);
         } catch (Exception $e) {
             error_log("Error getting user achievements: " . $e->getMessage());
@@ -286,39 +295,56 @@ class GamificationSystem {
         try {
             // Create student_chapter_progress table if it doesn't exist
             $this->ensureStudentProgressTables();
-            
+
             // Update chapter completion
             if ($completed) {
                 $stmt = $this->conn->prepare("
-                    INSERT INTO student_chapter_progress (studentID, programID, chapterID, completed, completedAt)
+                    INSERT INTO student_chapter_progress 
+                    (studentID, programID, chapterID, completed, completedAt) 
                     VALUES (?, ?, ?, 1, NOW())
-                    ON DUPLICATE KEY UPDATE completed = 1, completedAt = NOW()
+                    ON DUPLICATE KEY UPDATE 
+                    completed = 1, completedAt = NOW()
                 ");
                 $stmt->bind_param("iii", $studentID, $programID, $chapterID);
                 $stmt->execute();
-                
+
                 // Award points for chapter completion
                 $this->awardPoints($studentID, 50, 'chapter_completion', "Completed chapter in program {$programID}");
+                
+                // Check chapter streak achievement using new system
+                require_once __DIR__ . '/achievement-handler.php';
+                $achievementHandler = new AchievementHandler($this->conn, $studentID);
+                $achievementHandler->checkChapterStreak();
             }
-            
+
             // Calculate overall program progress
             $progress = $this->calculateProgramProgress($studentID, $programID);
-            
-            // Update student_program_enrollments table (use correct table name)
+
+            // Update student_program_enrollments table
             $stmt = $this->conn->prepare("
-                INSERT INTO student_program_enrollments (student_id, program_id, completion_percentage, enrollment_date, last_accessed)
+                INSERT INTO student_program_enrollments 
+                (student_id, program_id, completion_percentage, enrollment_date, last_accessed) 
                 VALUES (?, ?, ?, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE completion_percentage = ?, last_accessed = NOW()
+                ON DUPLICATE KEY UPDATE 
+                completion_percentage = ?, last_accessed = NOW()
             ");
             $stmt->bind_param("iidi", $studentID, $programID, $progress, $progress);
             $stmt->execute();
-            
+
             // Award completion bonus if program is finished
             if ($progress >= 100) {
                 $this->awardPoints($studentID, 200, 'program_completion', "Completed program {$programID}");
+                
+                // Use new achievement system
+                require_once __DIR__ . '/achievement-handler.php';
+                $achievementHandler = new AchievementHandler($this->conn, $studentID);
+                $achievementHandler->checkProgramComplete();
+                $achievementHandler->checkGraduateAchievements();
+                
+                // Keep old system for backward compatibility
                 $this->unlockAchievement($studentID, 'program_complete', "Completed a learning program");
             }
-            
+
             return $progress;
         } catch (Exception $e) {
             error_log("Error updating program progress: " . $e->getMessage());
@@ -368,9 +394,9 @@ class GamificationSystem {
             $stmt->bind_param("i", $programID);
             $stmt->execute();
             $total = $stmt->get_result()->fetch_assoc()['total'];
-            
+
             if ($total == 0) return 0;
-            
+
             // Get completed chapters
             $stmt = $this->conn->prepare("
                 SELECT COUNT(*) as completed 
@@ -380,7 +406,7 @@ class GamificationSystem {
             $stmt->bind_param("ii", $studentID, $programID);
             $stmt->execute();
             $completed = $stmt->get_result()->fetch_assoc()['completed'];
-            
+
             return round(($completed / $total) * 100, 2);
         } catch (Exception $e) {
             error_log("Error calculating program progress: " . $e->getMessage());
@@ -405,5 +431,4 @@ function getGamificationSystem() {
     global $conn;
     return new GamificationSystem($conn);
 }
-
 ?>

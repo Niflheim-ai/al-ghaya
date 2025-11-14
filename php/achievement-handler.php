@@ -162,13 +162,13 @@ class AchievementHandler {
     }
 
     /**
-     * Check program completion
-     */
-    public function checkProgramComplete() {
+     * Check first story completion
+    */
+    public function checkStoryComplete() {
         $stmt = $this->conn->prepare("
             SELECT COUNT(*) as count 
-            FROM student_program_enrollments 
-            WHERE student_id = ? AND completion_percentage >= 100
+            FROM student_story_progress 
+            WHERE student_id = ? AND is_completed = 1
         ");
         $stmt->bind_param("i", $this->studentID);
         $stmt->execute();
@@ -177,8 +177,38 @@ class AchievementHandler {
         $stmt->close();
 
         if ($count >= 1) {
+            return $this->awardAchievement('story_complete');
+        }
+        return false;
+    }
+
+    /**
+     * Check program completion achievement
+     * Awards achievement when student completes ALL stories in at least one program
+     */
+    public function checkProgramComplete() {
+        // Get all programs the student has started
+        $stmt = $this->conn->prepare("
+            SELECT DISTINCT pc.programID, 
+                COUNT(DISTINCT cs.story_id) as total_stories,
+                COUNT(DISTINCT CASE WHEN ssp.is_completed = 1 THEN ssp.story_id END) as completed_stories
+            FROM program_chapters pc
+            INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+            LEFT JOIN student_story_progress ssp ON cs.story_id = ssp.story_id AND ssp.student_id = ?
+            GROUP BY pc.programID
+            HAVING total_stories > 0 AND completed_stories >= total_stories
+        ");
+        $stmt->bind_param("i", $this->studentID);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        // If at least one program is 100% complete, award achievement
+        if ($result->num_rows > 0) {
+            $stmt->close();
             return $this->awardAchievement('program_complete');
         }
+        
+        $stmt->close();
         return false;
     }
 
@@ -234,95 +264,78 @@ class AchievementHandler {
 
     /**
      * Check graduate achievements (beginner, intermediate, advanced)
+     * Awards when student completes ALL programs in a difficulty category
      */
     public function checkGraduateAchievements() {
         $awarded = false;
 
-        // Beginner Graduate
-        $beginnerStmt = $this->conn->prepare("
-            SELECT 
-                COUNT(DISTINCT p.programID) as total,
-                COUNT(DISTINCT CASE WHEN spe.completion_percentage >= 100 THEN spe.program_id END) as completed
-            FROM programs p
-            LEFT JOIN student_program_enrollments spe ON p.programID = spe.program_id AND spe.student_id = ?
-            WHERE p.category = 'beginner'
-        ");
-        $beginnerStmt->bind_param("i", $this->studentID);
-        $beginnerStmt->execute();
-        $beginnerResult = $beginnerStmt->get_result()->fetch_assoc();
-        $beginnerStmt->close();
-
-        if ($beginnerResult['total'] > 0 && $beginnerResult['completed'] >= $beginnerResult['total']) {
-            $awarded = $this->awardAchievement('beginner_graduate') || $awarded;
+        // Check each category
+        $categories = ['beginner', 'intermediate', 'advanced'];
+        
+        foreach ($categories as $category) {
+            // Get total programs in this category
+            $totalStmt = $this->conn->prepare("
+                SELECT COUNT(DISTINCT programID) as total 
+                FROM programs 
+                WHERE category = ? AND status = 'published'
+            ");
+            $totalStmt->bind_param("s", $category);
+            $totalStmt->execute();
+            $totalPrograms = $totalStmt->get_result()->fetch_assoc()['total'];
+            $totalStmt->close();
+            
+            if ($totalPrograms == 0) continue; // Skip if no programs in this category
+            
+            // Count how many programs in this category are 100% complete
+            $completedStmt = $this->conn->prepare("
+                SELECT COUNT(DISTINCT completed_programs.programID) as completed
+                FROM (
+                    SELECT pc.programID,
+                        COUNT(DISTINCT cs.story_id) as total_stories,
+                        COUNT(DISTINCT CASE WHEN ssp.is_completed = 1 THEN ssp.story_id END) as completed_stories
+                    FROM programs p
+                    INNER JOIN program_chapters pc ON p.programID = pc.programID
+                    INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                    LEFT JOIN student_story_progress ssp ON cs.story_id = ssp.story_id AND ssp.student_id = ?
+                    WHERE p.category = ? AND p.status = 'published'
+                    GROUP BY pc.programID
+                    HAVING total_stories > 0 AND completed_stories >= total_stories
+                ) AS completed_programs
+            ");
+            $completedStmt->bind_param("is", $this->studentID, $category);
+            $completedStmt->execute();
+            $completedPrograms = $completedStmt->get_result()->fetch_assoc()['completed'];
+            $completedStmt->close();
+            
+            // Award achievement if all programs in category are complete
+            if ($completedPrograms >= $totalPrograms) {
+                $achievementType = $category . '_graduate';
+                $awarded = $this->awardAchievement($achievementType) || $awarded;
+            }
         }
-
-        // Intermediate Graduate
-        $intermediateStmt = $this->conn->prepare("
-            SELECT 
-                COUNT(DISTINCT p.programID) as total,
-                COUNT(DISTINCT CASE WHEN spe.completion_percentage >= 100 THEN spe.program_id END) as completed
-            FROM programs p
-            LEFT JOIN student_program_enrollments spe ON p.programID = spe.program_id AND spe.student_id = ?
-            WHERE p.category = 'intermediate'
-        ");
-        $intermediateStmt->bind_param("i", $this->studentID);
-        $intermediateStmt->execute();
-        $intermediateResult = $intermediateStmt->get_result()->fetch_assoc();
-        $intermediateStmt->close();
-
-        if ($intermediateResult['total'] > 0 && $intermediateResult['completed'] >= $intermediateResult['total']) {
-            $awarded = $this->awardAchievement('intermediate_graduate') || $awarded;
-        }
-
-        // Advanced Graduate
-        $advancedStmt = $this->conn->prepare("
-            SELECT 
-                COUNT(DISTINCT p.programID) as total,
-                COUNT(DISTINCT CASE WHEN spe.completion_percentage >= 100 THEN spe.program_id END) as completed
-            FROM programs p
-            LEFT JOIN student_program_enrollments spe ON p.programID = spe.program_id AND spe.student_id = ?
-            WHERE p.category = 'advanced'
-        ");
-        $advancedStmt->bind_param("i", $this->studentID);
-        $advancedStmt->execute();
-        $advancedResult = $advancedStmt->get_result()->fetch_assoc();
-        $advancedStmt->close();
-
-        if ($advancedResult['total'] > 0 && $advancedResult['completed'] >= $advancedResult['total']) {
-            $awarded = $this->awardAchievement('advanced_graduate') || $awarded;
-        }
-
+        
         return $awarded;
     }
 
     /**
      * Check level up achievement
+     * NOTE: This is now handled by gamification.php automatically
+     * Keep this method for backward compatibility but don't call it
      */
     public function checkLevelUp() {
-        // Assuming you have a level system in your user table
-        $stmt = $this->conn->prepare("SELECT level FROM user WHERE userID = ?");
-        $stmt->bind_param("i", $this->studentID);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $level = $result->fetch_assoc()['level'] ?? 1;
-        $stmt->close();
-
-        if ($level > 1) {
-            return $this->awardAchievement('level_up');
-        }
+        // This achievement is now awarded automatically by gamification.php
+        // when the user's level increases via checkLevelUp() method
         return false;
     }
 
     /**
      * Check proficiency up achievement
-     * Should ONLY be called when proficiency actually changes
-     * Don't call this automatically - trigger it manually when updating proficiency
+     * NOTE: This is now handled by gamification.php automatically
+     * Keep this method for backward compatibility but don't call it
      */
     public function checkProficiencyUp() {
-        // This should NOT be called in checkAllAchievements()
-        // Only call this when you manually increase a user's proficiency level
-        
-        // For now, return false to prevent auto-awarding
+        // This achievement is now awarded automatically by gamification.php
+        // when the user's proficiency changes via checkLevelUp() method
         return false;
     }
 

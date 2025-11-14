@@ -3,6 +3,7 @@
     require '../../php/dbConnection.php';
     require '../../php/gamification.php';
     require '../../php/functions.php';
+    require_once '../../php/achievement-handler.php';
 
     // Check if user is logged in and is a student
     if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {

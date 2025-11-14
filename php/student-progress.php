@@ -10,14 +10,6 @@ require_once 'dbConnection.php';
 require_once 'achievement-handler.php';
 $studentID = $_SESSION['userID'];
 
-$handler = new AchievementHandler($conn, $studentID);
-$handler->checkChapterStreak();
-$handler->checkProgramComplete();
-
-$handler = new AchievementHandler($conn, $studentID);
-$handler->checkProgramComplete();
-$handler->checkGraduateAchievements();
-
 // Student Enrollment functions
 function student_enroll($conn, $student_id, $program_id) {
     // Check if already enrolled
@@ -384,11 +376,31 @@ if (basename($_SERVER['PHP_SELF']) === 'student-progress.php') {
                     exit;
                 }
                 
+                // Mark story as completed
                 $progress_id = studentStoryProgress_markCompleted($conn, $student_id, $story_id);
+                
                 if ($progress_id) {
+                    // Update program progress percentage
                     $completion_percentage = student_updateProgress($conn, $student_id, $program_id);
+                    
+                    // ✅ Award achievements using new system
+                    require_once __DIR__ . '/achievement-handler.php';
+                    $achievementHandler = new AchievementHandler($conn, $user_id);
+                    
+                    // Check story completion achievement (first story)
+                    $achievementHandler->checkStoryComplete();
+                    
+                    // Check chapter streak (5+ stories completed)
+                    $achievementHandler->checkChapterStreak();
+                    
+                    // Check if program is now complete
+                    if ($completion_percentage >= 100) {
+                        $achievementHandler->checkProgramComplete();
+                        $achievementHandler->checkGraduateAchievements();
+                    }
+                    
                     echo json_encode([
-                        'success' => true, 
+                        'success' => true,
                         'progress_id' => $progress_id,
                         'completion_percentage' => $completion_percentage,
                         'message' => 'Story completed successfully'
@@ -397,7 +409,7 @@ if (basename($_SERVER['PHP_SELF']) === 'student-progress.php') {
                     echo json_encode(['success' => false, 'message' => 'Failed to mark story as completed']);
                 }
                 exit;
-                
+
             case 'submit_quiz':
                 header('Content-Type: application/json');
                 $quiz_id = intval($_POST['quiz_id'] ?? 0);
