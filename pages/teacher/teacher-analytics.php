@@ -764,13 +764,6 @@ function printReport() {
     .page-container { padding: 0 !important; }
     .shadow-md, .shadow-lg { box-shadow: none !important; }
 }
-
-.line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
 </style>
 
 </body>
