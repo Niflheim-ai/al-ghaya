@@ -1,4 +1,3 @@
-<!-- General Page Footer -->
 <footer class="flex flex-col items-center justify-center gap-[50px] bg-secondary pt-[50px] pb-[25px] text-company_white w-full px-4 md:px-0">
   <!-- Details -->
   <section class="flex flex-col md:flex-row h-fit w-full max-w-[1200px] items-center justify-center gap-[50px] md:gap-[75px]">
