@@ -57,26 +57,89 @@
     $recentTransactions = $gamification->getRecentTransactions($studentID, 5);
     $achievements = $gamification->getUserAchievements($studentID);
 
-    // Get recent program progress
+    // Get recent program progress - Fixed to use actual tables
     $stmt = $conn->prepare(" 
-        SELECT p.programID, p.title, p.image,
+        SELECT p.programID, p.title, 
+            COALESCE(p.thumbnail, p.image) as image,
             spe.completion_percentage AS progress,
-            COALESCE(
-              (SELECT MAX(scp.chapterID)
-                FROM student_chapter_progress scp
-                WHERE scp.studentID = spe.student_id AND scp.programID = spe.program_id AND scp.completed = 1),
-              1
-            ) AS current_chapter,
-            'Continue Learning' AS current_chapter_title
-      FROM student_program_enrollments spe
-      JOIN programs p ON p.programID = spe.program_id 
-      WHERE spe.student_id = ?
-      ORDER BY spe.last_accessed DESC 
-      LIMIT 1
+            spe.last_accessed,
+            (SELECT COUNT(DISTINCT cs.story_id)
+                FROM program_chapters pc
+                INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                WHERE pc.programID = p.programID) AS total_stories,
+            (SELECT COUNT(DISTINCT ssp.story_id)
+                FROM program_chapters pc
+                INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                INNER JOIN student_story_progress ssp ON cs.story_id = ssp.story_id
+                WHERE pc.programID = p.programID AND ssp.student_id = spe.student_id AND ssp.is_completed = 1) AS completed_stories,
+            (SELECT MIN(cs.story_id)
+                FROM program_chapters pc
+                INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                LEFT JOIN student_story_progress ssp ON cs.story_id = ssp.story_id AND ssp.student_id = spe.student_id
+                WHERE pc.programID = p.programID AND (ssp.is_completed IS NULL OR ssp.is_completed = 0)
+                ORDER BY pc.chapter_order, cs.story_order
+                LIMIT 1) AS next_story_id
+        FROM student_program_enrollments spe
+        JOIN programs p ON p.programID = spe.program_id 
+        WHERE spe.student_id = ?
+        ORDER BY spe.last_accessed DESC 
+        LIMIT 1
     ");
+
     $stmt->bind_param("i", $studentID);
     $stmt->execute();
     $recentProgram = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    // Add readable chapter info if program exists
+    if ($recentProgram) {
+        // Calculate actual progress percentage
+        if ($recentProgram['total_stories'] > 0) {
+            $actualProgress = ($recentProgram['completed_stories'] / $recentProgram['total_stories']) * 100;
+            $recentProgram['progress'] = round($actualProgress, 1);
+        }
+        
+        // Get current chapter info
+        if ($recentProgram['next_story_id']) {
+            $chapterStmt = $conn->prepare("
+                SELECT pc.chapter_id, pc.title as chapter_title, pc.chapter_order
+                FROM chapter_stories cs
+                INNER JOIN program_chapters pc ON cs.chapter_id = pc.chapter_id
+                WHERE cs.story_id = ?
+            ");
+            $chapterStmt->bind_param("i", $recentProgram['next_story_id']);
+            $chapterStmt->execute();
+            $chapterInfo = $chapterStmt->get_result()->fetch_assoc();
+            $chapterStmt->close();
+            
+            if ($chapterInfo) {
+                $recentProgram['current_chapter'] = $chapterInfo['chapter_order'];
+                $recentProgram['current_chapter_title'] = $chapterInfo['chapter_title'];
+                $recentProgram['chapter_id'] = $chapterInfo['chapter_id'];
+            }
+        }
+        
+        // If no next story (all complete), show last chapter
+        if (!isset($recentProgram['current_chapter'])) {
+            $lastChapterStmt = $conn->prepare("
+                SELECT chapter_id, title, chapter_order
+                FROM program_chapters
+                WHERE programID = ?
+                ORDER BY chapter_order DESC
+                LIMIT 1
+            ");
+            $lastChapterStmt->bind_param("i", $recentProgram['programID']);
+            $lastChapterStmt->execute();
+            $lastChapter = $lastChapterStmt->get_result()->fetch_assoc();
+            $lastChapterStmt->close();
+            
+            if ($lastChapter) {
+                $recentProgram['current_chapter'] = $lastChapter['chapter_order'];
+                $recentProgram['current_chapter_title'] = $lastChapter['title'] . ' (Completed)';
+                $recentProgram['chapter_id'] = $lastChapter['chapter_id'];
+            }
+        }
+    }
 
     // Award daily login points (check if already awarded today)
     $today = date('Y-m-d');
@@ -167,9 +230,9 @@
                 <div class="bg-company_black w-[2px] h-[216px] rounded-[5px]"></div>
                 
                 <!-- Recent Program -->
-                <div class="w-[500px] h-auto gap-[25px] flex rounded-r-[10px] overflow-hidden">
+                <div class="flex-1 flex gap-[25px] rounded-r-[10px] overflow-hidden">
                     <?php if ($recentProgram): ?>
-                    <div class="min-w-[217px] flex flex-col gap-y-[25px]">
+                    <div class="flex-1 flex flex-col gap-y-[25px]">
                         <div>
                             <p class="label">Recent Program</p>
                             <p class="program-name-2 arabic font-bold text-lg"><?= htmlspecialchars($recentProgram['title']) ?></p>
@@ -189,7 +252,7 @@
                         </div>
                         
                         <!-- Resume Program BTN -->
-                        <a href="student-program-view.php?program_id=<?= (int)$recentProgram['programID'] ?>&chapter_id=<?= (int)$recentProgram['current_chapter']?>">
+                        <a href="student-program-view.php?program_id=<?= (int)$recentProgram['programID'] ?><?= isset($recentProgram['next_story_id']) ? '&story_id=' . (int)$recentProgram['next_story_id'] : '' ?>">
                             <button type="button" class="group btn-gold w-full bg-[#A58618] text-white px-4 py-2 rounded-lg hover:bg-[#8a6f15] transition-colors">
                                 <p class="font-medium">Resume Program</p>
                                 <i class="ph ph-bookmark text-[24px] group-hover:hidden"></i>
@@ -197,9 +260,16 @@
                             </button>
                         </a>
                     </div>
-                    <img src="../../images/<?= $recentProgram['image'] ?: 'blog-bg.svg' ?>" alt="Program Image" class="object-cover w-32 h-32 rounded-lg">
+                    
+                    <!-- Image that fills remaining space -->
+                    <div class="w-48 h-full min-h-[216px] flex-shrink-0">
+                        <img src="../../uploads/thumbnails/<?= htmlspecialchars($recentProgram['image'] ?: $recentProgram['thumbnail'] ?: 'default.jpg') ?>" 
+                            alt="<?= htmlspecialchars($recentProgram['title']) ?>" 
+                            class="w-full h-full object-cover rounded-lg"
+                            onerror="this.src='../../images/blog-bg.svg'">
+                    </div>
                     <?php else: ?>
-                    <div class="min-w-[217px] flex flex-col gap-y-[25px] justify-center items-center text-center">
+                    <div class="flex-1 flex flex-col gap-y-[25px] justify-center items-center text-center">
                         <i class="ph ph-book text-6xl text-gray-400"></i>
                         <p class="text-gray-600">No programs enrolled yet</p>
                         <a href="student-programs.php">
@@ -340,8 +410,23 @@
             <?php if ($recommendedPrograms): ?>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <?php foreach ($recommendedPrograms as $program): ?>
+                <?php
+                // Determine image path
+                $programImage = '../../images/blog-bg.svg'; // Default fallback
+                if (!empty($program['image'])) {
+                    // Check if it's a thumbnail path or full image path
+                    if (strpos($program['image'], 'thumbnails/') !== false || strpos($program['image'], 'uploads/') !== false) {
+                        $programImage = '../../' . $program['image'];
+                    } else {
+                        $programImage = '../../uploads/thumbnails/' . $program['image'];
+                    }
+                }
+                ?>
                 <div class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow">
-                    <img src="../../<?= $program['image'] ?: 'images/blog-bg.svg' ?>" alt="<?= htmlspecialchars($program['title']) ?>" class="w-full h-48 object-cover">
+                    <img src="<?= htmlspecialchars($programImage) ?>" 
+                        alt="<?= htmlspecialchars($program['title']) ?>" 
+                        class="w-full h-48 object-cover"
+                        onerror="this.src='../../images/blog-bg.svg'">
                     <div class="p-6">
                         <h3 class="font-bold text-lg mb-2 text-gray-800"><?= htmlspecialchars($program['title']) ?></h3>
                         <p class="text-gray-600 text-sm mb-4"><?= htmlspecialchars(mb_substr($program['description'], 0, 100)) ?>...</p>

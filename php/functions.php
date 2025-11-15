@@ -58,53 +58,125 @@
     }
 
     // Restored functions
-    function fetchEnrolledPrograms($conn, $studentID, $difficulty = 'all', $status = 'all', $search = '') {
-        try {
-            $sql = "
-                SELECT DISTINCT p.programID, p.title, p.description, p.category, p.image, p.thumbnail, p.price, p.currency,
-                       spe.completion_percentage, spe.enrollment_date, spe.last_accessed
-                FROM programs p
-                JOIN student_program_enrollments spe ON p.programID = spe.program_id
-                WHERE spe.student_id = ? AND p.status = 'published'";
-            $params = [$studentID]; $types = 'i';
-            if ($difficulty !== 'all') { $sql .= " AND p.category = ?"; $params[] = $difficulty; $types .= 's'; }
-            if ($status !== 'all') {
-                if ($status === 'completed') { $sql .= " AND spe.completion_percentage >= 100"; }
-                elseif ($status === 'in-progress') { $sql .= " AND spe.completion_percentage > 0 AND spe.completion_percentage < 100"; }
+    function fetchEnrolledPrograms($conn, $studentId, $difficulty = 'all', $status = 'all', $search = '') {
+        $sql = "
+            SELECT p.programID, p.title, p.description, p.image, p.thumbnail, 
+                p.category, p.difficulty_level, p.price, p.currency,
+                spe.enrollment_date,
+                spe.last_accessed,
+                'enrolled' AS enrollment_status,
+                (SELECT COUNT(DISTINCT cs.story_id)
+                    FROM program_chapters pc
+                    INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                    WHERE pc.programID = p.programID) AS total_stories,
+                (SELECT COUNT(DISTINCT ssp.story_id)
+                    FROM program_chapters pc
+                    INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                    INNER JOIN student_story_progress ssp ON cs.story_id = ssp.story_id
+                    WHERE pc.programID = p.programID AND ssp.student_id = spe.student_id AND ssp.is_completed = 1) AS completed_stories
+            FROM programs p
+            INNER JOIN student_program_enrollments spe ON p.programID = spe.program_id
+            WHERE spe.student_id = ?
+        ";
+        
+        $params = [$studentId];
+        $types = 'i';
+        
+        // Add difficulty filter
+        if ($difficulty !== 'all') {
+            $sql .= " AND p.category = ?";
+            $params[] = $difficulty;
+            $types .= 's';
+        }
+        
+        // Add search filter
+        if (!empty($search)) {
+            $sql .= " AND (p.title LIKE ? OR p.description LIKE ?)";
+            $searchTerm = "%{$search}%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $types .= 'ss';
+        }
+        
+        $sql .= " ORDER BY spe.last_accessed DESC";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $programs = $result->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        
+        // Calculate completion percentage for each program
+        foreach ($programs as &$program) {
+            if ($program['total_stories'] > 0) {
+                $program['completion_percentage'] = ($program['completed_stories'] / $program['total_stories']) * 100;
+            } else {
+                $program['completion_percentage'] = 0;
             }
-            if ($search !== '') { $sql .= " AND p.title LIKE ?"; $params[] = "%{$search}%"; $types .= 's'; }
-            $sql .= " ORDER BY spe.last_accessed DESC";
-            $stmt = $conn->prepare($sql); $stmt->bind_param($types, ...$params); $stmt->execute();
-            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        } catch (Exception $e) { error_log("fetchEnrolledPrograms: ".$e->getMessage()); return []; }
+        }
+        
+        // ✅ Filter by status AFTER calculating completion percentage
+        if ($status !== 'all') {
+            $programs = array_filter($programs, function($program) use ($status) {
+                $completion = $program['completion_percentage'];
+                if ($status === 'in-progress') {
+                    return $completion > 0 && $completion < 100;
+                } elseif ($status === 'completed') {
+                    return $completion >= 100;
+                }
+                return true;
+            });
+            $programs = array_values($programs); // Re-index array
+        }
+        
+        return $programs;
     }
 
     function fetchPublishedPrograms($conn, $studentID, $difficulty = 'all', $status = 'all', $search = '') {
         try {
             $sql = "
-                SELECT DISTINCT p.programID, p.title, p.description, p.category, p.image, p.thumbnail, p.price, p.currency,
-                       p.dateCreated, p.datePublished,
-                       COALESCE(spe.completion_percentage, 0) as completion_percentage,
-                       CASE 
-                           WHEN spe.student_id IS NULL THEN 'not-enrolled'
-                           WHEN spe.completion_percentage >= 100 THEN 'completed'
-                           WHEN spe.completion_percentage > 0 THEN 'in-progress'
-                           ELSE 'enrolled'
-                       END as enrollment_status
+                SELECT DISTINCT p.programID, p.title, p.description, p.category, p.image, p.thumbnail, 
+                    p.price, p.currency, p.dateCreated, p.datePublished,
+                    'not-enrolled' as enrollment_status
                 FROM programs p
                 LEFT JOIN student_program_enrollments spe ON p.programID = spe.program_id AND spe.student_id = ?
-                WHERE p.status = 'published'";
-            $params = [$studentID]; $types = 'i';
-            if ($difficulty !== 'all') { $sql .= " AND p.category = ?"; $params[] = $difficulty; $types .= 's'; }
-            if ($status !== 'all') {
-                if ($status === 'completed') { $sql .= " AND spe.completion_percentage >= 100"; }
-                elseif ($status === 'in-progress') { $sql .= " AND spe.completion_percentage > 0 AND spe.completion_percentage < 100"; }
+                WHERE p.status = 'published'
+                AND spe.student_id IS NULL
+            ";
+            
+            $params = [$studentID]; 
+            $types = 'i';
+            
+            // ✅ Add difficulty filter (case-insensitive)
+            if ($difficulty !== 'all') { 
+                $sql .= " AND LOWER(p.category) = LOWER(?)"; 
+                $params[] = $difficulty; 
+                $types .= 's'; 
             }
-            if ($search !== '') { $sql .= " AND p.title LIKE ?"; $params[] = "%{$search}%"; $types .= 's'; }
+            
+            // ✅ Add search filter
+            if ($search !== '') { 
+                $sql .= " AND (p.title LIKE ? OR p.description LIKE ?)"; 
+                $searchTerm = "%{$search}%";
+                $params[] = $searchTerm; 
+                $params[] = $searchTerm;
+                $types .= 'ss'; 
+            }
+            
+            // ✅ Note: Status filter doesn't apply to "All Programs" (only for "My Programs")
+            // "All Programs" shows programs you're NOT enrolled in, so status is N/A
+            
             $sql .= " ORDER BY p.datePublished DESC, p.dateCreated DESC";
-            $stmt = $conn->prepare($sql); $stmt->bind_param($types, ...$params); $stmt->execute();
+            
+            $stmt = $conn->prepare($sql); 
+            $stmt->bind_param($types, ...$params); 
+            $stmt->execute();
             return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        } catch (Exception $e) { error_log("fetchPublishedPrograms: ".$e->getMessage()); return []; }
+        } catch (Exception $e) { 
+            error_log("fetchPublishedPrograms: ".$e->getMessage()); 
+            return []; 
+        }
     }
 
     function enrollStudentInProgram($conn, $studentID, $programID) {

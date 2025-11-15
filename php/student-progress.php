@@ -35,7 +35,7 @@ function student_updateProgress($conn, $student_id, $program_id) {
         SELECT COUNT(cs.story_id) as total_stories
         FROM chapter_stories cs
         INNER JOIN program_chapters pc ON cs.chapter_id = pc.chapter_id
-        WHERE pc.program_id = ?
+        WHERE pc.programID = ?
     ");
     if (!$totalStoriesStmt) return false;
     $totalStoriesStmt->bind_param("i", $program_id);
@@ -51,7 +51,7 @@ function student_updateProgress($conn, $student_id, $program_id) {
         FROM student_story_progress ssp
         INNER JOIN chapter_stories cs ON ssp.story_id = cs.story_id
         INNER JOIN program_chapters pc ON cs.chapter_id = pc.chapter_id
-        WHERE ssp.student_id = ? AND pc.program_id = ? AND ssp.is_completed = 1
+        WHERE ssp.student_id = ? AND pc.programID = ? AND ssp.is_completed = 1
     ");
     if (!$completedStoriesStmt) return false;
     $completedStoriesStmt->bind_param("ii", $student_id, $program_id);
@@ -63,7 +63,7 @@ function student_updateProgress($conn, $student_id, $program_id) {
     $percentage = ($completedStories / $totalStories) * 100;
     
     // Update enrollment progress
-    $updateStmt = $conn->prepare("UPDATE student_enrollments SET completion_percentage = ?, last_accessed = NOW() WHERE student_id = ? AND program_id = ?");
+    $updateStmt = $conn->prepare("UPDATE student_program_enrollments SET completion_percentage = ?, last_accessed = NOW() WHERE student_id = ? AND program_id = ?");
     if (!$updateStmt) return false;
     $updateStmt->bind_param("dii", $percentage, $student_id, $program_id);
     $ok = $updateStmt->execute();

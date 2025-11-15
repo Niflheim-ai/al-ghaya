@@ -35,7 +35,9 @@ $page_title = "Programs";
                                 <i class="ph ph-funnel-simple text-[24px]"></i>
                                 <p class="font-semibold">Filters</p>
                             </div>
-                            <button type="reset" class="btn-grey">Clear Filters</button>
+                            <button type="button" onclick="window.location.href='?tab=<?= isset($_GET['tab']) ? $_GET['tab'] : 'my' ?>'" class="btn-grey">
+                                Clear Filters
+                            </button>
                         </div>
                         <div class="w-full h-auto flex flex-col gap-[10px]">
                             <p class="font-semibold">Difficulty</p>
@@ -45,15 +47,15 @@ $page_title = "Programs";
                                     <span class="ml-2">All</span>
                                 </label>
                                 <label class="inline-flex items-center">
-                                    <input type="radio" name="difficulty" value="Beginner" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['difficulty']) && $_GET['difficulty'] === 'Beginner') ? 'checked' : '' ?>>
+                                    <input type="radio" name="difficulty" value="beginner" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['difficulty']) && $_GET['difficulty'] === 'beginner') ? 'checked' : '' ?>>
                                     <span class="ml-2">Beginner</span>
                                 </label>
                                 <label class="inline-flex items-center">
-                                    <input type="radio" name="difficulty" value="Intermediate" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['difficulty']) && $_GET['difficulty'] === 'Intermediate') ? 'checked' : '' ?>>
+                                    <input type="radio" name="difficulty" value="intermediate" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['difficulty']) && $_GET['difficulty'] === 'intermediate') ? 'checked' : '' ?>>
                                     <span class="ml-2">Intermediate</span>
                                 </label>
                                 <label class="inline-flex items-center">
-                                    <input type="radio" name="difficulty" value="Advanced" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['difficulty']) && $_GET['difficulty'] === 'Advanced') ? 'checked' : '' ?>>
+                                    <input type="radio" name="difficulty" value="advanced" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['difficulty']) && $_GET['difficulty'] === 'advanced') ? 'checked' : '' ?>>
                                     <span class="ml-2">Advanced</span>
                                 </label>
                             </div>
@@ -76,13 +78,14 @@ $page_title = "Programs";
                     </div>
                     <!-- Search Bar -->
                     <div class="w-full flex items-center justify-center gap-[10px] mt-4">
-                        <!-- <button type="submit" class="btn-secondary"><i class="ph ph-magnifying-glass text-[16px]"></i> Search</button> -->
-                        <button type="submit">
-                            <i class="ph ph-magnifying-glass text-[30px]"></i>
-                        </button>
                         <input type="text" name="search" placeholder="Program Name"
                             value="<?= isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '' ?>"
                             class="w-[500px] h-[40px] border border-company_black rounded-[10px] p-[12px] focus:outline-offset-2 focus:accent-tertiary">
+
+                        <!-- <button type="submit" class="btn-secondary"><i class="ph ph-magnifying-glass text-[16px]"></i> Search</button> -->
+                        <button type="submit" class="text-white bg-blue-800 p-1 rounded-md hover:bg-blue-600 hover:cursor-pointer">
+                            <i class="ph ph-magnifying-glass text-[30px]"></i>
+                        </button>
                     </div>
                 </form>
                 <!-- Cards -->
@@ -103,6 +106,25 @@ $page_title = "Programs";
 </button>
 
 <?php include '../../components/footer.php'; ?>
+
+<!-- Auto-submit filters when radio buttons change -->
+<script>
+// Auto-submit form when difficulty or status changes
+document.querySelectorAll('input[name="difficulty"], input[name="status"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+
+// Submit on Enter key in search box
+document.querySelector('input[name="search"]').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        this.form.submit();
+    }
+});
+</script>
+
 
 <!-- Script paths fixed -->
 <script src="../../dist/javascript/scroll-to-top.js"></script>

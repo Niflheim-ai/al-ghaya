@@ -67,33 +67,63 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
             $enrollees = $enrolleeCounts[$pid] ?? 0;
             $symbol = currency_symbol($currency);
             $isMyTab = ($activeTab === 'my');
-            $completion = isset($program['completion_percentage']) ? (float)$program['completion_percentage'] : 0.0;
+            
+            // ✅ Calculate actual progress if not in database
+            if ($isMyTab && !isset($program['completion_percentage'])) {
+                // Fallback: get progress from student_program_enrollments
+                $progressStmt = $conn->prepare("SELECT completion_percentage FROM student_program_enrollments WHERE student_id = ? AND program_id = ?");
+                $progressStmt->bind_param("ii", $studentId, $pid);
+                $progressStmt->execute();
+                $progressResult = $progressStmt->get_result()->fetch_assoc();
+                $progressStmt->close();
+                $completion = $progressResult ? (float)$progressResult['completion_percentage'] : 0.0;
+            } else {
+                $completion = isset($program['completion_percentage']) ? (float)$program['completion_percentage'] : 0.0;
+            }
+            
             $isInProgress = $isMyTab && $completion > 0 && $completion < 100;
             $isCompleted = $isMyTab && $completion >= 100;
             $isFree = !$isMyTab && $price === 0.0;
+            
+            // ✅ Determine correct image path
+            $programImage = '../../images/blog-bg.svg'; // Default fallback
+            if (!empty($program['image'])) {
+                if (strpos($program['image'], 'thumbnails/') !== false || strpos($program['image'], 'uploads/') !== false) {
+                    $programImage = '../../' . $program['image'];
+                } else {
+                    $programImage = '../../uploads/thumbnails/' . $program['image'];
+                }
+            } elseif (!empty($program['thumbnail'])) {
+                if (strpos($program['thumbnail'], 'thumbnails/') !== false || strpos($program['thumbnail'], 'uploads/') !== false) {
+                    $programImage = '../../' . $program['thumbnail'];
+                } else {
+                    $programImage = '../../uploads/thumbnails/' . $program['thumbnail'];
+                }
+            }
         ?>
         <a href="student-program-view.php?program_id=<?= $pid ?>" class="block">
             <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300 relative">
                 <!-- Status indicators -->
                 <?php if ($isInProgress): ?>
-                    <div class="absolute top-3 right-3 bg-[#10375B] text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
+                    <div class="absolute bottom-3 right-3 bg-[#10375B] text-white text-lg font-semibold px-3 py-1 rounded-full shadow">
                         Resume
                     </div>
                 <?php elseif ($isCompleted): ?>
-                    <div class="absolute top-3 right-3 bg-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
+                    <div class="absolute bottom-3 right-3 bg-green-600 text-white text-lg font-semibold px-3 py-1 rounded-full shadow">
                         Completed
                     </div>
                 <?php elseif ($isFree): ?>
-                    <div class="absolute top-3 right-3 bg-emerald-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
+                    <div class="absolute bottom-3 right-3 bg-emerald-600 text-white text-lg font-semibold px-3 py-1 rounded-full shadow">
                         Free
                     </div>
                 <?php endif; ?>
                 
                 <div class="w-full overflow-hidden rounded-[20px] flex flex-wrap">
-                    <!-- Image -->
-                    <img src="<?= !empty($program['image']) ? '../../uploads/program_thumbnails/'.htmlspecialchars($program['image']) : '../../images/blog-bg.svg' ?>"
-                         alt="Program Image"
-                         class="h-auto min-w-[221px] min-h-[170px] object-cover flex-grow flex-shrink-0 basis-1/4">
+                    <!-- Image with fallback -->
+                    <img src="<?= htmlspecialchars($programImage) ?>"
+                         alt="<?= htmlspecialchars($program['title']) ?>"
+                         class="h-auto min-w-[221px] min-h-[170px] object-cover flex-grow flex-shrink-0 basis-1/4"
+                         onerror="this.src='../../images/blog-bg.svg'">
                     
                     <!-- Content (Right) -->
                     <div class="overflow-hidden p-6 h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-3">
