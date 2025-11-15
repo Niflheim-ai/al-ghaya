@@ -11,8 +11,6 @@ require_once '../../php/student-progress.php';
 // After successful enrollment
 require_once '../../php/achievement-handler.php';
 
-
-
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     header('Location: ../login.php');
     exit();
@@ -704,6 +702,9 @@ function updateProgress() {
 
 const quizForm = document.getElementById('quizForm');
 if (quizForm) {
+  // ✅ Get story ID from PHP (set at top of file)
+  const storyIdFromPHP = <?php echo $storyID; ?>;
+  
   quizForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(quizForm);
@@ -736,6 +737,27 @@ if (quizForm) {
         quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
         nextSection.classList.remove('hidden');
         updateProgress();
+        
+        // ✅ Call complete_story ONLY if we have a valid story ID
+        if (storyIdFromPHP > 0 && programId > 0) {
+          fetch('../../php/student-progress.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'complete_story',
+              story_id: storyIdFromPHP,
+              program_id: programId
+            })
+          })
+          .then(r => r.json())
+          .then(completionData => {
+            console.log('Story completion result:', completionData);
+            if (completionData.success && completionData.new_achievements && completionData.new_achievements.length > 0) {
+              console.log('New achievements unlocked:', completionData.new_achievements);
+            }
+          })
+          .catch(err => console.error('Story completion error:', err));
+        }
       } else {
         feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500';
         feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-x-circle text-3xl text-red-600"></i><div><h4 class="font-bold text-red-900">Incorrect Answer</h4><p class="text-red-800 text-sm">${data.message || 'Please review the story and try again.'}</p></div></div>`;

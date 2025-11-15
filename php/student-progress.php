@@ -6,9 +6,6 @@
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 require_once 'dbConnection.php';
-// After marking story complete
-require_once 'achievement-handler.php';
-$studentID = $_SESSION['userID'];
 
 // Student Enrollment functions
 function student_enroll($conn, $student_id, $program_id) {
@@ -306,18 +303,9 @@ function certificate_generate($conn, $student_id, $program_id) {
 
 // Utility functions
 function getStudentIdFromSession($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT studentID FROM student WHERE userID = ? AND isActive = 1");
-    if (!$stmt) { error_log("getStudentIdFromSession prepare failed: " . $conn->error); return null; }
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $stmt->close();
-        return (int)$row['studentID'];
-    }
-    $stmt->close();
-    return null;
+    // In your system, student_id IS the same as userID
+    // No separate student table exists
+    return (int)$user_id;
 }
 
 function validateStudentAccess() {
@@ -383,27 +371,44 @@ if (basename($_SERVER['PHP_SELF']) === 'student-progress.php') {
                     // Update program progress percentage
                     $completion_percentage = student_updateProgress($conn, $student_id, $program_id);
                     
+                    // DEBUG: Log what we're about to do
+                    error_log("Story completed - Student ID: {$user_id}, Story ID: {$story_id}, Program ID: {$program_id}");
+                    
                     // ✅ Award achievements using new system
                     require_once __DIR__ . '/achievement-handler.php';
                     $achievementHandler = new AchievementHandler($conn, $user_id);
                     
                     // Check story completion achievement (first story)
-                    $achievementHandler->checkStoryComplete();
+                    $result1 = $achievementHandler->checkStoryComplete();
+                    error_log("checkStoryComplete result: " . ($result1 ? 'true' : 'false'));
                     
                     // Check chapter streak (5+ stories completed)
-                    $achievementHandler->checkChapterStreak();
+                    $result2 = $achievementHandler->checkChapterStreak();
+                    error_log("checkChapterStreak result: " . ($result2 ? 'true' : 'false'));
                     
                     // Check if program is now complete
                     if ($completion_percentage >= 100) {
-                        $achievementHandler->checkProgramComplete();
-                        $achievementHandler->checkGraduateAchievements();
+                        $result3 = $achievementHandler->checkProgramComplete();
+                        error_log("checkProgramComplete result: " . ($result3 ? 'true' : 'false'));
+                        
+                        $result4 = $achievementHandler->checkGraduateAchievements();
+                        error_log("checkGraduateAchievements result: " . ($result4 ? 'true' : 'false'));
                     }
+                    
+                    // Get newly unlocked achievements
+                    $newAchievements = $achievementHandler->getNewlyUnlocked();
+                    error_log("Newly unlocked achievements: " . print_r($newAchievements, true));
                     
                     echo json_encode([
                         'success' => true,
                         'progress_id' => $progress_id,
                         'completion_percentage' => $completion_percentage,
-                        'message' => 'Story completed successfully'
+                        'message' => 'Story completed successfully',
+                        'debug' => [
+                            'user_id' => $user_id,
+                            'student_id' => $student_id,
+                            'new_achievements' => $newAchievements
+                        ]
                     ]);
                 } else {
                     echo json_encode(['success' => false, 'message' => 'Failed to mark story as completed']);

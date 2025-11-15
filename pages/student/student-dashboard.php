@@ -4,6 +4,7 @@
     require '../../php/gamification.php';
     require '../../php/functions.php';
     require_once '../../php/achievement-handler.php';
+    require_once '../../php/daily-challenge.php';
 
     // Check if user is logged in and is a student
     if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
@@ -25,6 +26,26 @@
         unset($_SESSION['new_oauth_user']); // Clear the flag
     }
 
+    // Handle challenge submission FIRST (before getting challenge)
+    $challengeResult = null;
+    $challengeMessage = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_challenge'])) {
+        $question_id = intval($_POST['question_id'] ?? 0);
+        $user_answer = $_POST['daily-challenge'] ?? '';
+        
+        $result = submitDailyChallenge($conn, $studentID, $question_id, $user_answer);
+        if ($result['success']) {
+            $challengeResult = $result['is_correct'] ? 'correct' : 'incorrect';
+            $challengeMessage = $result['message'];
+        }
+    }
+
+    // Get daily challenge
+    $dailyChallenge = getDailyChallenge($conn, $studentID);
+
+    // Get recommended programs
+    $recommendedPrograms = getRecommendedPrograms($conn, $studentID, 6);
+
     // Get user stats and information
     $stmt = $conn->prepare("SELECT * FROM user WHERE userID = ?");
     $stmt->bind_param("i", $studentID);
@@ -36,7 +57,7 @@
     $recentTransactions = $gamification->getRecentTransactions($studentID, 5);
     $achievements = $gamification->getUserAchievements($studentID);
 
-    // Get recent program progress (Fixed table reference)
+    // Get recent program progress
     $stmt = $conn->prepare(" 
         SELECT p.programID, p.title, p.image,
             spe.completion_percentage AS progress,
@@ -56,34 +77,6 @@
     $stmt->bind_param("i", $studentID);
     $stmt->execute();
     $recentProgram = $stmt->get_result()->fetch_assoc();
-
-    // Get recommended programs (not enrolled, matching proficiency)
-    $stmt = $conn->prepare("
-        SELECT p.* FROM programs p
-        WHERE p.status = 'published' 
-        AND p.category = ? 
-        AND p.programID NOT IN (SELECT program_id FROM student_program_enrollments WHERE student_id = ?)
-        ORDER BY RAND()
-        LIMIT 3
-    ");
-    $stmt->bind_param("si", $user['proficiency'], $studentID);
-    $stmt->execute();
-    $recommendedPrograms = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
-    // Daily challenge - random question from enrolled programs (Fixed table reference)
-    $dailyChallenge = null;
-    $stmt = $conn->prepare("
-        SELECT pc.*, p.title as program_title
-        FROM program_chapters pc
-        JOIN programs p ON pc.programID = p.programID
-        JOIN student_program_enrollments spe ON p.programID = spe.program_id
-        WHERE spe.student_id = ? AND pc.question IS NOT NULL AND pc.question != ''
-        ORDER BY RAND()
-        LIMIT 1
-    ");
-    $stmt->bind_param("i", $studentID);
-    $stmt->execute();
-    $dailyChallenge = $stmt->get_result()->fetch_assoc();
 
     // Award daily login points (check if already awarded today)
     $today = date('Y-m-d');
@@ -119,27 +112,6 @@
     $userAvatar = $_SESSION['user_avatar'];
     $current_page = "student-dashboard";
     $page_title = "My Dashboard";
-
-    // Handle daily challenge submission
-    if ($_POST['submit_challenge'] ?? false) {
-        $selectedAnswer = $_POST['daily-challenge'] ?? '';
-        $challengeId = $_POST['challenge_id'] ?? 0;
-        
-        if ($challengeId && $selectedAnswer) {
-            // Get correct answer
-            $stmt = $conn->prepare("SELECT correct_answer FROM program_chapters WHERE chapter_id = ?");
-            $stmt->bind_param("i", $challengeId);
-            $stmt->execute();
-            $correctAnswer = $stmt->get_result()->fetch_assoc()['correct_answer'] ?? '';
-            
-            if (strtolower(trim($selectedAnswer)) === strtolower(trim($correctAnswer))) {
-                $gamification->awardPoints($studentID, PointValues::QUIZ_CORRECT, 'daily_challenge', 'Correct daily challenge answer');
-                $challengeResult = 'correct';
-            } else {
-                $challengeResult = 'incorrect';
-            }
-        }
-    }
 ?>
 
 <?php include '../../components/header.php'; ?>
@@ -281,16 +253,21 @@
         </section>
 
         <!-- Daily Challenge Section -->
-        <?php if ($dailyChallenge): ?>
+        <?php if ($dailyChallenge && !$dailyChallenge['attempted']): ?>
         <section class="content-section">
             <h1 class="section-title">Daily Challenge</h1>
+            <?php if (isset($dailyChallenge['debug_mode']) && $dailyChallenge['debug_mode']): ?>
+            <span class="bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+                🔧 DEBUG MODE - Unlimited Retries
+            </span>
+            <?php endif; ?>
             <div class="section-card">
                 <div class="flex flex-col gap-y-[10px] min-w-[217px]">
                     <p class="label">Challenge Program</p>
                     <p class="program-name-2 arabic font-bold"><?= htmlspecialchars($dailyChallenge['program_title']) ?></p>
                     <div class="flex items-center text-sm text-gray-600">
                         <i class="ph ph-trophy mr-2"></i>
-                        <span>Earn <?= PointValues::QUIZ_CORRECT ?> points</span>
+                        <span>Earn 10 points (or lose 5 if wrong)</span>
                     </div>
                 </div>
                 
@@ -299,19 +276,19 @@
                 
                 <!-- Challenge Question -->
                 <form method="POST" class="flex flex-col flex-grow gap-y-[25px]" id="challenge-form">
-                    <input type="hidden" name="challenge_id" value="<?= $dailyChallenge['chapter_id'] ?>">
+                    <input type="hidden" name="question_id" value="<?= $dailyChallenge['question_id'] ?>">
                     <div class="bg-gray-50 p-4 rounded-lg">
                         <p class="font-semibold text-lg mb-4"><?= htmlspecialchars($dailyChallenge['question']) ?></p>
                     </div>
                     
-                    <?php if ($dailyChallenge['answer_options']): ?>
-                        <?php $options = json_decode($dailyChallenge['answer_options'], true); ?>
-                        <?php if ($options): ?>
+                    <?php if ($dailyChallenge['options']): ?>
+                        <?php $options = json_decode($dailyChallenge['options'], true); ?>
+                        <?php if ($options && is_array($options)): ?>
                             <div class="answers flex flex-col gap-y-3">
                                 <?php foreach ($options as $index => $option): ?>
                                 <div class="flex items-center">
                                     <input type="radio" id="option<?= $index ?>" name="daily-challenge" value="<?= htmlspecialchars($option) ?>"
-                                        class="accent-secondary duration-300 ease-in-out peer mr-3">
+                                        class="accent-secondary duration-300 ease-in-out peer mr-3" required>
                                     <label for="option<?= $index ?>"
                                         class="flex flex-grow items-center cursor-pointer p-4 rounded-[15px] bg-gray-100 text-gray-800 peer-checked:bg-[#10375B]/20 peer-checked:text-[#10375B] transition-colors duration-300 ease-in-out">
                                         <?= htmlspecialchars($option) ?>
@@ -322,28 +299,38 @@
                         <?php endif; ?>
                     <?php else: ?>
                         <div class="answers">
-                            <input type="text" name="daily-challenge" placeholder="Type your answer here..." 
+                            <input type="text" name="daily-challenge" placeholder="Type your answer here..." required
                                 class="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#10375B]">
                         </div>
                     <?php endif; ?>
                     
-                    <button type="submit" name="submit_challenge" class="btn-secondary bg-[#10375B] text-white px-6 py-3 rounded-lg hover:bg-blue-900 transition-colors" id="challenge-submit" disabled>
+                    <button type="submit" name="submit_challenge" class="btn-secondary bg-[#10375B] text-white px-6 py-3 rounded-lg hover:bg-blue-900 transition-colors">
                         Submit Answer
                     </button>
                 </form>
             </div>
             
             <?php if (isset($challengeResult)): ?>
-            <div class="mt-4 p-4 rounded-lg <?= $challengeResult === 'correct' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' ?>">
-                <?php if ($challengeResult === 'correct'): ?>
-                    <i class="ph ph-check-circle text-xl mr-2"></i>
-                    <strong>Correct!</strong> You earned <?= PointValues::QUIZ_CORRECT ?> points! 🎉
-                <?php else: ?>
-                    <i class="ph ph-x-circle text-xl mr-2"></i>
-                    <strong>Not quite right.</strong> Try again tomorrow!
-                <?php endif; ?>
+            <div class="mt-4 p-4 rounded-lg flex items-center <?= $challengeResult === 'correct' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' ?>">
+                <i class="ph <?= $challengeResult === 'correct' ? 'ph-check-circle' : 'ph-x-circle' ?> text-2xl mr-3"></i>
+                <span><?= htmlspecialchars($challengeMessage) ?></span>
             </div>
             <?php endif; ?>
+        </section>
+        <?php elseif ($dailyChallenge && $dailyChallenge['attempted']): ?>
+        <section class="content-section">
+            <h1 class="section-title">Daily Challenge</h1>
+            <div class="section-card p-6 text-center">
+                <i class="ph <?= $dailyChallenge['is_correct'] ? 'ph-check-circle text-green-600' : 'ph-x-circle text-red-600' ?> text-6xl mb-4"></i>
+                <h3 class="font-bold text-xl mb-2">You've completed today's challenge!</h3>
+                <p class="text-gray-600 mb-4">
+                    <?= $dailyChallenge['is_correct'] ? 
+                        "Great job! You earned {$dailyChallenge['points_awarded']} points! 🎉" : 
+                        "Not quite right. You lost 5 points. Come back tomorrow for a new challenge!" 
+                    ?>
+                </p>
+                <p class="text-sm text-gray-500">Next challenge available tomorrow</p>
+            </div>
         </section>
         <?php endif; ?>
 
@@ -354,13 +341,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <?php foreach ($recommendedPrograms as $program): ?>
                 <div class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow">
-                    <img src="../../images/<?= $program['image'] ?: 'blog-bg.svg' ?>" alt="<?= htmlspecialchars($program['title']) ?>" class="w-full h-48 object-cover">
+                    <img src="../../<?= $program['image'] ?: 'images/blog-bg.svg' ?>" alt="<?= htmlspecialchars($program['title']) ?>" class="w-full h-48 object-cover">
                     <div class="p-6">
                         <h3 class="font-bold text-lg mb-2 text-gray-800"><?= htmlspecialchars($program['title']) ?></h3>
-                        <p class="text-gray-600 text-sm mb-4"><?= htmlspecialchars(substr($program['description'], 0, 100)) ?>...</p>
+                        <p class="text-gray-600 text-sm mb-4"><?= htmlspecialchars(mb_substr($program['description'], 0, 100)) ?>...</p>
                         <div class="flex justify-between items-center">
                             <span class="text-sm bg-[#10375B] text-white px-2 py-1 rounded capitalize"><?= $program['category'] ?></span>
-                            <a href="../programs.php?title=<?= urlencode($program['title']) ?>&category=<?= urlencode($program['category']) ?>">
+                            <a href="student-program-view.php?program_id=<?= $program['programID'] ?>">
                                 <button class="bg-[#A58618] text-white px-4 py-2 rounded hover:bg-[#8a6f15] transition-colors">
                                     View Program
                                 </button>
@@ -373,12 +360,8 @@
             <?php else: ?>
             <div class="text-center py-12">
                 <i class="ph ph-graduation-cap text-6xl text-gray-400 mb-4"></i>
-                <p class="text-gray-600 mb-4">No recommendations available at the moment.</p>
-                <a href="student-programs.php">
-                    <button class="bg-[#10375B] text-white px-6 py-3 rounded-lg hover:bg-blue-900 transition-colors">
-                        Explore All Programs
-                    </button>
-                </a>
+                <p class="text-gray-600 mb-4">You're enrolled in all available programs!</p>
+                <p class="text-sm text-gray-500">Check back later for new programs.</p>
             </div>
             <?php endif; ?>
         </section>
@@ -452,7 +435,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            // Show quick tutorial or profile setup prompt
             Swal.fire({
                 title: 'Quick Setup',
                 text: 'Would you like to update your profile now to personalize your learning experience?',
@@ -481,23 +463,6 @@ setTimeout(() => {
         setTimeout(() => dailyBonus.remove(), 500);
     }
 }, 5000);
-
-// Enable challenge submit button when option is selected
-const challengeForm = document.getElementById('challenge-form');
-if (challengeForm) {
-    const submitBtn = document.getElementById('challenge-submit');
-    const inputs = challengeForm.querySelectorAll('input[name="daily-challenge"]');
-    
-    inputs.forEach(input => {
-        input.addEventListener('change', () => {
-            submitBtn.disabled = false;
-        });
-        
-        input.addEventListener('input', () => {
-            submitBtn.disabled = input.value.trim() === '';
-        });
-    });
-}
 </script>
 
 <style>
