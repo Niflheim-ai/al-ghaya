@@ -256,6 +256,8 @@ if ($__SELF__ === 'quiz-handler.php') {
                     }
                     
                     $conn->commit();
+                    chapter_updateCounts($conn, $chapter_id);
+                    
                     echo json_encode(['success' => true, 'message' => 'Quiz saved successfully']);
                 } catch (Exception $e) {
                     $conn->rollback();

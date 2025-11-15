@@ -161,23 +161,71 @@ function program_bulkApprove($conn, $program_ids) {
     $affected = $stmt->affected_rows; $stmt->close(); return $affected;
 }
 
+// Helper function to update chapter counts
+function chapter_updateCounts($conn, $chapter_id) {
+    // Count stories
+    $storyCountStmt = $conn->prepare("SELECT COUNT(*) as cnt FROM chapter_stories WHERE chapter_id = ?");
+    if (!$storyCountStmt) return false;
+    $storyCountStmt->bind_param("i", $chapter_id);
+    $storyCountStmt->execute();
+    $storyCount = $storyCountStmt->get_result()->fetch_assoc()['cnt'];
+    $storyCountStmt->close();
+    
+    // Check if quiz exists
+    $hasQuizStmt = $conn->prepare("SELECT COUNT(*) as cnt FROM chapter_quizzes WHERE chapter_id = ?");
+    if (!$hasQuizStmt) return false;
+    $hasQuizStmt->bind_param("i", $chapter_id);
+    $hasQuizStmt->execute();
+    $hasQuiz = $hasQuizStmt->get_result()->fetch_assoc()['cnt'] > 0 ? 1 : 0;
+    $hasQuizStmt->close();
+    
+    // Count quiz questions
+    $quizCountStmt = $conn->prepare("
+        SELECT COUNT(qq.quiz_question_id) as cnt 
+        FROM chapter_quizzes cq
+        LEFT JOIN quiz_questions qq ON cq.quiz_id = qq.quiz_id
+        WHERE cq.chapter_id = ?
+    ");
+    if (!$quizCountStmt) return false;
+    $quizCountStmt->bind_param("i", $chapter_id);
+    $quizCountStmt->execute();
+    $quizQuestionCount = $quizCountStmt->get_result()->fetch_assoc()['cnt'] ?? 0;
+    $quizCountStmt->close();
+    
+    // Update chapter
+    $updateStmt = $conn->prepare("
+        UPDATE program_chapters 
+        SET story_count = ?, has_quiz = ?, quiz_question_count = ?
+        WHERE chapter_id = ?
+    ");
+    if (!$updateStmt) return false;
+    $updateStmt->bind_param("iiii", $storyCount, $hasQuiz, $quizQuestionCount, $chapter_id);
+    $ok = $updateStmt->execute();
+    $updateStmt->close();
+    return $ok;
+}
+
 // Chapters
 function chapter_add($conn,$program_id,$title,$content='',$question=''){ 
     $stmt=$conn->prepare("SELECT MAX(chapter_order) FROM program_chapters WHERE programID = ?"); 
     if(!$stmt){return false;} 
     $stmt->bind_param("i",$program_id); $stmt->execute(); $max=$stmt->get_result()->fetch_array()[0]; $stmt->close(); 
     $order=$max?$max+1:1; 
-    $stmt=$conn->prepare("INSERT INTO program_chapters (programID,title,content,question,chapter_order) VALUES (?,?,?,?,?)"); 
+    $stmt=$conn->prepare("INSERT INTO program_chapters (programID,title,content,question,chapter_order,story_count,has_quiz,quiz_question_count) VALUES (?,?,?,?,?,0,0,0)"); 
     if(!$stmt){return false;} 
     $stmt->bind_param("isssi",$program_id,$title,$content,$question,$order); 
-    $ok=$stmt->execute(); $id=$stmt->insert_id; $stmt->close(); return $ok?$id:false; 
+    $ok=$stmt->execute(); $id=$stmt->insert_id; $stmt->close(); 
+    return $ok?$id:false; 
 }
 
 function chapter_update($conn,$chapter_id,$title,$content,$question){ 
     $stmt=$conn->prepare("UPDATE program_chapters SET title=?, content=?, question=? WHERE chapter_id=?"); 
     if(!$stmt){return false;} 
     $stmt->bind_param("sssi",$title,$content,$question,$chapter_id); 
-    $ok=$stmt->execute(); $stmt->close(); return $ok; 
+    $ok=$stmt->execute(); $stmt->close(); 
+    // ✅ Update counts after updating chapter
+    chapter_updateCounts($conn, $chapter_id);
+    return $ok; 
 }
 
 function chapter_delete($conn,$chapter_id){ 
@@ -240,22 +288,38 @@ function story_create($conn,$data){
     $stmt=$conn->prepare("INSERT INTO chapter_stories (chapter_id,title,synopsis_arabic,synopsis_english,video_url,story_order,dateCreated) VALUES (?,?,?,?,?, ?, NOW())"); 
     if(!$stmt){ return false; } 
     $stmt->bind_param("issssi",$data['chapter_id'],$data['title'],$data['synopsis_arabic'],$data['synopsis_english'],$data['video_url'],$next); 
-    $ok=$stmt->execute(); $id=$stmt->insert_id; $stmt->close(); return $ok?$id:false; 
+    $ok=$stmt->execute(); $id=$stmt->insert_id; $stmt->close(); 
+    // ✅ Update counts after creating story
+    if ($ok) chapter_updateCounts($conn, $data['chapter_id']);
+    return $ok?$id:false; 
 }
 
 function story_update($conn,$story_id,$data){ 
     $stmt=$conn->prepare("UPDATE chapter_stories SET title=?, synopsis_arabic=?, synopsis_english=?, video_url=? WHERE story_id=?"); 
     if(!$stmt){ return false; } 
     $stmt->bind_param("ssssi",$data['title'],$data['synopsis_arabic'],$data['synopsis_english'],$data['video_url'],$story_id); 
-    $ok=$stmt->execute(); $stmt->close(); return $ok; 
+    $ok=$stmt->execute(); $stmt->close(); 
+    // ✅ Get chapter_id to update counts
+    $story = story_getById($conn, $story_id);
+    if ($story && $ok) chapter_updateCounts($conn, $story['chapter_id']);
+    return $ok; 
 }
 
 function story_delete($conn,$story_id){ 
+    // ✅ Get chapter_id before deleting
+    $story = story_getById($conn, $story_id);
+    $chapter_id = $story ? $story['chapter_id'] : null;
+    
     story_deleteInteractiveSections($conn,$story_id); 
     $stmt=$conn->prepare("DELETE FROM chapter_stories WHERE story_id=?"); 
     if(!$stmt){ return false; } 
     $stmt->bind_param("i",$story_id); $ok=$stmt->execute(); 
-    $aff=$stmt->affected_rows; $stmt->close(); return $ok&&$aff>0; 
+    $aff=$stmt->affected_rows; $stmt->close(); 
+    
+    // ✅ Update counts after deleting story
+    if ($ok && $chapter_id) chapter_updateCounts($conn, $chapter_id);
+    
+    return $ok&&$aff>0; 
 }
 
 function story_getById($conn,$story_id){ 
@@ -284,6 +348,7 @@ function story_deleteInteractiveSections($conn,$story_id){
     } 
     return true; 
 }
+
 
 // Section questions stub
 function section_getQuestions($conn, $section_id) {

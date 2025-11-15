@@ -5,6 +5,8 @@ require_once '../../php/config.php';
 
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') { header('Location: ../login.php'); exit(); }
 
+$current_page = "admin-analytics";
+
 // Metrics by status
 $statuses = ['draft','pending_review','published','rejected','archived'];
 $counts = [];
