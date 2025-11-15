@@ -45,7 +45,7 @@
         <div class="text-container mx-auto flex flex-col lg:flex-row items-center justify-center h-auto lg:h-[508px] gap-x-20">
             <!-- Left Illustration -->
             <div class="flex justify-center">
-                <img src="../images/hero.svg" alt="Illustration" class="w-auto max-h-[300px] lg:max-h-none">
+                <img src="../images/Hero.svg" alt="Illustration" class="w-auto max-h-[300px] lg:max-h-none">
             </div>
 
             <!-- Text Content -->

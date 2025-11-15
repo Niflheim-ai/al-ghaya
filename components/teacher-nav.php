@@ -24,7 +24,7 @@ if (isset($_SESSION['userID'])) {
             <!-- Logo -->
             <div class="flex shrink-0">
                 <a href="teacher-dashboard.php">
-                    <img class="w-[50px] h-auto" src="../../images/Al-ghaya_logoForPrint.svg" alt="Al-Ghaya Logo">
+                    <img class="w-[50px] h-auto" src="../../images/al-ghaya_logoForPrint.svg" alt="Al-Ghaya Logo">
                 </a>
             </div>
 

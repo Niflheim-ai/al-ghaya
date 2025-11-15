@@ -8,7 +8,7 @@
                 <!-- Logo -->
                 <div class="flex shrink-0 items-center">
                     <a href="index.php">
-                        <img class="h-8 w-auto" src="../images/Al-ghaya_logoForPrint.svg" alt="Your Company">
+                        <img class="h-8 w-auto" src="../images/al-ghaya_logoForPrint.svg" alt="Your Company">
                         <a href="index.php" class="rounded-md px-3 py-2 text-xl font-medium text-neutral-800" aria-current="page">Al-Ghaya</a>
                     </a>
                 </div>
