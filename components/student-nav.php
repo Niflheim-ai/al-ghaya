@@ -59,6 +59,16 @@ if (isset($_SESSION['userID'])) {
                     <i class="ph-duotone ph-receipt text-[24px] hidden group-hover:block"></i>
                     <p>Transactions</p>
                 </a>
+
+                <a href="leaderboard.php" class="<?php if ($current_page == 'leaderboard') {
+                    echo 'group menu-item-active flex items-center';
+                } else {
+                    echo 'group menu-item-inactive flex items-center';
+                } ?>">
+                    <i class="ph ph-ranking text-[24px] group-hover:hidden"></i>
+                    <i class="ph-duotone ph-ranking text-[24px] hidden group-hover:block"></i>
+                    <p>Leaderboards</p>
+                </a>
             </div>
 
             <!-- Profile Dropdown -->
