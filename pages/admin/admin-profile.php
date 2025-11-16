@@ -265,7 +265,7 @@ $statsQuery = [
                             <h4 class="text-md font-medium text-gray-900 mb-4">Change Password</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
-                                    <label for="current_password" class="block text-sm font-medium text-gray-700 mb-2">Current Password <span class="text-red text-xs">*</span></label>
+                                    <label for="current_password" class="block text-sm font-medium text-gray-700 mb-2">Current Password <span class="text-red-800 text-xs">*</span></label>
                                     <input type="password" id="current_password" name="current_password"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
                                 </div>
