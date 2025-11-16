@@ -10,6 +10,7 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
 }
 
 $current_page = "admin-students";
+$page_title = "Student Management";
 
 // AJAX endpoints
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {

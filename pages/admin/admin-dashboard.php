@@ -7,6 +7,7 @@ require_once '../../php/program-core.php';
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') { header('Location: ../login.php'); exit(); }
 
 $current_page = "admin-dashboard";
+$page_title = "Admin Dashboard";
 
 // Time range filter
 $range = $_GET['range'] ?? '7d';

@@ -8,6 +8,8 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
+$page_title = "Admin Profile";
+
 $userID = $_SESSION['userID'];
 
 // Get user information

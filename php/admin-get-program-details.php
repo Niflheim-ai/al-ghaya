@@ -11,33 +11,75 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
 
 $program_id = intval($_GET['program_id'] ?? 0);
 
+error_log("DEBUG: Received program_id = " . $program_id);
+error_log("DEBUG: Session userID = " . ($_SESSION['userID'] ?? 'NOT SET'));
+error_log("DEBUG: Session role = " . ($_SESSION['role'] ?? 'NOT SET'));
+
 if (!$program_id) {
     echo json_encode(['success' => false, 'message' => 'Invalid program ID']);
     exit;
 }
 
 try {
+    // Test basic connection first
+    $testStmt = $conn->prepare("SELECT COUNT(*) as cnt FROM programs WHERE programID = ?");
+    $testStmt->bind_param("i", $program_id);
+    $testStmt->execute();
+    $testResult = $testStmt->get_result()->fetch_assoc();
+    $testStmt->close();
+    
+    error_log("DEBUG: Program exists check = " . $testResult['cnt']);
+    
     // Get program details
     $stmt = $conn->prepare("
         SELECT p.*, 
-               u.fname as teacher_fname, 
-               u.lname as teacher_lname, 
-               u.email as teacher_email,
-               CONCAT(u.fname, ' ', u.lname) as teacher_name
+               t.fname as teacher_fname, 
+               t.lname as teacher_lname, 
+               t.email as teacher_email,
+               CONCAT(t.fname, ' ', t.lname) as teacher_name
         FROM programs p
-        INNER JOIN user u ON p.teacherID = u.userID
+        LEFT JOIN teacher t ON p.teacherID = t.teacherID
         WHERE p.programID = ?
     ");
+    
+    if (!$stmt) {
+        error_log("DEBUG: Prepare failed - " . $conn->error);
+        throw new Exception("Database prepare failed: " . $conn->error);
+    }
+    
     $stmt->bind_param("i", $program_id);
-    $stmt->execute();
-    $program = $stmt->get_result()->fetch_assoc();
+    
+    if (!$stmt->execute()) {
+        error_log("DEBUG: Execute failed - " . $stmt->error);
+        throw new Exception("Query execution failed: " . $stmt->error);
+    }
+    
+    $result = $stmt->get_result();
+    error_log("DEBUG: Result rows = " . $result->num_rows);
+    
+    $program = $result->fetch_assoc();
     $stmt->close();
     
     if (!$program) {
+        error_log("DEBUG: No program data returned");
+        error_log("DEBUG: Running test query to check data...");
+        
+        // Additional test query
+        $debugStmt = $conn->prepare("SELECT programID, title, teacherID FROM programs WHERE programID = ?");
+        $debugStmt->bind_param("i", $program_id);
+        $debugStmt->execute();
+        $debugResult = $debugStmt->get_result()->fetch_assoc();
+        $debugStmt->close();
+        
+        error_log("DEBUG: Direct query result = " . print_r($debugResult, true));
+        
         echo json_encode(['success' => false, 'message' => 'Program not found']);
         exit;
     }
     
+    error_log("DEBUG: Program loaded successfully - " . $program['title']);
+    
+    // Rest of your code...
     // Get chapters with all details
     $chaptersStmt = $conn->prepare("
         SELECT chapter_id, title, content, chapter_order, 
@@ -153,6 +195,7 @@ try {
     
 } catch (Exception $e) {
     error_log("admin-get-program-details error: " . $e->getMessage());
+    error_log("Error stack: " . $e->getTraceAsString());
     echo json_encode([
         'success' => false, 
         'message' => $e->getMessage(),
