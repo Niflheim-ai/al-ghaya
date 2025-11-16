@@ -28,12 +28,12 @@ if (!$program) { header('Location: student-programs.php?tab=all'); exit(); }
 $isEnrolled = !empty($program['is_enrolled']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'enroll') {
-    if (!$isEnrolled && enrollStudentInProgram($conn, $studentID, $programID)) {
-        header('Location: student-program-view.php?program_id='.$programID);
+    if (!$isEnrolled) {
+        // Instead of direct enrollment, redirect to payment
+        header('Location: ../../php/create-payment.php?program_id=' . $programID);
         exit();
     }
 }
-
 checkStudentAchievements($conn, $studentID);
 
 if (!$isEnrolled) {

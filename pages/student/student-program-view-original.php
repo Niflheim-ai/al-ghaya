@@ -56,14 +56,12 @@ $enrollees = (int)($enrolStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
             </div>
           </div>
 
-          <!-- Right -->
+          <!-- Right: Updated enrollment button with payment integration -->
           <div class="md:col-span-1 flex md:flex-col gap-3 items-stretch md:items-end justify-between md:justify-start">
-            <form method="POST">
-              <input type="hidden" name="action" value="enroll">
-              <button type="submit" class="px-5 py-2 rounded-lg font-semibold text-white bg-[#A58618] hover:bg-[#8a6f15]">
-                Enroll
-              </button>
-            </form>
+            <button id="enrollBtn" type="button" class="px-5 py-2 rounded-lg font-semibold text-white bg-[#A58618] hover:bg-[#8a6f15] transition-colors flex items-center gap-2 justify-center">
+              <i class="ph ph-lock-simple-open"></i>
+              Enroll Now
+            </button>
             <div class="text-gray-700 text-sm flex items-center gap-2">
               <i class="ph ph-users-three text-[18px]"></i>
               <span><?= $enrollees ?> enrollees</span>
@@ -88,7 +86,10 @@ $enrollees = (int)($enrolStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
                   <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div class="flex items-center justify-between">
                       <h3 class="font-semibold"><?= htmlspecialchars($chapter['title']) ?></h3>
-                      <span class="text-xs text-gray-500">Locked</span>
+                      <span class="text-xs text-gray-500 flex items-center gap-1">
+                        <i class="ph ph-lock-simple text-sm"></i>
+                        Locked
+                      </span>
                     </div>
                     <p class="text-sm text-gray-500 mt-2">Enroll to view chapter content.</p>
                   </div>
@@ -140,3 +141,140 @@ $enrollees = (int)($enrolStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
     </section>
   </div>
 </div>
+
+<!-- SweetAlert2 for enrollment modal -->
+<!-- SweetAlert2 for enrollment modal -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.getElementById('enrollBtn').addEventListener('click', function() {
+    const programId = <?= $programID ?>;
+    const programTitle = <?= json_encode($program['title']) ?>;
+    const programPrice = '<?= $symbol ?><?= number_format($price, 2) ?>';
+    const isFree = <?= $price <= 0 ? 'true' : 'false' ?>;
+    
+    Swal.fire({
+        title: '<i class="ph ph-graduation-cap text-4xl text-[#A58618]"></i><br>Confirm Enrollment',
+        html: `
+            <div class="text-left p-4">
+                <p class="mb-3 text-gray-700">You are about to enroll in:</p>
+                <div class="bg-gradient-to-r from-[#A58618]/10 to-[#10375B]/10 p-5 rounded-xl mb-4 border border-[#A58618]/20">
+                    <p class="font-bold text-lg text-gray-900">${programTitle}</p>
+                    <p class="text-3xl font-bold text-[#10375B] mt-2">${isFree ? 'FREE' : programPrice}</p>
+                </div>
+                
+                ${!isFree ? `
+                <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                    <p class="text-sm font-semibold text-gray-700 mb-2">
+                        <i class="ph ph-check-circle text-green-600"></i> What's included:
+                    </p>
+                    <ul class="text-sm text-gray-700 space-y-1">
+                        <li class="flex items-start gap-2">
+                            <i class="ph ph-check text-green-600 mt-0.5"></i>
+                            <span>Lifetime access to all program content</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="ph ph-check text-green-600 mt-0.5"></i>
+                            <span>Interactive quizzes and assessments</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="ph ph-check text-green-600 mt-0.5"></i>
+                            <span>Progress tracking and achievements</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="ph ph-check text-green-600 mt-0.5"></i>
+                            <span>Certificate upon completion</span>
+                        </li>
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${!isFree ? `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 justify-center">
+                    <i class="ph ph-lock text-green-600 text-lg"></i>
+                    <span class="text-xs text-gray-600">Secure payment powered by PayMongo</span>
+                </div>
+                ` : ''}
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: isFree ? '<i class="ph ph-check-circle"></i> Enroll Now' : '<i class="ph ph-credit-card"></i> Proceed to Payment',
+        confirmButtonColor: '#A58618',
+        cancelButtonText: 'Cancel',
+        cancelButtonColor: '#6b7280',
+        width: '600px',
+        customClass: {
+            confirmButton: 'px-6 py-3 rounded-lg font-semibold',
+            cancelButton: 'px-6 py-3 rounded-lg font-semibold'
+        },
+        showLoaderOnConfirm: true,
+        preConfirm: () => {
+            return fetch('../../php/create-payment.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'program_id=' + programId
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response:', data); // Debug log
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to process enrollment');
+                }
+                return data;
+            })
+            .catch(error => {
+                console.error('Error:', error); // Debug log
+                Swal.showValidationMessage(`<i class="ph ph-warning-circle"></i> ${error.message}`);
+            });
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            console.log('Confirmed result:', result.value); // Debug log
+            
+            // Check if it's a free enrollment
+            if (result.value.free_enrollment) {
+                Swal.fire({
+                    title: 'Enrolled Successfully!',
+                    text: 'You have been enrolled in this program.',
+                    icon: 'success',
+                    confirmButtonColor: '#A58618',
+                    confirmButtonText: 'Start Learning'
+                }).then(() => {
+                    // Redirect to the program view
+                    window.location.href = 'student-program-view.php?program_id=' + programId;
+                });
+            } 
+            // Check if it's a paid enrollment with checkout URL
+            else if (result.value.checkout_url) {
+                Swal.fire({
+                    title: 'Redirecting to Payment',
+                    html: '<div class="flex flex-col items-center gap-3"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A58618]"></div><p>Please wait while we redirect you to the secure payment page...</p></div>',
+                    showConfirmButton: false,
+                    allowOutsideClick: false
+                });
+                
+                // Redirect to PayMongo checkout
+                setTimeout(() => {
+                    window.location.href = result.value.checkout_url;
+                }, 1500);
+            }
+            else {
+                // Unexpected response
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Unexpected response from server. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#A58618'
+                });
+            }
+        }
+    });
+});
+</script>
