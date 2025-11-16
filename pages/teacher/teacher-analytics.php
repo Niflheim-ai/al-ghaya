@@ -226,6 +226,65 @@ if ($activityStmt) {
     $recentEnrollments = $activityResult->fetch_all(MYSQLI_ASSOC);
     $activityStmt->close();
 }
+
+
+// Get transactions data
+$transProgram = $_GET['trans_program'] ?? 'all';
+$dateFrom = $_GET['trans_date_from'] ?? '';
+$dateTo = $_GET['trans_date_to'] ?? '';
+
+$sql = "
+    SELECT 
+        pt.payment_id,
+        pt.amount,
+        pt.currency,
+        pt.datePaid,
+        u.fname,
+        u.lname,
+        u.email,
+        p.title as program_title,
+        p.programID as program_id
+    FROM payment_transactions pt
+    INNER JOIN programs p ON pt.program_id = p.programID
+    INNER JOIN user u ON pt.student_id = u.userID
+    WHERE p.teacherID = ? AND pt.status = 'paid'
+";
+
+$params = [$teacher_id];
+$types = "i";
+
+if ($transProgram !== 'all') {
+    $sql .= " AND p.programID = ?";
+    $params[] = intval($transProgram);
+    $types .= "i";
+}
+
+if (!empty($dateFrom)) {
+    $sql .= " AND DATE(pt.datePaid) >= ?";
+    $params[] = $dateFrom;
+    $types .= "s";
+}
+
+if (!empty($dateTo)) {
+    $sql .= " AND DATE(pt.datePaid) <= ?";
+    $params[] = $dateTo;
+    $types .= "s";
+}
+
+$sql .= " ORDER BY pt.datePaid DESC LIMIT 100";
+
+$transStmt = $conn->prepare($sql);
+if ($transStmt) {
+    $transStmt->bind_param($types, ...$params);
+    $transStmt->execute();
+    $transactions = $transStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $transStmt->close();
+} else {
+    $transactions = [];
+}
+
+// Calculate total revenue from filtered transactions
+$totalRevenue = array_sum(array_column($transactions, 'amount'));                    
 ?>
 
 <?php include '../../components/header.php'; ?>
@@ -605,6 +664,151 @@ if ($activityStmt) {
                             </tbody>
                         </table>
                     </div>
+                </div>
+
+                <!-- Program Transactions Table (Add after Students Table, before closing divs) -->
+                <div class="lg:col-span-3 bg-white rounded-xl shadow-md p-6 mt-8">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-gray-900">Program Transactions</h2>
+                        <span class="text-sm text-gray-500">
+                            <?php 
+                            // Get total transactions count
+                            $transStmt = $conn->prepare("
+                                SELECT COUNT(*) as total_transactions
+                                FROM payment_transactions pt
+                                INNER JOIN programs p ON pt.program_id = p.programID
+                                WHERE p.teacherID = ? AND pt.status = 'paid'
+                            ");
+                            $transStmt->bind_param("i", $teacherID);
+                            $transStmt->execute();
+                            $transCount = $transStmt->get_result()->fetch_assoc()['total_transactions'];
+                            $transStmt->close();
+                            echo $transCount;
+                            ?> total transactions
+                        </span>
+                    </div>
+
+                    <!-- Transaction Filters -->
+                    <form method="GET" action="" class="mb-6">
+                        <input type="hidden" name="studentsearch" value="<?= htmlspecialchars($search) ?>">
+                        <input type="hidden" name="program" value="<?= htmlspecialchars($programFilter) ?>">
+                        <input type="hidden" name="order" value="<?= htmlspecialchars($order) ?>">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <!-- Filter by Program -->
+                            <div>
+                                <label for="trans_program" class="block text-sm font-medium text-gray-700 mb-1">Filter by Program</label>
+                                <select id="trans_program" name="trans_program" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="all" <?= ($_GET['trans_program'] ?? 'all') === 'all' ? 'selected' : '' ?>>All Programs</option>
+                                    <?php foreach ($programs as $program): ?>
+                                        <option value="<?= $program['programID'] ?>" <?= ($_GET['trans_program'] ?? '') == $program['programID'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($program['title']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <!-- Date Range -->
+                            <div>
+                                <label for="trans_date_from" class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                                <input type="date" id="trans_date_from" name="trans_date_from" value="<?= $_GET['trans_date_from'] ?? '' ?>" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="trans_date_to" class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                                <input type="date" id="trans_date_to" name="trans_date_to" value="<?= $_GET['trans_date_to'] ?? '' ?>" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+
+                            <!-- Apply Button -->
+                            <div class="flex items-end">
+                                <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                                    <i class="ph ph-funnel"></i> Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Revenue Summary Card -->
+                    <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 mb-6 border-2 border-green-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 mb-1">Total Revenue (Filtered)</p>
+                                <p class="text-3xl font-bold text-green-600">₱<?= number_format($totalRevenue, 2) ?></p>
+                                <p class="text-xs text-gray-500 mt-1"><?= count($transactions) ?> transactions</p>
+                            </div>
+                            <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                                <i class="ph-fill ph-currency-circle-dollar text-white text-3xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transactions Table -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <?php if (empty($transactions)): ?>
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                                            <i class="ph ph-receipt text-4xl mb-2"></i>
+                                            <p>No transactions found matching your criteria.</p>
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($transactions as $trans): ?>
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-4 py-4 whitespace-nowrap">
+                                                <span class="text-xs font-mono text-gray-600">#<?= $trans['payment_id'] ?></span>
+                                            </td>
+                                            <td class="px-4 py-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                        <span class="text-blue-600 font-medium text-sm">
+                                                            <?= strtoupper(substr($trans['fname'], 0, 1) . substr($trans['lname'], 0, 1)) ?>
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <div class="text-sm font-medium text-gray-900">
+                                                            <?= htmlspecialchars($trans['fname'] . ' ' . $trans['lname']) ?>
+                                                        </div>
+                                                        <div class="text-xs text-gray-500">
+                                                            <?= htmlspecialchars($trans['email']) ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-4">
+                                                <span class="text-sm text-gray-900">
+                                                    <?= htmlspecialchars($trans['program_title']) ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-4 whitespace-nowrap">
+                                                <span class="text-sm font-bold text-green-600">
+                                                    ₱<?= number_format($trans['amount'], 2) ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?= date('M d, Y g:i A', strtotime($trans['datePaid'])) ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <?php if (count($transactions) >= 100): ?>
+                        <div class="mt-4 text-center text-sm text-gray-500">
+                            <i class="ph ph-info"></i> Showing latest 100 transactions. Use filters to narrow results.
+                        </div>
+                    <?php endif; ?>
                 </div>
         </section>
     </div>

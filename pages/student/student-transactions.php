@@ -99,7 +99,7 @@
         $totalSpent += (float)($enrollment['program_price'] ?? 0);
     }
 
-    $current_page = 'transactions';
+    $current_page = 'student-transactions';
     $page_title = 'My Transactions';
 ?>
 
