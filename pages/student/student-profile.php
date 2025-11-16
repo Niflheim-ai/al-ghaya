@@ -184,8 +184,8 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                             </div>
                         </div>
                     </div>
-                </div>
-            </div> -->
+                </div> -->
+            </div>
 
             <!-- Profile Edit Form -->
             <div class="lg:col-span-2">
