@@ -147,7 +147,7 @@ $courseStats = [
                 </div>
 
                 <!-- Teaching Stats -->
-                <div class="mt-6 bg-white rounded-xl shadow-sm p-6">
+                <!-- <div class="mt-6 bg-white rounded-xl shadow-sm p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Teaching Statistics</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="text-center p-4 bg-blue-50 rounded-lg">
@@ -167,7 +167,7 @@ $courseStats = [
                             <p class="text-sm text-gray-600">Rating</p>
                         </div>
                     </div>
-                </div>
+                </div> -->
             </div>
 
             <!-- Profile Edit Form -->
@@ -332,7 +332,7 @@ $courseStats = [
                 if (result.isConfirmed) {
                     // Show appreciation message for teachers
                     Swal.fire({
-                        title: 'Thank You for Teaching! 🎆',
+                        title: 'Thank You for Teaching!',
                         html: 'Your dedication to educating students is truly appreciated.<br><br><div class="text-sm text-gray-600">Signing out securely...</div>',
                         icon: 'success',
                         showConfirmButton: false,

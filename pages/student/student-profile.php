@@ -153,7 +153,7 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                 </div>
 
                 <!-- Quick Stats -->
-                <div class="mt-6 bg-white rounded-xl shadow-sm p-6">
+                <!-- <div class="mt-6 bg-white rounded-xl shadow-sm p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Learning Progress</h3>
                     <div class="space-y-4">
                         <div>
@@ -185,7 +185,7 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
 
             <!-- Profile Edit Form -->
             <div class="lg:col-span-2">
@@ -317,7 +317,7 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                 if (result.isConfirmed) {
                     // Show motivational message for students
                     Swal.fire({
-                        title: 'Great Progress Today! 🌟',
+                        title: 'Great Progress Today!',
                         html: 'Keep up the excellent work on your Arabic learning journey!<br><br><div class="text-sm text-gray-600">Signing out securely...</div>',
                         icon: 'success',
                         showConfirmButton: false,
