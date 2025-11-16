@@ -214,6 +214,8 @@ function closeReviewModal() {
 function loadProgramDetails(programId) {
   const modalContent = document.getElementById('modalContent');
   
+  console.log('Loading program ID:', programId);
+  
   fetch(`../../php/admin-get-program-details.php?program_id=${programId}`)
     .then(response => response.json())
     .then(data => {
