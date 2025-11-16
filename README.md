@@ -179,6 +179,11 @@ The system uses a comprehensive MySQL database with the following key tables:
 - Integrated into existing pages (no separate API endpoints)
 - Real-time point calculations and level updates
 
+### Payment
+- Integrated into program enrollment
+- Uses PayMongo API for security and integration
+- Supports CC, GCash, PayMaya, GrabPay, QRPH
+
 ## 🔒 Security Features
 
 - **Authentication**: Secure session management and Google OAuth
@@ -217,9 +222,7 @@ System settings can be configured through the `system_settings` table:
 - **Mobile App**: Native iOS/Android applications
 - **Live Classes**: Video conferencing integration
 - **Social Features**: Student forums and peer interaction
-- **Certification**: Digital certificates and badges
 - **Multi-language**: Support for multiple UI languages
-- **Payment Integration**: Course monetization
 - **AI Tutoring**: Personalized learning assistant
 
 ## 🤝 Contributing
@@ -237,9 +240,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📧 Contact
 
 - **Project Team**: Al-Ghaya Development Team
-- **Email**: fmanaois4@gmail.com
-- **Website**: In Progress
-- **Live Demo**: In Progress
+- **Email**: thegodlykali@gmail.com
+- **Website**: https://blue-duck-442985.hostingersite.com
+- **Live Demo**: https://blue-duck-442985.hostingersite.com
 
 ## 🚀 Deployment
 
@@ -250,18 +253,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 4. Configure email settings for notifications
 5. Set up backup procedures
 
-### Vercel Deployment (Current)
-- Deployed at: https://al-ghaya-2.vercel.app
+### Hostinger Deployment (Current)
+- Deployed at: [This Website](https://blue-duck-442985.hostingersite.com)
 - Automatic deployments from main branch
-- Environment variables configured in Vercel dashboard
-
-## 🎆 Acknowledgments
-
-- **Tailwind CSS**: For the beautiful UI components
-- **SweetAlert2**: For elegant alert dialogs
-- **Font Awesome**: For comprehensive icon library
-- **PHPMailer**: For reliable email functionality
-- **Google OAuth**: For secure authentication
-- **Phosphor Icons**: For modern icon design
+- Environment variables configured in Hostinger File Manager
 
 ---
