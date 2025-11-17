@@ -126,7 +126,7 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
                          onerror="this.src='../../images/blog-bg.svg'">
                     
                     <!-- Content (Right) -->
-                    <div class="overflow-hidden p-6 h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-3">
+                    <div class="overflow-hidden p-6 h-fit min-h-[300px] flex-grow flex-shrink-0 basis-3/4 flex flex-col gap-3 notranslate">
                         <!-- Top line: Price for All Programs; Progress bar for My Programs -->
                         <?php if ($isMyTab): ?>
                             <div>

@@ -95,7 +95,7 @@ $totalStudents = $conn->query("SELECT COUNT(*) as count FROM user WHERE role = '
             </div>
 
             <!-- Current User Card -->
-            <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-2xl p-8 mb-8 text-white">
+            <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-2xl p-8 mb-8 text-white notranslate">
                 <div class="flex items-center justify-between flex-wrap gap-4">
                     <div class="flex items-center gap-4">
                         <?php
@@ -150,7 +150,7 @@ $totalStudents = $conn->query("SELECT COUNT(*) as count FROM user WHERE role = '
                                 <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Programs</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
+                        <tbody class="bg-white divide-y divide-gray-200 notranslate">
                             <?php foreach ($leaderboard as $index => $student): ?>
                                 <?php
                                 $rank = $index + 1;

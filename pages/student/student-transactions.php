@@ -285,7 +285,7 @@
                                 <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
+                        <tbody class="bg-white divide-y divide-gray-200 notranslate">
                             <?php foreach ($enrollments as $enrollment): ?>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-6 py-5 whitespace-nowrap">
@@ -372,9 +372,9 @@
 <!-- JS -->
 <script src="../../components/navbar.js"></script>
 <script src="../../dist/javascript/scroll-to-top.js"></script>
-<script src="../../dist/javascript/carousel.js"></script>
+<!-- <script src="../../dist/javascript/carousel.js"></script> -->
 <script src="../../dist/javascript/user-dropdown.js"></script>
-<script src="../../dist/javascript/translate.js"></script>
+<!-- <script src="../../dist/javascript/translate.js"></script> -->
 </body>
 
 </html>
