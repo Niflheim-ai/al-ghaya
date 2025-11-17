@@ -71,6 +71,9 @@ if (isset($_SESSION['userID'])) {
                 </a>
             </div>
 
+            <!-- Hidden Google Translate Element (MUST be present) -->
+            <div id="google_translate_element" style="display:none;"></div>
+
             <!-- Profile Dropdown -->
             <div class="flex items-center">
                 <!-- Change Language Dropdown -->
@@ -285,7 +288,9 @@ document.addEventListener('click', function(event) {
 </style>
 
 <script>
-    console.log('=== Auto-translation system loaded ===');
+    console.log('=== Auto-Translation System Loading ===');
+
+    let translationReady = false;
 
     document.addEventListener('DOMContentLoaded', function() {
         const langButton = document.getElementById('lang-button');
@@ -298,7 +303,7 @@ document.addEventListener('click', function(event) {
             return;
         }
         
-        console.log('✅ Auto-translation ready');
+        console.log('✅ Translation elements found');
         
         // Toggle dropdown
         langButton.addEventListener('click', function(e) {
@@ -339,7 +344,7 @@ document.addEventListener('click', function(event) {
                 // Handle RTL
                 handleRTL(langCode);
                 
-                // AUTO-TRANSLATE PAGE
+                // AUTO-TRANSLATE (stays on domain)
                 translatePage(langCode, langName);
             });
         });
@@ -353,82 +358,80 @@ document.addEventListener('click', function(event) {
             selectedLang.textContent = savedLabel;
             handleRTL(savedLang);
             
-            // Auto-translate if not English and not already translated
-            if (savedLang !== 'en' && !isAlreadyTranslated()) {
-                console.log('Auto-translating to saved language:', savedName);
+            // Auto-translate on page load
+            if (savedLang !== 'en') {
+                console.log('Auto-translating to:', savedName);
                 setTimeout(() => {
                     translatePage(savedLang, savedName, true);
-                }, 500);
+                }, 1500);
             }
         }
     });
 
-    // Automatically translate page to selected language
+    // Translate page (STAYS ON YOUR DOMAIN)
     function translatePage(langCode, langName, silent = false) {
         console.log('translatePage called:', langCode);
         
-        if (langCode === 'en') {
-            // Return to original English page
-            const currentUrl = window.location.href;
-            
-            // Remove Google Translate parameters
-            if (currentUrl.includes('translate.goog')) {
-                // If on translated page, go back to original
-                const originalUrl = currentUrl.replace(/https:\/\/[^\/]*translate\.goog/, window.location.origin);
-                window.location.href = originalUrl.split('?')[0];
-            } else {
-                if (!silent && typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'English',
-                        text: 'Page is already in English',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                }
-            }
-            return;
-        }
-        
-        // Get current page URL (remove any existing translation params)
-        let currentUrl = window.location.href;
-        currentUrl = currentUrl.split('?')[0].split('#')[0];
-        
-        // Check if already on a translated page
-        if (currentUrl.includes('translate.goog')) {
-            // Extract original URL
-            currentUrl = currentUrl.replace(/https:\/\/[^\/]*translate\.goog/, window.location.origin);
-        }
-        
-        // Build Google Translate URL
-        const translateUrl = `https://translate.google.com/translate?sl=auto&tl=${langCode}&u=${encodeURIComponent(currentUrl)}`;
-        
-        console.log('Redirecting to:', translateUrl);
-        
-        // Show loading message
         if (!silent && typeof Swal !== 'undefined') {
             Swal.fire({
-                title: `Translating to ${langName}...`,
-                html: 'Please wait',
+                title: langCode === 'en' ? 'Switching to English...' : `Translating to ${langName}...`,
+                text: 'Page will reload',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
+                timer: 1500,
                 didOpen: () => {
                     Swal.showLoading();
                 }
             });
         }
         
-        // Redirect to translated page
-        setTimeout(() => {
-            window.location.href = translateUrl;
-        }, 500);
-    }
-
-    // Check if page is already translated
-    function isAlreadyTranslated() {
-        return window.location.href.includes('translate.goog') || 
-            window.location.href.includes('translate.google.com');
+        // Wait for Google Translate widget to load
+        let attempts = 0;
+        const maxAttempts = 100; // 10 seconds
+        
+        const checkInterval = setInterval(function() {
+            const selectElement = document.querySelector('.goog-te-combo');
+            attempts++;
+            
+            if (selectElement) {
+                clearInterval(checkInterval);
+                console.log('✅ Google Translate widget found!');
+                console.log('Available languages:', selectElement.options.length);
+                
+                // Set the language
+                if (langCode === 'en') {
+                    selectElement.value = '';
+                } else {
+                    selectElement.value = langCode;
+                }
+                
+                // Trigger the change event
+                selectElement.dispatchEvent(new Event('change'));
+                console.log('✅ Translation triggered for:', langCode);
+                
+                translationReady = true;
+                
+            } else if (attempts >= maxAttempts) {
+                clearInterval(checkInterval);
+                console.error('❌ Google Translate widget not found after 10 seconds');
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Translation Not Available',
+                        html: 'Translation service could not load.<br><br>Please use your browser\'s built-in translation feature instead.',
+                        confirmButtonText: 'OK'
+                    });
+                } else {
+                    alert('Translation service not available. Please use your browser\'s built-in translation.');
+                }
+            } else {
+                if (attempts % 10 === 0) {
+                    console.log(`Waiting for Google Translate... (${attempts}/100)`);
+                }
+            }
+        }, 100);
     }
 
     // Handle RTL for Arabic and Urdu
@@ -436,13 +439,33 @@ document.addEventListener('click', function(event) {
         const rtlLanguages = ['ar', 'ur'];
         
         if (rtlLanguages.includes(langCode)) {
+            console.log('Setting RTL mode');
             document.documentElement.setAttribute('dir', 'rtl');
             document.body.classList.add('rtl');
         } else {
+            console.log('Setting LTR mode');
             document.documentElement.setAttribute('dir', 'ltr');
             document.body.classList.remove('rtl');
         }
     }
 
-    console.log('✅ Auto-translation system ready');
+    // Check if Google Translate loaded
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            console.log('=== GOOGLE TRANSLATE STATUS ===');
+            const select = document.querySelector('.goog-te-combo');
+            
+            if (select) {
+                console.log('✅ Google Translate is READY');
+                console.log('Languages available:', select.options.length);
+                translationReady = true;
+            } else {
+                console.log('❌ Google Translate NOT loaded');
+                console.log('Check if element.js script loaded correctly');
+            }
+        }, 3000);
+    });
+
+    console.log('✅ Auto-translation script loaded');
+
 </script>
