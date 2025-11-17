@@ -241,14 +241,25 @@ try {
             // Use your existing function to get chapters
             $chapters = getChapters($conn, $program_id);
             
-            // Count total stories across all chapters
+            // Count total items (stories + quizzes) across all chapters
             $total_stories = 0;
+            $total_quizzes = 0;
             $all_story_ids = [];
+            $all_quiz_ids = [];
+            
             foreach ($chapters as $chapter) {
+                // Count stories
                 $stories = chapter_getStories($conn, $chapter['chapter_id']);
                 $total_stories += count($stories);
                 foreach ($stories as $story) {
                     $all_story_ids[] = $story['story_id'];
+                }
+                
+                // Count quizzes
+                $quiz = getChapterQuiz($conn, $chapter['chapter_id']);
+                if ($quiz) {
+                    $total_quizzes++;
+                    $all_quiz_ids[] = $quiz['quiz_id'];
                 }
             }
             
@@ -269,13 +280,37 @@ try {
                 $completedStmt->close();
             }
             
-            $completion_percentage = $total_stories > 0 ? round(($completed_stories / $total_stories) * 100, 1) : 0;
+            // Count passed quizzes
+            $passed_quizzes = 0;
+            if (!empty($all_quiz_ids)) {
+                $placeholders = implode(',', array_fill(0, count($all_quiz_ids), '?'));
+                $passedQuizStmt = $conn->prepare("
+                    SELECT COUNT(DISTINCT quiz_id) as passed
+                    FROM student_quiz_attempts
+                    WHERE student_id = ? AND quiz_id IN ($placeholders) AND is_passed = 1
+                ");
+                $params = array_merge([$student_id], $all_quiz_ids);
+                $types = str_repeat('i', count($params));
+                $passedQuizStmt->bind_param($types, ...$params);
+                $passedQuizStmt->execute();
+                $passed_quizzes = $passedQuizStmt->get_result()->fetch_assoc()['passed'] ?? 0;
+                $passedQuizStmt->close();
+            }
+            
+            // Calculate overall completion percentage (stories + quizzes)
+            $total_items = $total_stories + $total_quizzes;
+            $completed_items = $completed_stories + $passed_quizzes;
+            $completion_percentage = $total_items > 0 ? round(($completed_items / $total_items) * 100, 1) : 0;
             
             echo json_encode([
                 'success' => true,
                 'completion_percentage' => $completion_percentage,
                 'completed_stories' => $completed_stories,
-                'total_stories' => $total_stories
+                'total_stories' => $total_stories,
+                'passed_quizzes' => $passed_quizzes,
+                'total_quizzes' => $total_quizzes,
+                'completed_items' => $completed_items,
+                'total_items' => $total_items
             ]);
             exit;
     }
