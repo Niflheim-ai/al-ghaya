@@ -15,6 +15,22 @@ if ($teacherID) {
     $teacher = $teacherStmt->get_result()->fetch_assoc();
 }
 
+// ✅ Determine correct image path
+$programImage = '../../images/blog-bg.svg'; // Default fallback
+if (!empty($program['image'])) {
+    if (strpos($program['image'], 'thumbnails/') !== false || strpos($program['image'], 'uploads/') !== false) {
+        $programImage = '../../' . $program['image'];
+    } else {
+        $programImage = '../../uploads/thumbnails/' . $program['image'];
+    }
+} elseif (!empty($program['thumbnail'])) {
+    if (strpos($program['thumbnail'], 'thumbnails/') !== false || strpos($program['thumbnail'], 'uploads/') !== false) {
+        $programImage = '../../' . $program['thumbnail'];
+    } else {
+        $programImage = '../../uploads/thumbnails/' . $program['thumbnail'];
+    }
+}
+
 $completion = (float)($program['completion_percentage'] ?? 0);
 $price = isset($program['price']) ? (float)$program['price'] : 0.0;
 $currency = $program['currency'] ?: 'PHP';
@@ -34,10 +50,7 @@ $enrollees = (int)($enrolStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
       <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <!-- Top: full-width program IMAGE -->
         <div class="w-full">
-          <?php
-            $heroImg = !empty($program['image']) ? '../../uploads/thumbnails/'.htmlspecialchars($program['image']) : '../../images/blog-bg.svg';
-          ?>
-          <img src="<?= $heroImg ?>" alt="Program Image" class="w-full h-64 md:h-80 object-cover">
+          <img src="<?= htmlspecialchars($programImage) ?>" alt="<?= htmlspecialchars($program['title']) ?>" class="w-full h-64 md:h-80 object-cover" onerror="this.src='../../images/blog-bg.svg'">
         </div>
 
         <!-- Header row: left (price, title, difficulty), right (enroll button, enrollees) -->
