@@ -313,7 +313,12 @@ window.gtranslateSettings = {
         
         // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
-            if (!langButton.contains(e.target) && !langDropdown.contains(e.target)) {
+            const langButton = document.getElementById('lang-button');
+            const langDropdown = document.getElementById('lang-dropdown');
+            
+            if (langButton && langDropdown && 
+                !langButton.contains(e.target) && 
+                !langDropdown.contains(e.target)) {
                 langDropdown.classList.add('hidden');
             }
         });
@@ -326,27 +331,53 @@ window.gtranslateSettings = {
                 const langCode = this.getAttribute('data-lang');
                 const langLabel = this.getAttribute('data-label');
                 
+                console.log('Switching to:', langCode);
+                
                 // Update display
                 selectedLang.textContent = langLabel;
                 langDropdown.classList.add('hidden');
                 
                 // Save preference
+                localStorage.setItem('preferredLanguage', langCode);
                 localStorage.setItem('preferredLanguageLabel', langLabel);
                 
-                // Trigger GTranslate
-                const gtLink = document.querySelector(`.gtranslate_wrapper a[data-gt-lang="${langCode}"]`);
-                if (gtLink) {
-                    gtLink.click();
+                // Clear existing translation
+                document.cookie = 'googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
+                
+                // Set new language
+                if (langCode === 'en') {
+                    // Reset to English - just reload
+                    window.location.reload();
                 } else {
-                    // Fallback: set cookie manually
+                    // Set cookie for new language and reload
                     document.cookie = `googtrans=/en/${langCode}; path=/`;
-                    location.reload();
+                    window.location.reload();
                 }
             });
         });
         
-        // Restore saved language display
-        const saved = localStorage.getItem('preferredLanguageLabel');
-        if (saved) selectedLang.textContent = saved;
+        // Restore saved language display on load
+        const savedLang = localStorage.getItem('preferredLanguage');
+        const savedLabel = localStorage.getItem('preferredLanguageLabel');
+        
+        if (savedLabel) {
+            selectedLang.textContent = savedLabel;
+        }
+        
+        // Auto-apply saved language if not already applied
+        if (savedLang && savedLang !== 'en') {
+            const currentLang = getCookie('googtrans');
+            if (!currentLang || !currentLang.includes(`/${savedLang}`)) {
+                document.cookie = `googtrans=/en/${savedLang}; path=/`;
+            }
+        }
     });
+
+    // Helper function to get cookie value
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
 </script>
