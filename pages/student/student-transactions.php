@@ -320,7 +320,7 @@
                                     </td>
                                     <td class="px-6 py-5 whitespace-nowrap">
                                         <span class="text-lg font-bold text-gray-900">
-                                            $<?= number_format((float)($enrollment['program_price'] ?? 0), 2) ?>
+                                            ₱<?= number_format((float)($enrollment['program_price'] ?? 0), 2) ?>
                                         </span>
                                     </td>
                                     <td class="px-6 py-5 whitespace-nowrap">
