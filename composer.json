@@ -6,6 +6,7 @@
     "license": "MIT",
     "require": {
         "php": ">=7.4",
+        "dompdf/dompdf": "*",
         "google/apiclient": "2.15.0",
         "google/apiclient-services": "^0.340",
         "google/auth": "^1.38",

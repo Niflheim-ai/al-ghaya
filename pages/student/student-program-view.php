@@ -324,7 +324,7 @@ $page_title = htmlspecialchars($program['title']);
 <?php include '../../components/header.php'; ?>
 <?php include '../../components/student-nav.php'; ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+<!-- <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css"> -->
 <style>
 .sidebar-item { transition: all 0.2s ease; }
 .sidebar-item:hover:not(.locked) { background-color: #f3f4f6; }
