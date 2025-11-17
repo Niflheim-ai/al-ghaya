@@ -190,7 +190,7 @@
                 <i class="ph ph-trophy text-2xl mr-3"></i>
                 <div>
                     <strong>Daily Bonus Earned!</strong>
-                    <p>You've earned <?= PointValues::LOGIN_DAILY ?> points for logging in today! 🎉</p>
+                    <p>You've earned <?= PointValues::LOGIN_DAILY ?> points for logging in today!</p>
                 </div>
             </div>
         </div>
@@ -202,7 +202,7 @@
             <div class="section-card">
                 <!-- Student Details -->
                 <div>
-                    <div class="flex items-center">
+                    <div class="flex items-center notranslate">
                         <img src="<?= htmlspecialchars($userAvatar) ?>" alt="Profile" class="w-20 h-20 rounded-full object-cover">
                         <div class="flex flex-col h-fit gap-y-[25px] ml-6">
                             <div class="flex flex-col">
@@ -235,7 +235,7 @@
                     <div class="flex-1 flex flex-col gap-y-[25px]">
                         <div>
                             <p class="label">Recent Program</p>
-                            <p class="program-name-2 arabic font-bold text-lg"><?= htmlspecialchars($recentProgram['title']) ?></p>
+                            <p class="program-name-2 arabic font-bold text-lg notranslate"><?= htmlspecialchars($recentProgram['title']) ?></p>
                             <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
                                 <div class="bg-green-500 h-2 rounded-full" style="width: <?= $recentProgram['progress'] ?>%"></div>
                             </div>
@@ -247,7 +247,7 @@
                             <i class="ph ph-book-bookmark text-[24px] text-[#10375B]"></i>
                             <div>
                                 <p class="font-semibold">Chapter <?= $recentProgram['current_chapter'] ?></p>
-                                <p class="text-sm text-gray-600"><?= htmlspecialchars($recentProgram['current_chapter_title'] ?: 'Continue Learning') ?></p>
+                                <p class="text-sm text-gray-600 notranslate"><?= htmlspecialchars($recentProgram['current_chapter_title'] ?: 'Continue Learning') ?></p>
                             </div>
                         </div>
                         
@@ -334,7 +334,7 @@
             <div class="section-card">
                 <div class="flex flex-col gap-y-[10px] min-w-[217px]">
                     <p class="label">Challenge Program</p>
-                    <p class="program-name-2 arabic font-bold"><?= htmlspecialchars($dailyChallenge['program_title']) ?></p>
+                    <p class="program-name-2 arabic font-bold notranslate"><?= htmlspecialchars($dailyChallenge['program_title']) ?></p>
                     <div class="flex items-center text-sm text-gray-600">
                         <i class="ph ph-trophy mr-2"></i>
                         <span>Earn 10 points (or lose 5 if wrong)</span>

@@ -29,7 +29,7 @@ if (isset($_SESSION['userID'])) {
             </div>
 
             <!-- Navigation buttons -->
-            <div class="hidden lg:flex justify-start gap-[20px] w-full">
+            <div class="hidden lg:flex justify-start gap-[20px] w-full notranslate">
                 <a href="student-dashboard.php" class="<?php if ($current_page == 'student-dashboard') {
                     echo 'group menu-item-active flex items-center';
                 } else {
@@ -106,7 +106,7 @@ if (isset($_SESSION['userID'])) {
                 <div class="gtranslate_wrapper" style="display:none;"></div>
 
                 <!-- Profile Section -->
-                <div class="relative">
+                <div class="relative notranslate">
                     <button id="student-profile-button" onclick="toggleProfileDropdown('student')" 
                         class="flex items-center focus:outline-none hover:cursor-pointer group">
                         <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg border-2 border-secondary hover:bg-blue-700 transition-all duration-200">
@@ -117,11 +117,11 @@ if (isset($_SESSION['userID'])) {
 
                     <!-- Dropdown Menu -->
                     <div id="student-profile-dropdown" 
-                        class="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg py-2 border border-gray-200 hidden z-50 transform opacity-0 scale-95 transition-all duration-200 origin-top-right">
+                        class="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg py-2 border border-gray-200 hidden z-50 transform opacity-0 scale-95 transition-all duration-200 origin-top-right notranslate">
                         <!-- User Info Section -->
                         <div class="px-4 py-3 border-b border-gray-100">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
+                            <div class="flex items-center space-x-3 notranslate">
+                                <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold notranslate">
                                     <?= $userInitials ?>
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -331,34 +331,52 @@ window.gtranslateSettings = {
                 
                 localStorage.setItem('preferredLanguageLabel', langLabel);
                 
-                // Get domain
+                // Clear ALL possible cookie variations
                 const domain = window.location.hostname;
+                const rootDomain = domain.replace(/^[^.]+\./, ''); // Get root domain
                 
-                // Clear ALL translation cookies with different paths and domains
-                const cookiesToClear = [
-                    `googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC`,
-                    `googtrans=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 UTC`,
-                    `googtrans=; path=/; domain=.${domain}; expires=Thu, 01 Jan 1970 00:00:00 UTC`
+                // Delete all googtrans cookies with all possible domain/path combinations
+                const cookieConfigs = [
+                    { domain: '', path: '/' },
+                    { domain: domain, path: '/' },
+                    { domain: '.' + domain, path: '/' },
+                    { domain: rootDomain, path: '/' },
+                    { domain: '.' + rootDomain, path: '/' },
+                    { domain: '', path: '' }
                 ];
                 
-                cookiesToClear.forEach(cookie => {
+                const expiry = 'Thu, 01 Jan 1970 00:00:00 UTC';
+                
+                cookieConfigs.forEach(config => {
+                    let cookie = 'googtrans=; expires=' + expiry;
+                    if (config.path) cookie += '; path=' + config.path;
+                    if (config.domain) cookie += '; domain=' + config.domain;
                     document.cookie = cookie;
                 });
                 
-                // Wait a moment for cookies to clear
+                // Also clear any existing cookies manually
+                document.cookie.split(';').forEach(c => {
+                    const name = c.trim().split('=')[0];
+                    if (name === 'googtrans') {
+                        document.cookie = name + '=; expires=' + expiry + '; path=/';
+                        document.cookie = name + '=; expires=' + expiry + '; path=/; domain=' + domain;
+                        document.cookie = name + '=; expires=' + expiry + '; path=/; domain=.' + domain;
+                    }
+                });
+                
+                // Wait for cookies to clear
                 setTimeout(() => {
                     if (langCode === 'en') {
-                        // Just reload for English
-                        window.location.href = window.location.pathname;
+                        // Reload to English (no cookie needed)
+                        window.location.href = window.location.pathname + '?nocache=' + Date.now();
                     } else {
-                        // Set new language cookie with proper domain
-                        document.cookie = `googtrans=/en/${langCode}; path=/; domain=${domain}`;
-                        document.cookie = `googtrans=/en/${langCode}; path=/; domain=.${domain}`;
+                        // Set new language cookie - ONLY with path, no domain
+                        document.cookie = `googtrans=/en/${langCode}; path=/`;
                         
-                        // Force reload with cache bypass
+                        // Force reload
                         window.location.href = window.location.pathname + '?lang=' + langCode + '&t=' + Date.now();
                     }
-                }, 100);
+                }, 200);
             });
         });
         
