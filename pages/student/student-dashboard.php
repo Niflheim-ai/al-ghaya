@@ -581,6 +581,6 @@ setTimeout(() => {
 <script src="../../dist/javascript/scroll-to-top.js"></script>
 <script src="../../dist/javascript/carousel.js"></script>
 <script src="../../dist/javascript/user-dropdown.js"></script>
-<script src="../../dist/javascript/translate.js"></script>
+<!-- <script src="../../dist/javascript/translate.js"></script> -->
 </body>
 </html>

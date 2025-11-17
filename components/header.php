@@ -158,32 +158,94 @@
     }
   </style>
 
-  <!-- Google Translate Widget (Hidden) -->
+  <!-- Google Translate - Force Initialization -->
+  <div id="google_translate_element" style="display:none;"></div>
+
   <script type="text/javascript">
+  // Force multiple initialization attempts
+  var initAttempts = 0;
+  var maxAttempts = 5;
+
   function googleTranslateElementInit() {
-      new google.translate.TranslateElement({
-          pageLanguage: 'en',
-          includedLanguages: 'en,fil,ar,ur,id,ms,tr,fr,es',
-          layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-          autoDisplay: false
-      }, 'google_translate_element');
-      
-      console.log('Google Translate widget initialized');
+      try {
+          console.log('Attempt', initAttempts + 1, 'to initialize Google Translate');
+          
+          var element = document.getElementById('google_translate_element');
+          if (!element) {
+              console.error('Container element not found!');
+              return;
+          }
+          
+          // Clear any existing content
+          element.innerHTML = '';
+          
+          // Create the widget
+          new google.translate.TranslateElement({
+              pageLanguage: 'en',
+              includedLanguages: 'en,fil,ar,ur,id,ms,tr,fr,es',
+              layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+              autoDisplay: false,
+              multilanguagePage: true
+          }, 'google_translate_element');
+          
+          console.log('✅ Google Translate widget created');
+          
+          // Verify it worked
+          setTimeout(function() {
+              var select = document.querySelector('.goog-te-combo');
+              if (select) {
+                  console.log('✅ SUCCESS! Dropdown created with', select.options.length, 'languages');
+                  window.googleTranslateReady = true;
+              } else {
+                  console.error('❌ Widget created but dropdown not found');
+                  
+                  // Try again
+                  if (initAttempts < maxAttempts) {
+                      initAttempts++;
+                      setTimeout(googleTranslateElementInit, 1000);
+                  }
+              }
+          }, 500);
+          
+      } catch (error) {
+          console.error('Google Translate init error:', error);
+          
+          // Retry
+          if (initAttempts < maxAttempts) {
+              initAttempts++;
+              setTimeout(googleTranslateElementInit, 1000);
+          }
+      }
+  }
+
+  // Load script with retry
+  function loadGoogleTranslate() {
+      var script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      script.onerror = function() {
+          console.error('Failed to load Google Translate script');
+      };
+      script.onload = function() {
+          console.log('Google Translate script loaded');
+      };
+      document.head.appendChild(script);
+  }
+
+  // Load when DOM is ready
+  if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadGoogleTranslate);
+  } else {
+      loadGoogleTranslate();
   }
   </script>
-  <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
   <style>
-  /* Hide all Google Translate UI elements */
-  #google_translate_element {
-      display: none !important;
-  }
-
-  .goog-te-banner-frame {
-      display: none !important;
-  }
-
-  .goog-te-banner-frame.skiptranslate {
+  /* Hide Google Translate UI */
+  #google_translate_element,
+  .goog-te-banner-frame,
+  .skiptranslate,
+  .goog-te-balloon-frame {
       display: none !important;
   }
 
@@ -191,60 +253,12 @@
       top: 0px !important;
   }
 
-  .skiptranslate {
-      display: none !important;
-  }
-
-  .goog-te-balloon-frame {
-      display: none !important;
-  }
-
   .goog-text-highlight {
       background: none !important;
       box-shadow: none !important;
   }
-
-  /* Prevent Google Translate toolbar */
-  .goog-te-menu-frame {
-      max-width: 100% !important;
-  }
-
-  /* Hide the top frame */
-  #goog-gt-tt, .goog-te-balloon-frame {
-      display: none !important;
-  }
-
-  .goog-te-menu-value:hover {
-      text-decoration: none !important;
-  }
-
-  #google_translate_element .goog-te-gadget-simple {
-      display: none !important;
-  }
   </style>
 
-
-  <style>
-  /* RTL Support for Arabic/Urdu */
-  body.rtl {
-      direction: rtl;
-      text-align: right;
-  }
-
-  body.rtl .flex {
-      flex-direction: row-reverse;
-  }
-
-  body.rtl .ml-auto {
-      margin-left: 0;
-      margin-right: auto;
-  }
-
-  body.rtl .mr-auto {
-      margin-right: 0;
-      margin-left: auto;
-  }
-  </style>
   <!-- Phosphor Icons -->
   <script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2"></script>
   <!-- Swiper JS -->
