@@ -74,7 +74,7 @@ if (isset($_SESSION['userID'])) {
             <!-- Profile Dropdown -->
             <div class="flex items-center">
                 <!-- Hidden Google Translate Element (MUST be present) -->
-                <div id="google_translate_element" style="display:none;"></div>
+                <div id="google_translate_element" style="visibility:hidden; height:0"></div>
                 <!-- Change Language Dropdown -->
                 <div class="hidden lg:flex items-center relative z-40 mr-4">
                     <button id="lang-button"
@@ -509,20 +509,30 @@ console.log('✅ Translation script loaded');
   </script>
 
   <style>
-  /* Hide Google Translate UI */
-  #google_translate_element,
-  .goog-te-banner-frame,
-  .skiptranslate,
-  .goog-te-balloon-frame {
-      display: none !important;
-  }
+    /* Hide Google banner */
+    .goog-te-banner-frame {
+        display: none !important;
+    }
 
-  body {
-      top: 0px !important;
-  }
+    /* Hide popup */
+    .goog-te-balloon-frame {
+        display: none !important;
+    }
 
-  .goog-text-highlight {
-      background: none !important;
-      box-shadow: none !important;
-  }
+    /* Keep widget invisible but rendered */
+    #google_translate_element {
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* Remove highlight */
+    .goog-text-highlight {
+        background: none !important;
+        box-shadow: none !important;
+    }
+
+    body {
+        top: 0 !important;
+    }
   </style>
