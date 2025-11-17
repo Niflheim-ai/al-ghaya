@@ -144,10 +144,10 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                                 <p class="font-semibold text-lg"><?= number_format($stats['points']) ?></p>
                                 <p class="text-blue-100">Points</p>
                             </div>
-                            <div class="text-center">
+                            <!-- <div class="text-center">
                                 <p class="font-semibold text-lg"><?= ucfirst($stats['proficiency']) ?></p>
                                 <p class="text-blue-100">Level</p>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
                 </div>

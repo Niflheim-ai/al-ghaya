@@ -138,7 +138,7 @@
                     </div>
                     <span class="text-sm text-[#A58618] font-medium bg-white bg-opacity-20 px-4 py-2 rounded-full">All Time</span>
                 </div>
-                <h3 class="text-4xl font-bold mb-2">$<?= number_format($totalSpent, 2) ?></h3>
+                <h3 class="text-4xl font-bold mb-2">₱<?= number_format($totalSpent, 2) ?></h3>
                 <p class="text-blue-100 text-base">Total Spent</p>
             </div>
 

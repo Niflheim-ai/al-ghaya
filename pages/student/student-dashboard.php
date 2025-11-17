@@ -213,15 +213,15 @@
                                         <div class="bg-[#A58618] h-2.5 rounded-full transition-all duration-500" 
                                              style="width: <?= $userStats['progress_to_next_level'] ?>%"></div>
                                     </div>
-                                    <p class="text-sm text-gray-600 mt-1"><?= $userStats['points'] ?>/<?= $userStats['points_for_next_level'] ?> exp</p>
+                                    <p class="text-sm text-gray-600 mt-1"><?= $userStats['points'] ?>/<?= $userStats['points_for_next_level'] ?> points</p>
                                 </div>
                             </div>
-                            <div class="flex flex-col gap-y-[10px] items-start">
+                            <!-- <div class="flex flex-col gap-y-[10px] items-start">
                                 <p class="label">Proficiency Level</p>
                                 <div class="proficiency-badge bg-[#10375B] text-white px-4 py-2 rounded-lg">
                                     <p class="text-[14px] font-semibold capitalize"><?= htmlspecialchars($userStats['proficiency']) ?></p>
                                 </div>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
                 </div>
