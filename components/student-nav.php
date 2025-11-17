@@ -71,8 +71,7 @@ if (isset($_SESSION['userID'])) {
                 </a>
             </div>
 
-            <!-- Hidden Google Translate Element (MUST be present) -->
-            <div id="google_translate_element" style="display:none;"></div>
+            
 
             <!-- Profile Dropdown -->
             <div class="flex items-center">
@@ -84,6 +83,9 @@ if (isset($_SESSION['userID'])) {
                         <span id="selected-lang" class="text-secondary font-medium">EN</span>
                         <i class="ph ph-caret-down text-secondary text-[14px]"></i>
                     </button>
+
+                    <!-- Hidden Google Translate Element (MUST be present) -->
+                    <div id="google_translate_element" style="display:none;"></div>
 
                     <div id="lang-dropdown"
                         class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200">
@@ -373,7 +375,7 @@ function translatePage(langCode, langName, silent = false) {
     
     // Wait up to 30 seconds for the widget
     let attempts = 0;
-    const maxAttempts = 300; // 30 seconds
+    const maxAttempts = 50; // 30 seconds
     
     const interval = setInterval(function() {
         const select = document.querySelector('.goog-te-combo');
