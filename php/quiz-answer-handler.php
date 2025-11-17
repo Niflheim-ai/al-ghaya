@@ -118,27 +118,115 @@ try {
             $question_id = intval($_POST['question_id'] ?? 0);
             $option_id = intval($_POST['option_id'] ?? 0);
             $story_id = intval($_POST['story_id'] ?? 0);
+            $section_id = intval($_POST['section_id'] ?? 0);
+            
             if (!$question_id || !$option_id || !$story_id) {
                 echo json_encode(['success' => false, 'correct' => false, 'message' => 'Invalid input']);
                 exit;
             }
+            
+            // Check if the submitted answer is correct
             $stmt = $conn->prepare("SELECT is_correct FROM question_options WHERE option_id = ?");
             $stmt->bind_param("i", $option_id);
             $stmt->execute();
             $result = $stmt->get_result()->fetch_assoc();
             $stmt->close();
+            
             $isCorrect = $result && $result['is_correct'] == 1;
+            
             if ($isCorrect) {
-                studentStoryProgress_markCompleted($conn, $student_id, $story_id);
-                echo json_encode([
-                    'success' => true,
-                    'correct' => true,
-                    'message' => 'Correct! You can proceed to the next story.'
-                ]);
+                // Record the correct answer in student_interactive_answers table
+                // First check if answer already exists
+                $checkStmt = $conn->prepare("SELECT answer_id FROM student_interactive_answers WHERE student_id = ? AND question_id = ?");
+                $checkStmt->bind_param("ii", $student_id, $question_id);
+                $checkStmt->execute();
+                $existingAnswer = $checkStmt->get_result()->fetch_assoc();
+                $checkStmt->close();
+                
+                if ($existingAnswer) {
+                    // Update existing answer
+                    $updateStmt = $conn->prepare("UPDATE student_interactive_answers SET option_id = ?, is_correct = 1, answer_date = NOW() WHERE answer_id = ?");
+                    $updateStmt->bind_param("ii", $option_id, $existingAnswer['answer_id']);
+                    $updateStmt->execute();
+                    $updateStmt->close();
+                } else {
+                    // Insert new answer
+                    $insertStmt = $conn->prepare("INSERT INTO student_interactive_answers (student_id, question_id, option_id, is_correct, answer_date) VALUES (?, ?, ?, 1, NOW())");
+                    $insertStmt->bind_param("iii", $student_id, $question_id, $option_id);
+                    $insertStmt->execute();
+                    $insertStmt->close();
+                }
+                
+                // NOW CHECK: Are ALL sections and ALL questions in this story answered correctly?
+                // Get all interactive sections for this story
+                $sectionsStmt = $conn->prepare("SELECT section_id FROM story_interactive_sections WHERE story_id = ?");
+                $sectionsStmt->bind_param("i", $story_id);
+                $sectionsStmt->execute();
+                $sections = $sectionsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $sectionsStmt->close();
+                
+                $allQuestionsCorrect = true;
+                $totalQuestions = 0;
+                $correctAnswers = 0;
+                
+                foreach ($sections as $section) {
+                    $sectionId = $section['section_id'];
+                    
+                    // Get all questions for this section
+                    $questionsStmt = $conn->prepare("SELECT question_id FROM interactive_questions WHERE section_id = ?");
+                    $questionsStmt->bind_param("i", $sectionId);
+                    $questionsStmt->execute();
+                    $questions = $questionsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                    $questionsStmt->close();
+                    
+                    foreach ($questions as $question) {
+                        $totalQuestions++;
+                        $qid = $question['question_id'];
+                        
+                        // Check if student has answered this question correctly
+                        $answerCheckStmt = $conn->prepare("SELECT is_correct FROM student_interactive_answers WHERE student_id = ? AND question_id = ?");
+                        $answerCheckStmt->bind_param("ii", $student_id, $qid);
+                        $answerCheckStmt->execute();
+                        $answerResult = $answerCheckStmt->get_result()->fetch_assoc();
+                        $answerCheckStmt->close();
+                        
+                        if (!$answerResult || $answerResult['is_correct'] != 1) {
+                            $allQuestionsCorrect = false;
+                        } else {
+                            $correctAnswers++;
+                        }
+                    }
+                }
+                
+                // Only mark story as complete if ALL questions are answered correctly
+                $sectionCompleted = false;
+                if ($allQuestionsCorrect && $totalQuestions > 0) {
+                    studentStoryProgress_markCompleted($conn, $student_id, $story_id);
+                    $sectionCompleted = true;
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'correct' => true,
+                        'sectionCompleted' => true,
+                        'message' => 'Congratulations! You have completed all sections of this story. You can now proceed to the next story.'
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => true,
+                        'correct' => true,
+                        'sectionCompleted' => false,
+                        'message' => 'Correct! Continue with the remaining questions. (' . $correctAnswers . '/' . $totalQuestions . ' completed)',
+                        'progress' => [
+                            'answered' => $correctAnswers,
+                            'total' => $totalQuestions
+                        ]
+                    ]);
+                }
             } else {
                 echo json_encode([
                     'success' => true,
                     'correct' => false,
+                    'sectionCompleted' => false,
                     'message' => 'Incorrect. Please try again.'
                 ]);
             }
