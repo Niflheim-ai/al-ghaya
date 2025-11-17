@@ -71,42 +71,39 @@ if (isset($_SESSION['userID'])) {
                 </a>
             </div>
 
-            <!-- <div class="gtranslate_wrapper"></div>
-            <script>window.gtranslateSettings = {"default_language":"en","native_language_names":true,"languages":["en","fr","it","es","tl","ar"],"wrapper_selector":".gtranslate_wrapper","select_language_label":"EN"}</script>
-            <script src="https://cdn.gtranslate.net/widgets/latest/dropdown.js" defer></script> -->
-
             <!-- Profile Dropdown -->
             <div class="flex items-center">
-                <!-- Hidden Google Translate Element (MUST be present) -->
-                <div id="google_translate_element" style="opacity:0; height:0; overflow:hidden"></div>
                 <!-- Change Language Dropdown -->
-                <div class="hidden lg:flex items-center relative z-40 mr-4">
+                <div class="hidden lg:flex items-center relative z-40 mr-4 notranslate">
                     <button id="lang-button"
-                        class="flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-200 hover:cursor-pointer">
+                        class="flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-200 hover:cursor-pointer notranslate">
                         <i class="ph-light ph-globe text-secondary text-[24px]"></i>
                         <span id="selected-lang" class="text-secondary font-medium">EN</span>
                         <i class="ph ph-caret-down text-secondary text-[14px]"></i>
                     </button>
 
                     <div id="lang-dropdown"
-                        class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200 goog-te-combo">
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="en" data-label="EN">English</a>
+                        class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200 notranslate">
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="en" data-label="EN">English</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fil" data-label="FIL">Filipino</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="tl" data-label="FIL">Filipino</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ar" data-label="AR">العربية</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="ar" data-label="AR">العربية</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ur" data-label="UR">اردو</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="ur" data-label="UR">اردو</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="id" data-label="ID">Indonesia</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="id" data-label="ID">Indonesia</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ms" data-label="MS">Melayu</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="ms" data-label="MS">Melayu</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="tr" data-label="TR">Türkçe</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="tr" data-label="TR">Türkçe</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fr" data-label="FR">Français</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="fr" data-label="FR">Français</a>
                     </div>
                 </div>
+
+                <!-- Hidden GTranslate -->
+                <div class="gtranslate_wrapper" style="display:none;"></div>
 
                 <!-- Profile Section -->
                 <div class="relative">
@@ -290,254 +287,66 @@ document.addEventListener('click', function(event) {
 }
 </style>
 
+<!-- GTranslate Script -->
 <script>
-    console.log('=== Translation System Loading ===');
-
-window.googleTranslateReady = false;
-
-document.addEventListener('DOMContentLoaded', function() {
-    const langButton = document.getElementById('lang-button');
-    const langDropdown = document.getElementById('lang-dropdown');
-    const selectedLang = document.getElementById('selected-lang');
-    const langOptions = document.querySelectorAll('#lang-dropdown [data-lang]');
-    
-    if (!langButton || !langDropdown || !selectedLang || langOptions.length === 0) {
-        console.error('Language selector elements not found');
-        return;
-    }
-    
-    console.log('✅ Language selector ready');
-    
-    // Toggle dropdown
-    langButton.addEventListener('click', function(e) {
-        e.stopPropagation();
-        langDropdown.classList.toggle('hidden');
-    });
-    
-    // Close dropdown
-    document.addEventListener('click', function(e) {
-        if (!langButton.contains(e.target) && !langDropdown.contains(e.target)) {
-            langDropdown.classList.add('hidden');
-        }
-    });
-    
-    // Handle language selection
-    langOptions.forEach(option => {
-        option.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const langCode = this.getAttribute('data-lang');
-            const langLabel = this.getAttribute('data-label');
-            const langName = this.textContent.trim();
-            
-            console.log('Language selected:', langCode);
-            
-            selectedLang.textContent = langLabel;
-            langDropdown.classList.add('hidden');
-            
-            localStorage.setItem('preferredLanguage', langCode);
-            localStorage.setItem('preferredLanguageLabel', langLabel);
-            localStorage.setItem('preferredLanguageName', langName);
-            
-            handleRTL(langCode);
-            translatePage(langCode, langName);
-        });
-    });
-    
-    // Auto-restore
-    const savedLang = localStorage.getItem('preferredLanguage');
-    const savedLabel = localStorage.getItem('preferredLanguageLabel');
-    
-    if (savedLang && savedLabel) {
-        selectedLang.textContent = savedLabel;
-        handleRTL(savedLang);
-        
-        if (savedLang !== 'en') {
-            setTimeout(() => {
-                translatePage(savedLang, localStorage.getItem('preferredLanguageName'), true);
-            }, 3000); // Wait 3 seconds for widget
-        }
-    }
-});
-
-function translatePage(langCode, langName, silent = false) {
-    console.log('Translate requested:', langCode);
-    
-    if (!silent && typeof Swal !== 'undefined') {
-        Swal.fire({
-            title: `Translating to ${langName}...`,
-            text: 'Please wait',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => Swal.showLoading()
-        });
-    }
-    
-    // Wait up to 30 seconds for the widget
-    let attempts = 0;
-    const maxAttempts = 50; // 30 seconds
-    
-    const interval = setInterval(function() {
-        const select = document.querySelector('.goog-te-combo');
-        attempts++;
-        
-        if (select) {
-            clearInterval(interval);
-            console.log('✅ Widget found! Translating...');
-            
-            select.value = langCode === 'en' ? '' : langCode;
-            select.dispatchEvent(new Event('change'));
-            
-            if (typeof Swal !== 'undefined') {
-                setTimeout(() => Swal.close(), 1000);
-            }
-            
-            console.log('✅ Translation triggered');
-            
-        } else if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            console.error('❌ Widget never appeared after 30 seconds');
-            
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Translation Failed',
-                    html: `
-                        <p>Google Translate cannot load on your system.</p>
-                        <p class="mt-3"><strong>Please use your browser's built-in translation:</strong></p>
-                        <ul style="text-align:left; margin:10px 20px;">
-                            <li>Right-click on the page</li>
-                            <li>Select "Translate to ${langName}"</li>
-                        </ul>
-                    `,
-                    confirmButtonText: 'OK'
-                });
-            }
-        } else if (attempts % 50 === 0) {
-            console.log(`Still waiting... (${attempts}/300)`);
-        }
-    }, 100);
+window.gtranslateSettings = {
+    "default_language": "en",
+    "native_language_names": true,
+    "languages": ["en", "tl", "ar", "ur", "id", "ms", "tr", "fr"],
+    "wrapper_selector": ".gtranslate_wrapper"
 }
-
-function handleRTL(langCode) {
-    const rtlLanguages = ['ar', 'ur'];
-    if (rtlLanguages.includes(langCode)) {
-        document.documentElement.setAttribute('dir', 'rtl');
-    } else {
-        document.documentElement.setAttribute('dir', 'ltr');
-    }
-}
-
-console.log('✅ Translation script loaded');
-
 </script>
+<script src="https://cdn.gtranslate.net/widgets/latest/dropdown.js" defer></script>
 
-<script type="text/javascript">
-  // Force multiple initialization attempts
-  var initAttempts = 0;
-  var maxAttempts = 5;
-
-  function googleTranslateElementInit() {
-      try {
-          console.log('Attempt', initAttempts + 1, 'to initialize Google Translate');
-          
-          var element = document.getElementById('google_translate_element');
-          if (!element) {
-              console.error('Container element not found!');
-              return;
-          }
-          
-          // Clear any existing content
-          element.innerHTML = '';
-          
-          // Create the widget
-          new google.translate.TranslateElement({
-              pageLanguage: 'en',
-              includedLanguages: 'en,fil,ar,ur,id,ms,tr,fr,es',
-              layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-              autoDisplay: false,
-              multilanguagePage: true
-          }, 'google_translate_element');
-          
-          console.log('✅ Google Translate widget created');
-          
-          // Verify it worked
-          setTimeout(function() {
-              var select = document.querySelector('.goog-te-combo');
-              if (select) {
-                  console.log('✅ SUCCESS! Dropdown created with', select.options.length, 'languages');
-                  window.googleTranslateReady = true;
-              } else {
-                  console.error('❌ Widget created but dropdown not found');
-                  
-                  // Try again
-                  if (initAttempts < maxAttempts) {
-                      initAttempts++;
-                      setTimeout(googleTranslateElementInit, 1000);
-                  }
-              }
-          }, 500);
-          
-      } catch (error) {
-          console.error('Google Translate init error:', error);
-          
-          // Retry
-          if (initAttempts < maxAttempts) {
-              initAttempts++;
-              setTimeout(googleTranslateElementInit, 1000);
-          }
-      }
-  }
-
-  // Load script with retry
-  function loadGoogleTranslate() {
-      var script = document.createElement('script');
-      script.type = 'text/javascript';
-      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-      script.onerror = function() {
-          console.error('Failed to load Google Translate script');
-      };
-      script.onload = function() {
-          console.log('Google Translate script loaded');
-      };
-      document.head.appendChild(script);
-  }
-
-  // Load when DOM is ready
-  if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadGoogleTranslate);
-  } else {
-      loadGoogleTranslate();
-  }
-  </script>
-
-  <style>
-    /* Hide Google banner */
-    .goog-te-banner-frame {
-        display: none !important;
-    }
-
-    /* Hide popup */
-    .goog-te-balloon-frame {
-        display: none !important;
-    }
-
-    /* Keep widget invisible but rendered */
-    #google_translate_element {
-        opacity: 0 !important;     /* keep invisible */
-        height: 0 !important;      
-        overflow: hidden !important;
-        pointer-events: none !important; /* user cannot click it */
-    }
-
-    /* Remove highlight */
-    .goog-text-highlight {
-        background: none !important;
-        box-shadow: none !important;
-    }
-
-    body {
-        top: 0 !important;
-    }
-  </style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const langButton = document.getElementById('lang-button');
+        const langDropdown = document.getElementById('lang-dropdown');
+        const selectedLang = document.getElementById('selected-lang');
+        const langOptions = document.querySelectorAll('.lang-option');
+        
+        // Toggle dropdown
+        langButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            langDropdown.classList.toggle('hidden');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!langButton.contains(e.target) && !langDropdown.contains(e.target)) {
+                langDropdown.classList.add('hidden');
+            }
+        });
+        
+        // Handle language selection
+        langOptions.forEach(option => {
+            option.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const langCode = this.getAttribute('data-lang');
+                const langLabel = this.getAttribute('data-label');
+                
+                // Update display
+                selectedLang.textContent = langLabel;
+                langDropdown.classList.add('hidden');
+                
+                // Save preference
+                localStorage.setItem('preferredLanguageLabel', langLabel);
+                
+                // Trigger GTranslate
+                const gtLink = document.querySelector(`.gtranslate_wrapper a[data-gt-lang="${langCode}"]`);
+                if (gtLink) {
+                    gtLink.click();
+                } else {
+                    // Fallback: set cookie manually
+                    document.cookie = `googtrans=/en/${langCode}; path=/`;
+                    location.reload();
+                }
+            });
+        });
+        
+        // Restore saved language display
+        const saved = localStorage.getItem('preferredLanguageLabel');
+        if (saved) selectedLang.textContent = saved;
+    });
+</script>
