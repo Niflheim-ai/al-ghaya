@@ -293,6 +293,7 @@ window.gtranslateSettings = {
     "default_language": "en",
     "native_language_names": true,
     "languages": ["en", "tl", "ar", "ur", "id", "ms", "tr", "fr"],
+    "detect_browser_language": false,
     "wrapper_selector": ".gtranslate_wrapper"
 }
 </script>
@@ -305,25 +306,17 @@ window.gtranslateSettings = {
         const selectedLang = document.getElementById('selected-lang');
         const langOptions = document.querySelectorAll('.lang-option');
         
-        // Toggle dropdown
         langButton.addEventListener('click', function(e) {
             e.stopPropagation();
             langDropdown.classList.toggle('hidden');
         });
         
-        // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
-            const langButton = document.getElementById('lang-button');
-            const langDropdown = document.getElementById('lang-dropdown');
-            
-            if (langButton && langDropdown && 
-                !langButton.contains(e.target) && 
-                !langDropdown.contains(e.target)) {
+            if (!langButton.contains(e.target) && !langDropdown.contains(e.target)) {
                 langDropdown.classList.add('hidden');
             }
         });
         
-        // Handle language selection
         langOptions.forEach(option => {
             option.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -333,51 +326,43 @@ window.gtranslateSettings = {
                 
                 console.log('Switching to:', langCode);
                 
-                // Update display
                 selectedLang.textContent = langLabel;
                 langDropdown.classList.add('hidden');
                 
-                // Save preference
-                localStorage.setItem('preferredLanguage', langCode);
                 localStorage.setItem('preferredLanguageLabel', langLabel);
                 
-                // Clear existing translation
-                document.cookie = 'googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
+                // Get domain
+                const domain = window.location.hostname;
                 
-                // Set new language
-                if (langCode === 'en') {
-                    // Reset to English - just reload
-                    window.location.reload();
-                } else {
-                    // Set cookie for new language and reload
-                    document.cookie = `googtrans=/en/${langCode}; path=/`;
-                    window.location.reload();
-                }
+                // Clear ALL translation cookies with different paths and domains
+                const cookiesToClear = [
+                    `googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC`,
+                    `googtrans=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 UTC`,
+                    `googtrans=; path=/; domain=.${domain}; expires=Thu, 01 Jan 1970 00:00:00 UTC`
+                ];
+                
+                cookiesToClear.forEach(cookie => {
+                    document.cookie = cookie;
+                });
+                
+                // Wait a moment for cookies to clear
+                setTimeout(() => {
+                    if (langCode === 'en') {
+                        // Just reload for English
+                        window.location.href = window.location.pathname;
+                    } else {
+                        // Set new language cookie with proper domain
+                        document.cookie = `googtrans=/en/${langCode}; path=/; domain=${domain}`;
+                        document.cookie = `googtrans=/en/${langCode}; path=/; domain=.${domain}`;
+                        
+                        // Force reload with cache bypass
+                        window.location.href = window.location.pathname + '?lang=' + langCode + '&t=' + Date.now();
+                    }
+                }, 100);
             });
         });
         
-        // Restore saved language display on load
-        const savedLang = localStorage.getItem('preferredLanguage');
         const savedLabel = localStorage.getItem('preferredLanguageLabel');
-        
-        if (savedLabel) {
-            selectedLang.textContent = savedLabel;
-        }
-        
-        // Auto-apply saved language if not already applied
-        if (savedLang && savedLang !== 'en') {
-            const currentLang = getCookie('googtrans');
-            if (!currentLang || !currentLang.includes(`/${savedLang}`)) {
-                document.cookie = `googtrans=/en/${savedLang}; path=/`;
-            }
-        }
+        if (savedLabel) selectedLang.textContent = savedLabel;
     });
-
-    // Helper function to get cookie value
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
-        return null;
-    }
 </script>
