@@ -71,10 +71,14 @@ if (isset($_SESSION['userID'])) {
                 </a>
             </div>
 
+            <!-- <div class="gtranslate_wrapper"></div>
+            <script>window.gtranslateSettings = {"default_language":"en","native_language_names":true,"languages":["en","fr","it","es","tl","ar"],"wrapper_selector":".gtranslate_wrapper","select_language_label":"EN"}</script>
+            <script src="https://cdn.gtranslate.net/widgets/latest/dropdown.js" defer></script> -->
+
             <!-- Profile Dropdown -->
             <div class="flex items-center">
                 <!-- Hidden Google Translate Element (MUST be present) -->
-                <div id="google_translate_element" style="visibility:hidden; height:0"></div>
+                <div id="google_translate_element" style="opacity:0; height:0; overflow:hidden"></div>
                 <!-- Change Language Dropdown -->
                 <div class="hidden lg:flex items-center relative z-40 mr-4">
                     <button id="lang-button"
@@ -85,7 +89,7 @@ if (isset($_SESSION['userID'])) {
                     </button>
 
                     <div id="lang-dropdown"
-                        class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200">
+                        class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200 goog-te-combo">
                         <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="en" data-label="EN">English</a>
                         <div class="border-t border-gray-200 my-1"></div>
                         <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fil" data-label="FIL">Filipino</a>
@@ -521,9 +525,10 @@ console.log('✅ Translation script loaded');
 
     /* Keep widget invisible but rendered */
     #google_translate_element {
-        visibility: hidden !important;
-        height: 0 !important;
+        opacity: 0 !important;     /* keep invisible */
+        height: 0 !important;      
         overflow: hidden !important;
+        pointer-events: none !important; /* user cannot click it */
     }
 
     /* Remove highlight */
