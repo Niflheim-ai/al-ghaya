@@ -159,24 +159,37 @@ elseif ($storyID > 0) {
     $stmt->execute();
     $currentContent = $stmt->get_result()->fetch_assoc();
     $currentType = 'story';
+    
     if ($currentContent) {
-        // PATCH: Load interactive sections for this story
+        // --- Load ALL interactive sections for this story ---
         $interactiveSections = interactiveSection_getByStory($conn, $currentContent['story_id']);
+        $allInteractiveSections = [];
+
         if (!empty($interactiveSections)) {
-            $currentSection = null;
             foreach ($interactiveSections as $section) {
-                $sectionQuestions = interactiveQuestion_getBySection($conn, $section['section_id']);
-                if (!empty($sectionQuestions)) {
-                    $currentSection = $section;
-                    $currentSection['questions'] = $sectionQuestions;
-                    break;
+                // Only add section if sectionid not already added
+                if (!isset($allInteractiveSections[$section['section_id']])) {
+                    $sectionQuestions = interactiveQuestion_getBySection($conn, $section['section_id']);
+                    
+                    // Add questions to section
+                    $section['questions'] = $sectionQuestions;
+                    
+                    // Add options to each question
+                    foreach ($section['questions'] as &$question) {
+                        $question['options'] = questionOption_getByQuestion($conn, $question['question_id']);
+                    }
+                    unset($question); // avoid reference issues
+
+                    // Store by sectionid to prevent duplicates
+                    $allInteractiveSections[$section['section_id']] = $section;
                 }
             }
-            if ($currentSection && !empty($currentSection['questions'])) {
-                $currentContent['interactive_section'] = $currentSection;
-                $currentContent['quiz_question'] = $currentSection['questions'][0];
-                $currentContent['quiz_question']['options'] = questionOption_getByQuestion($conn, $currentContent['quiz_question']['question_id']);
-            }
+            // Re-index numerically for display
+            $currentContent['interactive_sections'] = array_values($allInteractiveSections);
+
+            // For backward compatibility, set first section and first question
+            $currentContent['interactive_section'] = $currentContent['interactive_sections'][0] ?? null;
+            $currentContent['quiz_question'] = $currentContent['interactive_sections'][0]['questions'][0] ?? null;
         }
         $is_completed = !empty($userStoryProgress[$currentContent['story_id']]);
     }
@@ -192,28 +205,41 @@ elseif ($storyID > 0) {
     }
     if ($firstStory) {
         $stmt = $conn->prepare("SELECT * FROM chapter_stories WHERE story_id = ?");
-        $stmt->bind_param("i", $firstStory['story_id']);
+        $stmt->bind_param("i", $storyID);
         $stmt->execute();
         $currentContent = $stmt->get_result()->fetch_assoc();
         $currentType = 'story';
+        
         if ($currentContent) {
-            // PATCH: Load interactive sections for first story too
+            // --- Load ALL interactive sections for this story ---
             $interactiveSections = interactiveSection_getByStory($conn, $currentContent['story_id']);
+            $allInteractiveSections = [];
+
             if (!empty($interactiveSections)) {
-                $currentSection = null;
                 foreach ($interactiveSections as $section) {
-                    $sectionQuestions = interactiveQuestion_getBySection($conn, $section['section_id']);
-                    if (!empty($sectionQuestions)) {
-                        $currentSection = $section;
-                        $currentSection['questions'] = $sectionQuestions;
-                        break;
+                    // Only add section if sectionid not already added
+                    if (!isset($allInteractiveSections[$section['section_id']])) {
+                        $sectionQuestions = interactiveQuestion_getBySection($conn, $section['section_id']);
+                        
+                        // Add questions to section
+                        $section['questions'] = $sectionQuestions;
+                        
+                        // Add options to each question
+                        foreach ($section['questions'] as &$question) {
+                            $question['options'] = questionOption_getByQuestion($conn, $question['question_id']);
+                        }
+                        unset($question); // avoid reference issues
+
+                        // Store by sectionid to prevent duplicates
+                        $allInteractiveSections[$section['section_id']] = $section;
                     }
                 }
-                if ($currentSection && !empty($currentSection['questions'])) {
-                    $currentContent['interactive_section'] = $currentSection;
-                    $currentContent['quiz_question'] = $currentSection['questions'][0];
-                    $currentContent['quiz_question']['options'] = questionOption_getByQuestion($conn, $currentContent['quiz_question']['question_id']);
-                }
+                // Re-index numerically for display
+                $currentContent['interactive_sections'] = array_values($allInteractiveSections);
+
+                // For backward compatibility, set first section and first question
+                $currentContent['interactive_section'] = $currentContent['interactive_sections'][0] ?? null;
+                $currentContent['quiz_question'] = $currentContent['interactive_sections'][0]['questions'][0] ?? null;
             }
             $is_completed = !empty($userStoryProgress[$currentContent['story_id']]);
         }
@@ -268,13 +294,13 @@ $page_title = htmlspecialchars($program['title']);
               <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all" style="width: <?= max(0,min(100,$completion)) ?>%"></div>
             </div>
             <?php if ($_SESSION['role'] === 'student'): ?>
-            <!-- <div class="bg-yellow-50 rounded-lg p-3 my-4 text-center border border-yellow-300">
+            <div class="bg-yellow-50 rounded-lg p-3 my-4 text-center border border-yellow-300">
               <strong>Development Only:</strong>
               <form id="devResetForm" class="inline-flex gap-2 mt-2">
                 <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded">Reset Progress</button>
                 <button type="button" onclick="unenrollDev()" class="px-4 py-2 bg-red-600 text-white rounded">Unenroll</button>
               </form>
-            </div> -->
+            </div>
             <script>
               function getProgramId() { return <?= $programID ?>; }
               document.getElementById('devResetForm').onsubmit = function(e) {
@@ -588,39 +614,47 @@ if (chapterQuizForm) {
             <?php endif; ?>
             <?php if ($is_completed): ?>
               <div class="mt-8 bg-green-50 border-2 border-green-200 rounded-xl shadow-sm p-8 flex items-center gap-4"><i class="ph ph-check-circle text-4xl text-green-500"></i><div><h3 class="text-lg font-bold text-green-800 mb-2">Story Completed!</h3><p class="text-green-900">You have finished this interactive section. You can proceed using the sidebar or Next button below.</p></div></div>
-            <?php elseif (!empty($currentContent['interactive_section']) && !empty($currentContent['quiz_question'])): ?>
-              <?php 
-              $section = $currentContent['interactive_section'];
-              $question = $currentContent['quiz_question']; 
-              ?>
-              <div id="quizSection" class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 border-purple-300">
-                <div class="flex items-center gap-2 mb-4">
-                  <i class="ph ph-chat-circle-dots text-3xl text-purple-600"></i>
-                  <h3 class="text-xl font-bold text-purple-900">Interactive Section</h3>
-                </div>
-                <p class="text-gray-800 font-medium mb-4 text-lg"><?= htmlspecialchars($question['question_text']) ?></p>
-                <form id="quizForm" class="space-y-3">
-                  <?php foreach ($question['options'] as $index => $option): ?>
-                    <label class="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-400 cursor-pointer transition-all">
-                      <input type="radio" name="answer" value="<?= $option['option_id'] ?>" class="w-5 h-5 text-purple-600 focus:ring-purple-500" required>
-                      <span class="text-gray-800"><?= htmlspecialchars($option['option_text']) ?></span>
-                    </label>
-                  <?php endforeach; ?>
-                  <input type="hidden" name="question_id" value="<?= $question['question_id'] ?>">
-                  <input type="hidden" name="story_id" value="<?= $currentContent['story_id'] ?>">
-                  <input type="hidden" name="chapter_id" value="<?= $currentContent['chapter_id'] ?>">
-                  <div class="flex gap-3 mt-6">
-                    <button type="submit" class="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-lg transition-colors">
-                      <i class="ph ph-check-circle mr-2"></i>Submit Answer
-                    </button>
-                    <button type="button" id="retryBtn" class="hidden px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors" onclick="retryQuestion()">
-                      <i class="ph ph-arrow-clockwise mr-2"></i>Retry
-                    </button>
+            <?php elseif (!empty($currentContent['interactive_sections'])): ?>
+            <!-- Display ALL Interactive Sections -->
+            <?php foreach ($currentContent['interactive_sections'] as $sectionIndex => $section): ?>
+              <div class="mb-8">
+                <h3 class="text-2xl font-bold text-purple-900 mb-4">
+                  <i class="ph ph-puzzle-piece mr-2"></i>
+                  Interactive Section <?= $sectionIndex + 1 ?>
+                </h3>
+                
+                <?php foreach ($section['questions'] as $questionIndex => $question): ?>
+                  <div id="quiz_section_<?= $section['section_id'] ?>_question_<?= $question['question_id'] ?>" class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 border-purple-300 mb-6">
+                    <p class="text-gray-800 font-medium mb-4 text-lg">
+                      <strong>Question <?= $questionIndex + 1 ?>:</strong> 
+                      <?= htmlspecialchars($question['question_text']) ?>
+                    </p>
+                    
+                    <form class="quizForm space-y-3" data-section-id="<?= $section['section_id'] ?>" data-question-id="<?= $question['question_id'] ?>" data-story-id="<?= $currentContent['story_id'] ?>">
+                      <?php if (!empty($question['options'])): ?>
+                        <?php foreach ($question['options'] as $optIndex => $option): ?>
+                          <label class="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-400 cursor-pointer transition-all">
+                            <input type="radio" 
+                                  name="answer_<?= $section['section_id'] ?>_<?= $question['question_id'] ?>" 
+                                  value="<?= $option['option_id'] ?>" 
+                                  class="w-5 h-5 text-purple-600" 
+                                  required>
+                            <span class="text-gray-800"><?= htmlspecialchars($option['option_text']) ?></span>
+                          </label>
+                        <?php endforeach; ?>
+                      <?php endif; ?>
+                      
+                      <button type="submit" class="mt-6 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-lg transition-colors">
+                        <i class="ph ph-check-circle mr-2"></i>Submit Answer
+                      </button>
+                    </form>
+                    
+                    <div class="answerFeedback hidden mt-4 p-4 rounded-lg"></div>
                   </div>
-                </form>
-                <div id="answerFeedback" class="hidden mt-4 p-4 rounded-lg"></div>
+                <?php endforeach; ?>
               </div>
-            <?php endif; ?>
+            <?php endforeach; ?>
+          <?php endif; ?>
             <div id="nextStorySection" class="<?= $is_completed ? '' : 'hidden' ?> text-center pt-4">
               <?php
               if ($isLastStoryInChapter && $currentChapterQuiz):
@@ -700,20 +734,26 @@ function updateProgress() {
   }).catch(error => console.error('Progress update error:', error));
 }
 
-const quizForm = document.getElementById('quizForm');
-if (quizForm) {
-  // ✅ Get story ID from PHP (set at top of file)
+// Handle ALL quiz forms
+const quizForms = document.querySelectorAll('.quizForm');
+quizForms.forEach(quizForm => {
   const storyIdFromPHP = <?php echo $storyID; ?>;
   
   quizForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(quizForm);
-    const selectedAnswer = formData.get('answer');
-    const questionId = formData.get('question_id');
+    const questionId = quizForm.dataset.questionId;
+    const sectionId = quizForm.dataset.sectionId;
+    const storyId = quizForm.dataset.storyId;
+    
+    // Get selected answer
+    const selectedAnswer = Array.from(formData.values())[0];
+    
     if (!selectedAnswer) {
       Swal.fire({title:'No Answer Selected', text:'Please select an answer before submitting.', icon:'warning', confirmButtonColor:'#ea580c'});
       return;
     }
+    
     fetch('../../php/quiz-answer-handler.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -721,55 +761,32 @@ if (quizForm) {
         action: 'check_interactive_answer',
         question_id: questionId,
         option_id: selectedAnswer,
-        story_id: formData.get('story_id')
+        story_id: storyId,
+        section_id: sectionId
       })
     }).then(response => response.json()).then(data => {
-      const feedbackDiv = document.getElementById('answerFeedback');
-      const retryBtn = document.getElementById('retryBtn');
-      const nextSection = document.getElementById('nextStorySection');
+      const feedbackDiv = quizForm.nextElementSibling;
       const submitBtn = quizForm.querySelector('button[type="submit"]');
+      
       feedbackDiv.classList.remove('hidden');
+      
       if (data.correct) {
         feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-green-100 border-2 border-green-500';
-        feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-check-circle text-3xl text-green-600"></i><div><h4 class="font-bold text-green-900">Correct! Well Done! 🎉</h4><p class="text-green-800 text-sm">${data.message || 'You can now proceed to the next story.'}</p></div></div>`;
-        canProceed = true;
+        feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-check-circle text-3xl text-green-600"></i><div><h4 class="font-bold text-green-900">Correct! Well Done! 🎉</h4><p class="text-green-800 text-sm">${data.message || 'Continue to next section.'}</p></div></div>`;
+        
         submitBtn.disabled = true;
         quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
-        nextSection.classList.remove('hidden');
         updateProgress();
-        
-        // ✅ Call complete_story ONLY if we have a valid story ID
-        if (storyIdFromPHP > 0 && programId > 0) {
-          fetch('../../php/student-progress.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'complete_story',
-              story_id: storyIdFromPHP,
-              program_id: programId
-            })
-          })
-          .then(r => r.json())
-          .then(completionData => {
-            console.log('Story completion result:', completionData);
-            if (completionData.success && completionData.new_achievements && completionData.new_achievements.length > 0) {
-              console.log('New achievements unlocked:', completionData.new_achievements);
-            }
-          })
-          .catch(err => console.error('Story completion error:', err));
-        }
       } else {
         feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500';
-        feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-x-circle text-3xl text-red-600"></i><div><h4 class="font-bold text-red-900">Incorrect Answer</h4><p class="text-red-800 text-sm">${data.message || 'Please review the story and try again.'}</p></div></div>`;
-        canProceed = false;
-        submitBtn.style.display = 'none';
-        retryBtn.classList.remove('hidden');
+        feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-x-circle text-3xl text-red-600"></i><div><h4 class="font-bold text-red-900">Incorrect Answer</h4><p class="text-red-800 text-sm">${data.message || 'Please try again.'}</p></div></div>`;
       }
     }).catch(error => {
       Swal.fire({title: 'Error', text: 'Failed to submit answer. Please try again.', icon: 'error', confirmButtonColor: '#dc2626'});
     });
   });
-}
+});
+
 
 function retryQuestion() {
   const feedbackDiv = document.getElementById('answerFeedback');
