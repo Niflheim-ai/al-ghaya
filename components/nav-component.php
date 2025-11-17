@@ -50,22 +50,37 @@
                 <div class="hidden lg:flex items-center gap-3">
 
                     <!-- Change Language Dropdown -->
-                    <div class="hidden lg:flex items-center relative z-50 mr-3">
-                        <!-- Language Button -->
-                        <button id="lang-button" class="flex items-center gap-1 px-3 py-2 rounded-md hover:bg-gray-200 hover:cursor-pointer">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="#000000" viewBox="0 0 256 256">
-                                <path d="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z"></path>
-                            </svg>
-                            <span id="selected-lang">English</span>
+                    <div class="hidden lg:flex items-center relative z-40 mr-4">
+                        <button id="lang-button"
+                            class="flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-200 hover:cursor-pointer">
+                            <i class="ph-light ph-globe text-secondary text-[24px]"></i>
+                            <span id="selected-lang" class="text-secondary font-medium">EN</span>
+                            <i class="ph ph-caret-down text-secondary text-[14px]"></i>
                         </button>
 
-                        <!-- Dropdown Menu (hidden by default) -->
-                        <div id="lang-dropdown" class="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg py-2 hidden">
-                            <a class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:cursor-pointer" data-lang="en">English</a>
+                        <div id="lang-dropdown"
+                            class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200">
+                            <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="en" data-label="EN">English</a>
                             <div class="border-t border-gray-200 my-1"></div>
-                            <a class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:cursor-pointer" data-lang="fil">Filipino</a>
+                            <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fil" data-label="FIL">Filipino</a>
+                            <div class="border-t border-gray-200 my-1"></div>
+                            <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ar" data-label="AR">العربية</a>
+                            <div class="border-t border-gray-200 my-1"></div>
+                            <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ur" data-label="UR">اردو</a>
+                            <div class="border-t border-gray-200 my-1"></div>
+                            <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="id" data-label="ID">Indonesia</a>
+                            <div class="border-t border-gray-200 my-1"></div>
+                            <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ms" data-label="MS">Melayu</a>
+                            <div class="border-t border-gray-200 my-1"></div>
+                            <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="tr" data-label="TR">Türkçe</a>
+                            <div class="border-t border-gray-200 my-1"></div>
+                            <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fr" data-label="FR">Français</a>
                         </div>
                     </div>
+
+                    <!-- Hidden Google Translate Element -->
+                    <div id="google_translate_element"></div>
+
 
                     <!-- Register/Login -->
                     <a href="register.php" class="rounded-md bg-[#10375B] px-3 py-2 text-base font-medium text-white hover:bg-blue-900">Register</a>

@@ -157,6 +157,28 @@
       --color-company_orange: #c66e20;
     }
   </style>
+
+  <style>
+  /* RTL Support for Arabic/Urdu */
+  body.rtl {
+      direction: rtl;
+      text-align: right;
+  }
+
+  body.rtl .flex {
+      flex-direction: row-reverse;
+  }
+
+  body.rtl .ml-auto {
+      margin-left: 0;
+      margin-right: auto;
+  }
+
+  body.rtl .mr-auto {
+      margin-right: 0;
+      margin-left: auto;
+  }
+  </style>
   <!-- Phosphor Icons -->
   <script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2"></script>
   <!-- Swiper JS -->

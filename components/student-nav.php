@@ -84,11 +84,21 @@ if (isset($_SESSION['userID'])) {
 
                     <div id="lang-dropdown"
                         class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200">
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer"
-                            data-lang="en">English</a>
+                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="en" data-label="EN">English</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer"
-                            data-lang="fil">Filipino</a>
+                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fil" data-label="FIL">Filipino</a>
+                        <div class="border-t border-gray-200 my-1"></div>
+                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ar" data-label="AR">العربية</a>
+                        <div class="border-t border-gray-200 my-1"></div>
+                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ur" data-label="UR">اردو</a>
+                        <div class="border-t border-gray-200 my-1"></div>
+                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="id" data-label="ID">Indonesia</a>
+                        <div class="border-t border-gray-200 my-1"></div>
+                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="ms" data-label="MS">Melayu</a>
+                        <div class="border-t border-gray-200 my-1"></div>
+                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="tr" data-label="TR">Türkçe</a>
+                        <div class="border-t border-gray-200 my-1"></div>
+                        <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fr" data-label="FR">Français</a>
                     </div>
                 </div>
 
@@ -252,15 +262,9 @@ document.addEventListener('click', function(event) {
         }, 200);
     }
     
-    // Language dropdown
-    const langButton = document.getElementById('lang-button');
-    const langDropdown = document.getElementById('lang-dropdown');
-    
-    if (langButton && langDropdown && !langButton.contains(event.target) && !langDropdown.contains(event.target)) {
-        langDropdown.classList.add('hidden');
-    }
 });
 </script>
+<!-- <script src="../../dist/javascript/translate.js"></script> -->
 
 <style>
 .swal2-popup-custom {
@@ -279,3 +283,166 @@ document.addEventListener('click', function(event) {
     color: #6b7280 !important;
 }
 </style>
+
+<script>
+    console.log('=== Auto-translation system loaded ===');
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const langButton = document.getElementById('lang-button');
+        const langDropdown = document.getElementById('lang-dropdown');
+        const selectedLang = document.getElementById('selected-lang');
+        const langOptions = document.querySelectorAll('#lang-dropdown [data-lang]');
+        
+        if (!langButton || !langDropdown || !selectedLang || langOptions.length === 0) {
+            console.error('Language selector elements not found');
+            return;
+        }
+        
+        console.log('✅ Auto-translation ready');
+        
+        // Toggle dropdown
+        langButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            langDropdown.classList.toggle('hidden');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!langButton.contains(e.target) && !langDropdown.contains(e.target)) {
+                langDropdown.classList.add('hidden');
+            }
+        });
+        
+        // Handle language selection
+        langOptions.forEach(option => {
+            option.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const langCode = this.getAttribute('data-lang');
+                const langLabel = this.getAttribute('data-label');
+                const langName = this.textContent.trim();
+                
+                console.log('Language selected:', langCode, '-', langName);
+                
+                // Update displayed language
+                selectedLang.textContent = langLabel;
+                
+                // Close dropdown
+                langDropdown.classList.add('hidden');
+                
+                // Save preference
+                localStorage.setItem('preferredLanguage', langCode);
+                localStorage.setItem('preferredLanguageLabel', langLabel);
+                localStorage.setItem('preferredLanguageName', langName);
+                
+                // Handle RTL
+                handleRTL(langCode);
+                
+                // AUTO-TRANSLATE PAGE
+                translatePage(langCode, langName);
+            });
+        });
+        
+        // Auto-restore and translate on page load
+        const savedLang = localStorage.getItem('preferredLanguage');
+        const savedLabel = localStorage.getItem('preferredLanguageLabel');
+        const savedName = localStorage.getItem('preferredLanguageName');
+        
+        if (savedLang && savedLabel) {
+            selectedLang.textContent = savedLabel;
+            handleRTL(savedLang);
+            
+            // Auto-translate if not English and not already translated
+            if (savedLang !== 'en' && !isAlreadyTranslated()) {
+                console.log('Auto-translating to saved language:', savedName);
+                setTimeout(() => {
+                    translatePage(savedLang, savedName, true);
+                }, 500);
+            }
+        }
+    });
+
+    // Automatically translate page to selected language
+    function translatePage(langCode, langName, silent = false) {
+        console.log('translatePage called:', langCode);
+        
+        if (langCode === 'en') {
+            // Return to original English page
+            const currentUrl = window.location.href;
+            
+            // Remove Google Translate parameters
+            if (currentUrl.includes('translate.goog')) {
+                // If on translated page, go back to original
+                const originalUrl = currentUrl.replace(/https:\/\/[^\/]*translate\.goog/, window.location.origin);
+                window.location.href = originalUrl.split('?')[0];
+            } else {
+                if (!silent && typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'English',
+                        text: 'Page is already in English',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
+            }
+            return;
+        }
+        
+        // Get current page URL (remove any existing translation params)
+        let currentUrl = window.location.href;
+        currentUrl = currentUrl.split('?')[0].split('#')[0];
+        
+        // Check if already on a translated page
+        if (currentUrl.includes('translate.goog')) {
+            // Extract original URL
+            currentUrl = currentUrl.replace(/https:\/\/[^\/]*translate\.goog/, window.location.origin);
+        }
+        
+        // Build Google Translate URL
+        const translateUrl = `https://translate.google.com/translate?sl=auto&tl=${langCode}&u=${encodeURIComponent(currentUrl)}`;
+        
+        console.log('Redirecting to:', translateUrl);
+        
+        // Show loading message
+        if (!silent && typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: `Translating to ${langName}...`,
+                html: 'Please wait',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+        }
+        
+        // Redirect to translated page
+        setTimeout(() => {
+            window.location.href = translateUrl;
+        }, 500);
+    }
+
+    // Check if page is already translated
+    function isAlreadyTranslated() {
+        return window.location.href.includes('translate.goog') || 
+            window.location.href.includes('translate.google.com');
+    }
+
+    // Handle RTL for Arabic and Urdu
+    function handleRTL(langCode) {
+        const rtlLanguages = ['ar', 'ur'];
+        
+        if (rtlLanguages.includes(langCode)) {
+            document.documentElement.setAttribute('dir', 'rtl');
+            document.body.classList.add('rtl');
+        } else {
+            document.documentElement.setAttribute('dir', 'ltr');
+            document.body.classList.remove('rtl');
+        }
+    }
+
+    console.log('✅ Auto-translation system ready');
+</script>

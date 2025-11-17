@@ -577,7 +577,7 @@ setTimeout(() => {
 <!-- Swiper JS -->
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <!-- JS -->
-<script src="../../components/navbar.js"></script>
+<!-- <script src="../../components/navbar.js"></script> -->
 <script src="../../dist/javascript/scroll-to-top.js"></script>
 <script src="../../dist/javascript/carousel.js"></script>
 <script src="../../dist/javascript/user-dropdown.js"></script>
