@@ -395,8 +395,8 @@
                 <h3 class="font-bold text-xl mb-2">You've completed today's challenge!</h3>
                 <p class="text-gray-600 mb-4">
                     <?= $dailyChallenge['is_correct'] ? 
-                        "Great job! You earned {$dailyChallenge['points_awarded']} points! 🎉" : 
-                        "Not quite right. You lost 5 points. Come back tomorrow for a new challenge!" 
+                        "Great job! You earned {$dailyChallenge['points_awarded']} points!" : 
+                        "Not quite right. No points awarded, come back tomorrow for a new challenge!" 
                     ?>
                 </p>
                 <p class="text-sm text-gray-500">Next challenge available tomorrow</p>

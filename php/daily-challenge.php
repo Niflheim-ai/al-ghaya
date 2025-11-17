@@ -154,7 +154,7 @@ function submitDailyChallenge($conn, $user_id, $question_id, $user_answer) {
     if ($is_correct) {
         $updateStmt = $conn->prepare("UPDATE user SET points = points + ? WHERE userID = ?");
     } else {
-        $updateStmt = $conn->prepare("UPDATE user SET points = GREATEST(0, points + ?) WHERE userID = ?");
+        // Do nothing
     }
     $updateStmt->bind_param("ii", $points, $user_id);
     $updateStmt->execute();
