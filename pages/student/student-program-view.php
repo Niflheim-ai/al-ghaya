@@ -58,20 +58,46 @@ $certificate = $certSql->get_result()->fetch_assoc();
 $certSql->close();
 $certificateEarned = !empty($certificate);
 
-// Check if all stories are completed
+// Check if ALL stories AND ALL quizzes are completed for final exam eligibility
 $allStories = [];
+$allQuizzes = [];
 foreach ($chapters as $chapter) {
     $stories = chapter_getStories($conn, $chapter['chapter_id']);
     foreach ($stories as $story) {
         $allStories[] = $story['story_id'];
     }
-}
-$isAllComplete = true;
-foreach ($allStories as $storyIDchk) {
-    if (empty($userStoryProgress[$storyIDchk])) { $isAllComplete = false; break; }
+    $quiz = getChapterQuiz($conn, $chapter['chapter_id']);
+    if ($quiz) {
+        $allQuizzes[] = $quiz['quiz_id'];
+    }
 }
 
-$showExam = $isAllComplete && !$certificateEarned;
+// Check if all stories are completed
+$isAllStoriesComplete = true;
+foreach ($allStories as $storyIDchk) {
+    if (empty($userStoryProgress[$storyIDchk])) { 
+        $isAllStoriesComplete = false; 
+        break; 
+    }
+}
+
+// Check if all quizzes are passed
+$isAllQuizzesComplete = true;
+if (!empty($allQuizzes)) {
+    foreach ($allQuizzes as $quizIDchk) {
+        $passStmt = $conn->prepare("SELECT 1 FROM student_quiz_attempts WHERE student_id = ? AND quiz_id = ? AND is_passed = 1 LIMIT 1");
+        $passStmt->bind_param("ii", $studentID, $quizIDchk);
+        $passStmt->execute();
+        if (!$passStmt->get_result()->fetch_assoc()) {
+            $isAllQuizzesComplete = false;
+        }
+        $passStmt->close();
+        if (!$isAllQuizzesComplete) break;
+    }
+}
+
+// Final exam is only available if ALL stories AND ALL quizzes are complete
+$showExam = $isAllStoriesComplete && $isAllQuizzesComplete && !$certificateEarned;
 $showCertificate = $certificateEarned;
 
 $compiledExamQuestions = [];
@@ -91,17 +117,30 @@ if ($viewExam && $showExam) {
 }
 
 $navigation = [];
+$prevChapterComplete = true; // First chapter is always unlocked
+
 foreach ($chapters as $chapter) {
+    // Check if all stories AND quiz (if exists) in previous chapter are complete
     $chapterData = [
         'chapter_id' => $chapter['chapter_id'],
         'title' => $chapter['title'],
         'type' => 'chapter',
         'stories' => [],
-        'quiz' => null
+        'quiz' => null,
+        'is_locked' => !$prevChapterComplete // Lock if previous chapter not complete
     ];
+    
     $stories = chapter_getStories($conn, $chapter['chapter_id']);
+    $allStoriesInChapterComplete = true;
+    $prevStoryComplete = $prevChapterComplete; // First story in chapter has same lock state as chapter
+    
     foreach ($stories as $story) {
         $is_completed = !empty($userStoryProgress[$story['story_id']]);
+        
+        if (!$is_completed) {
+            $allStoriesInChapterComplete = false;
+        }
+        
         $chapterData['stories'][] = [
             'story_id' => $story['story_id'],
             'title' => $story['title'],
@@ -109,9 +148,14 @@ foreach ($chapters as $chapter) {
             'synopsis_english' => $story['synopsis_english'],
             'video_url' => $story['video_url'],
             'type' => 'story',
-            'is_completed' => $is_completed
+            'is_completed' => $is_completed,
+            'is_locked' => !$prevStoryComplete // Story is locked if previous is not complete
         ];
+        
+        // Update for next story: can only proceed if current story is complete
+        $prevStoryComplete = $is_completed;
     }
+    
     $quiz = getChapterQuiz($conn, $chapter['chapter_id']);
     if ($quiz) {
         // Query: Has student passed this quiz?
@@ -125,9 +169,17 @@ foreach ($chapters as $chapter) {
             'quiz_id' => $quiz['quiz_id'],
             'title' => $quiz['title'],
             'type' => 'quiz',
-            'is_completed' => $quizPassed // <-- ADD THIS
+            'is_completed' => $quizPassed,
+            'is_locked' => !$allStoriesInChapterComplete // Quiz is locked until all stories in chapter are complete
         ];
+        
+        // Update for next chapter: can only proceed if all stories AND quiz are complete
+        $prevChapterComplete = $allStoriesInChapterComplete && $quizPassed;
+    } else {
+        // No quiz in chapter - just need all stories complete
+        $prevChapterComplete = $allStoriesInChapterComplete;
     }
+    
     $navigation[] = $chapterData;
 }
 
@@ -206,7 +258,7 @@ elseif ($storyID > 0) {
     }
     if ($firstStory) {
         $stmt = $conn->prepare("SELECT * FROM chapter_stories WHERE story_id = ?");
-        $stmt->bind_param("i", $storyID);
+        $stmt->bind_param("i", $firstStory['story_id']);
         $stmt->execute();
         $currentContent = $stmt->get_result()->fetch_assoc();
         $currentType = 'story';
@@ -275,10 +327,12 @@ $page_title = htmlspecialchars($program['title']);
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
 <style>
 .sidebar-item { transition: all 0.2s ease; }
-.sidebar-item:hover { background-color: #f3f4f6; }
+.sidebar-item:hover:not(.locked) { background-color: #f3f4f6; }
 .sidebar-item.active { background-color: #e0e7ff; border-left: 4px solid #4f46e5; }
 .sidebar-item.completed { opacity: 0.55; color: #94a3b8; position: relative; }
 .sidebar-item.completed:after { content: '\2713'; color: #10b981; position: absolute; left: 10px; font-size: 1.1em; }
+.sidebar-item.locked { opacity: 0.4; color: #9ca3af; cursor: not-allowed; pointer-events: none; position: relative; }
+.sidebar-item.locked:before { content: '🔒'; position: absolute; left: 10px; font-size: 0.9em; }
 .lg\:sticky { position: sticky; top: 68px; z-index: 10; }
 .lg\:col-span-3 { min-width: 260px; max-width: 320px; }
 </style>
@@ -346,21 +400,29 @@ $page_title = htmlspecialchars($program['title']);
                       <span class="flex items-center gap-2 font-semibold text-gray-800">
                         <i class="ph ph-folder text-blue-600"></i>
                         <?= htmlspecialchars($navItem['title']) ?>
+                        <?php if ($navItem['is_locked']): ?>
+                          <span class="text-xs text-gray-500">(Locked)</span>
+                        <?php endif; ?>
                       </span>
                       <i id="chev-<?= $navItem['chapter_id'] ?>" class="ph ph-caret-down text-gray-400 transition-transform"></i>
                     </button>
                     <div id="chapter-panel-<?= $navItem['chapter_id'] ?>" class="ml-4 mt-1 space-y-1">
                       <?php if (!empty($navItem['stories'])): ?>
                         <?php foreach ($navItem['stories'] as $story): ?>
-                          <a href="?program_id=<?= $programID ?>&story_id=<?= $story['story_id'] ?>" class="sidebar-item flex items-center gap-2 p-2 pl-6 text-sm rounded-lg <?php if (($currentContent && $currentContent['story_id'] == $story['story_id'])) echo 'active font-semibold '; if ($story['is_completed']) echo 'completed'; ?>">
+                          <a href="<?= $story['is_locked'] ? '#' : '?program_id=' . $programID . '&story_id=' . $story['story_id'] ?>" 
+                             class="sidebar-item flex items-center gap-2 p-2 pl-6 text-sm rounded-lg <?php 
+                               if (($currentContent && $currentContent['story_id'] == $story['story_id'])) echo 'active font-semibold '; 
+                               if ($story['is_completed']) echo 'completed ';
+                               if ($story['is_locked']) echo 'locked';
+                             ?>">
                             <i class="ph ph-play-circle text-green-600"></i>
                             <?= htmlspecialchars($story['title']) ?>
                           </a>
                         <?php endforeach; ?>
                       <?php endif; ?>
                       <?php if ($navItem['quiz']): ?>
-                        <a href="?program_id=<?= $programID ?>&quiz_id=<?= $navItem['quiz']['quiz_id'] ?>"
-                          class="sidebar-item flex items-center gap-2 p-2 pl-6 text-sm rounded-lg text-orange-700 hover:bg-orange-50 font-semibold<?= $navItem['quiz']['is_completed'] ? ' completed' : '' ?>">
+                        <a href="<?= $navItem['quiz']['is_locked'] ? '#' : '?program_id=' . $programID . '&quiz_id=' . $navItem['quiz']['quiz_id'] ?>"
+                          class="sidebar-item flex items-center gap-2 p-2 pl-6 text-sm rounded-lg text-orange-700 hover:bg-orange-50 font-semibold<?= $navItem['quiz']['is_completed'] ? ' completed' : '' ?><?= $navItem['quiz']['is_locked'] ? ' locked' : '' ?>">
                           <i class="ph ph-exam text-orange-600"></i>
                           <?= htmlspecialchars($navItem['quiz']['title']) ?>
                         </a>
@@ -378,10 +440,18 @@ $page_title = htmlspecialchars($program['title']);
                 <i class="ph ph-exam text-2xl text-orange-600"></i>
                 <h3 class="font-bold text-orange-900">Ready for Exam?</h3>
               </div>
-              <p class="text-sm text-gray-700 mb-3">You've completed all stories! Take the final exam to earn your certificate.</p>
+              <p class="text-sm text-gray-700 mb-3">You've completed all stories and quizzes! Take the final exam to earn your certificate.</p>
               <a href="?program_id=<?= $programID ?>&take_exam=1" class="block w-full text-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors">
                 Take Final Exam
               </a>
+            </div>
+          <?php elseif ($isAllStoriesComplete && !$isAllQuizzesComplete): ?>
+            <div class="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-400 rounded-lg mt-4">
+              <div class="flex items-center gap-2 mb-2">
+                <i class="ph ph-warning text-2xl text-yellow-700"></i>
+                <h3 class="font-bold text-yellow-900">Almost There!</h3>
+              </div>
+              <p class="text-sm text-gray-700 mb-3">Complete all chapter quizzes to unlock the final exam.</p>
             </div>
           <?php endif; ?>
           <!-- Certificate Section -->
