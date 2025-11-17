@@ -71,8 +71,6 @@ if (isset($_SESSION['userID'])) {
                 </a>
             </div>
 
-            
-
             <!-- Profile Dropdown -->
             <div class="flex items-center">
                 <!-- Change Language Dropdown -->
@@ -83,9 +81,6 @@ if (isset($_SESSION['userID'])) {
                         <span id="selected-lang" class="text-secondary font-medium">EN</span>
                         <i class="ph ph-caret-down text-secondary text-[14px]"></i>
                     </button>
-
-                    <!-- Hidden Google Translate Element (MUST be present) -->
-                    <div id="google_translate_element" style="display:none;"></div>
 
                     <div id="lang-dropdown"
                         class="absolute right-0 top-full mt-2 w-40 bg-white rounded-md shadow-lg py-2 hidden border border-gray-200">
@@ -105,6 +100,8 @@ if (isset($_SESSION['userID'])) {
                         <div class="border-t border-gray-200 my-1"></div>
                         <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fr" data-label="FR">Français</a>
                     </div>
+                    <!-- Hidden Google Translate Element (MUST be present) -->
+                    <div id="google_translate_element" style="display:none;"></div>
                 </div>
 
                 <!-- Profile Section -->
@@ -269,7 +266,7 @@ document.addEventListener('click', function(event) {
     
 });
 </script>
-<!-- <script src="../../dist/javascript/translate.js"></script> -->
+<script src="../../dist/javascript/translate.js"></script>
 
 <style>
 .swal2-popup-custom {
