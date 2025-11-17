@@ -159,7 +159,7 @@ elseif ($storyID > 0) {
     $stmt->execute();
     $currentContent = $stmt->get_result()->fetch_assoc();
     $currentType = 'story';
-    
+
     if ($currentContent) {
         // --- Load ALL interactive sections for this story ---
         $interactiveSections = interactiveSection_getByStory($conn, $currentContent['story_id']);
@@ -191,6 +191,7 @@ elseif ($storyID > 0) {
             $currentContent['interactive_section'] = $currentContent['interactive_sections'][0] ?? null;
             $currentContent['quiz_question'] = $currentContent['interactive_sections'][0]['questions'][0] ?? null;
         }
+        // --- Robust $is_completed calculation (after story_id assignment!) ---
         $is_completed = !empty($userStoryProgress[$currentContent['story_id']]);
     }
 } else {
@@ -209,7 +210,7 @@ elseif ($storyID > 0) {
         $stmt->execute();
         $currentContent = $stmt->get_result()->fetch_assoc();
         $currentType = 'story';
-        
+
         if ($currentContent) {
             // --- Load ALL interactive sections for this story ---
             $interactiveSections = interactiveSection_getByStory($conn, $currentContent['story_id']);
@@ -241,6 +242,7 @@ elseif ($storyID > 0) {
                 $currentContent['interactive_section'] = $currentContent['interactive_sections'][0] ?? null;
                 $currentContent['quiz_question'] = $currentContent['interactive_sections'][0]['questions'][0] ?? null;
             }
+            // --- Robust $is_completed calculation (after story_id assignment!) ---
             $is_completed = !empty($userStoryProgress[$currentContent['story_id']]);
         }
     }
@@ -759,7 +761,7 @@ quizForms.forEach(quizForm => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'check_interactive_answer',
-        question_id: questionId,
+        question_id: questionId,  
         option_id: selectedAnswer,
         story_id: storyId,
         section_id: sectionId
@@ -777,6 +779,13 @@ quizForms.forEach(quizForm => {
         submitBtn.disabled = true;
         quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
         updateProgress();
+        // Reveal Next Story Section button instantly when section completed
+        if (data.sectionCompleted) {
+          const nextSectionDiv = document.getElementById('nextStorySection');
+          if (nextSectionDiv) {
+            nextSectionDiv.classList.remove('hidden');
+          }
+        }
       } else {
         feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500';
         feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-x-circle text-3xl text-red-600"></i><div><h4 class="font-bold text-red-900">Incorrect Answer</h4><p class="text-red-800 text-sm">${data.message || 'Please try again.'}</p></div></div>`;
