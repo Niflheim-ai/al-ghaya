@@ -350,13 +350,13 @@ $page_title = htmlspecialchars($program['title']);
               <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all" style="width: <?= max(0,min(100,$completion)) ?>%"></div>
             </div>
             <?php if ($_SESSION['role'] === 'student'): ?>
-            <div class="bg-yellow-50 rounded-lg p-3 my-4 text-center border border-yellow-300">
+            <!-- <div class="bg-yellow-50 rounded-lg p-3 my-4 text-center border border-yellow-300">
               <strong>Development Only:</strong>
               <form id="devResetForm" class="inline-flex gap-2 mt-2">
                 <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded">Reset Progress</button>
                 <button type="button" onclick="unenrollDev()" class="px-4 py-2 bg-red-600 text-white rounded">Unenroll</button>
               </form>
-            </div>
+            </div> -->
             <script>
               function getProgramId() { return <?= $programID ?>; }
               document.getElementById('devResetForm').onsubmit = function(e) {
