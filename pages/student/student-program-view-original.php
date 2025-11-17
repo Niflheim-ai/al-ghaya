@@ -35,7 +35,7 @@ $enrollees = (int)($enrolStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
         <!-- Top: full-width program IMAGE -->
         <div class="w-full">
           <?php
-            $heroImg = !empty($program['image']) ? '../../images/'.htmlspecialchars($program['image']) : '../../images/blog-bg.svg';
+            $heroImg = !empty($program['image']) ? '../../uploads/thumbnails/'.htmlspecialchars($program['image']) : '../../images/blog-bg.svg';
           ?>
           <img src="<?= $heroImg ?>" alt="Program Image" class="w-full h-64 md:h-80 object-cover">
         </div>
