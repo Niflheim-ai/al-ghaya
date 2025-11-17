@@ -158,9 +158,6 @@
     }
   </style>
 
-  <!-- Google Translate - Force Initialization -->
-  <div id="google_translate_element" style="display:none;"></div>
-
   <script type="text/javascript">
   // Force multiple initialization attempts
   var initAttempts = 0;
