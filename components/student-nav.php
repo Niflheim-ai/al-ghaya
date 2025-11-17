@@ -73,6 +73,8 @@ if (isset($_SESSION['userID'])) {
 
             <!-- Profile Dropdown -->
             <div class="flex items-center">
+                <!-- Hidden Google Translate Element (MUST be present) -->
+                <div id="google_translate_element" style="display:none;"></div>
                 <!-- Change Language Dropdown -->
                 <div class="hidden lg:flex items-center relative z-40 mr-4">
                     <button id="lang-button"
@@ -100,8 +102,6 @@ if (isset($_SESSION['userID'])) {
                         <div class="border-t border-gray-200 my-1"></div>
                         <a class="block px-4 py-2 text-sm hover:bg-gray-100 hover:cursor-pointer" data-lang="fr" data-label="FR">Français</a>
                     </div>
-                    <!-- Hidden Google Translate Element (MUST be present) -->
-                    <div id="google_translate_element" style="display:none;"></div>
                 </div>
 
                 <!-- Profile Section -->
