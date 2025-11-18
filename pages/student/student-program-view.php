@@ -326,20 +326,21 @@ $page_title = htmlspecialchars($program['title']);
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <!-- <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css"> -->
 <style>
-.sidebar-item { transition: all 0.2s ease; }
-.sidebar-item:hover:not(.locked) { background-color: #f3f4f6; }
-.sidebar-item.active { background-color: #e0e7ff; border-left: 4px solid #4f46e5; }
-.sidebar-item.completed { opacity: 0.55; color: #94a3b8; position: relative; }
-.sidebar-item.completed:after { content: '\2713'; color: #10b981; position: absolute; left: 10px; font-size: 1.1em; }
-.sidebar-item.locked { opacity: 0.4; color: #9ca3af; cursor: not-allowed; pointer-events: none; position: relative; }
-.sidebar-item.locked:before { content: '🔒'; position: absolute; left: 10px; font-size: 0.9em; }
-.lg\:sticky { position: sticky; top: 68px; z-index: 10; }
-.lg\:col-span-3 { min-width: 260px; max-width: 320px; }
+  .sidebar-item { transition: all 0.2s ease; }
+  .sidebar-item:hover:not(.locked) { background-color: #f3f4f6; }
+  .sidebar-item.active { background-color: #e0e7ff; border-left: 4px solid #4f46e5; }
+  .sidebar-item.completed { opacity: 0.55; color: #94a3b8; position: relative; }
+  .sidebar-item.completed:after { content: '\2713'; color: #10b981; position: absolute; left: 10px; font-size: 1.1em; }
+  .sidebar-item.locked { opacity: 0.4; color: #9ca3af; cursor: not-allowed; pointer-events: none; position: relative; }
+  .sidebar-item.locked:before { content: '🔒'; position: absolute; left: 10px; font-size: 0.9em; }
+  .lg\:sticky { position: sticky; top: 68px; z-index: 10; }
+  .lg\:col-span-3 { min-width: 260px; max-width: 320px; }
 </style>
 <div class="page-container">
   <div class="page-content">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <aside class="lg:col-span-3 lg:order-first lg:sticky lg:top-16">
+      <!-- Progress and Course Content -->
+      <aside class="lg:col-span-3 lg:order-first lg:sticky lg:top-16 mb-4">
         <div class="space-y-4">
           <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
             <div class="flex items-center justify-between mb-2">
@@ -469,7 +470,8 @@ $page_title = htmlspecialchars($program['title']);
         <?php endif; ?>
         </div>
       </aside>
-      <section class="lg:col-span-9 lg:order-last space-y-6">
+      <!-- Main Content -->
+      <main class="lg:col-span-9 lg:order-last space-y-6">
         <div class="bg-white rounded-xl shadow-md overflow-hidden">
           <div class="w-full">
             <?php $heroImg = !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/'.htmlspecialchars($program['thumbnail']) : '../../images/default-program.jpg'; ?>
@@ -511,51 +513,51 @@ $page_title = htmlspecialchars($program['title']);
           <div id="examResult" class="hidden mt-8"></div>
         </div>
         <script>
-document.getElementById('finalExamForm').onsubmit = function(e) {
-  e.preventDefault();
-  const formData = new FormData(this);
-  const answers = {};
-  for (var [k, v] of formData.entries()) {
-    if (k.startsWith('exam_answer_')) {
-      const idx = k.replace('exam_answer_', '');
-      answers[idx] = v;
-    }
-  }
-  const questionIDs = [];
-  for (let i = 0; i < formData.get('total_questions'); i++) {
-    questionIDs.push(formData.get('exam_question_id_' + i));
-  }
-  fetch('../../php/exam-answer-handler.php', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      action: 'submit_final_exam',
-      answers,
-      questionIDs,
-      program_id: <?= $programID ?>
-    })
-  }).then(r=>r.json()).then(data => {
-    const resultDiv = document.getElementById('examResult');
-    resultDiv.classList.remove('hidden');
-    if(data.passed) {
-      resultDiv.innerHTML = `<div class='bg-green-100 text-green-900 border-green-400 border-2 rounded-lg p-6 text-xl font-bold'>Congratulations! You have earned a certificate for this program! <a href='<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>' class='underline text-green-700' target='_blank'>View Certificate</a></div>`;
-      setTimeout(()=>window.location = '?program_id=<?= $programID ?>', 2200);
-    } else {
-      resultDiv.innerHTML = `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>You did not pass the exam. All progress has been reset; you must restart the program.</div>`;
-      setTimeout(()=>window.location = '?program_id=<?= $programID ?>', 2200);
-    }
-  });
-};
-</script>
+          document.getElementById('finalExamForm').onsubmit = function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const answers = {};
+            for (var [k, v] of formData.entries()) {
+              if (k.startsWith('exam_answer_')) {
+                const idx = k.replace('exam_answer_', '');
+                answers[idx] = v;
+              }
+            }
+            const questionIDs = [];
+            for (let i = 0; i < formData.get('total_questions'); i++) {
+              questionIDs.push(formData.get('exam_question_id_' + i));
+            }
+            fetch('../../php/exam-answer-handler.php', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                action: 'submit_final_exam',
+                answers,
+                questionIDs,
+                program_id: <?= $programID ?>
+              })
+            }).then(r=>r.json()).then(data => {
+              const resultDiv = document.getElementById('examResult');
+              resultDiv.classList.remove('hidden');
+              if(data.passed) {
+                resultDiv.innerHTML = `<div class='bg-green-100 text-green-900 border-green-400 border-2 rounded-lg p-6 text-xl font-bold'>Congratulations! You have earned a certificate for this program! <a href='<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>' class='underline text-green-700' target='_blank'>View Certificate</a></div>`;
+                setTimeout(()=>window.location = '?program_id=<?= $programID ?>', 2200);
+              } else {
+                resultDiv.innerHTML = `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>You did not pass the exam. All progress has been reset; you must restart the program.</div>`;
+                setTimeout(()=>window.location = '?program_id=<?= $programID ?>', 2200);
+              }
+            });
+          };
+        </script>
         <?php elseif ($currentType === 'chapter_quiz' && isset($quizQuestions)): ?>
         <?php
-        // Check if student already passed this quiz
-        $alreadyPassedStmt = $conn->prepare("SELECT score, max_score, attempt_date FROM student_quiz_attempts WHERE student_id = ? AND quiz_id = ? AND is_passed = 1 ORDER BY attempt_date DESC LIMIT 1");
-        $alreadyPassedStmt->bind_param("ii", $studentID, $quizID);
-        $alreadyPassedStmt->execute();
-        $passedResult = $alreadyPassedStmt->get_result()->fetch_assoc();
-        $alreadyPassedStmt->close();
-        $hasPassedQuiz = !empty($passedResult);
+          // Check if student already passed this quiz
+          $alreadyPassedStmt = $conn->prepare("SELECT score, max_score, attempt_date FROM student_quiz_attempts WHERE student_id = ? AND quiz_id = ? AND is_passed = 1 ORDER BY attempt_date DESC LIMIT 1");
+          $alreadyPassedStmt->bind_param("ii", $studentID, $quizID);
+          $alreadyPassedStmt->execute();
+          $passedResult = $alreadyPassedStmt->get_result()->fetch_assoc();
+          $alreadyPassedStmt->close();
+          $hasPassedQuiz = !empty($passedResult);
         ?>
         
         <div class="bg-white rounded-xl shadow-md p-6 mt-8">
@@ -596,8 +598,8 @@ document.getElementById('finalExamForm').onsubmit = function(e) {
                 </div>
               <?php endforeach; ?>
             </div>
-            
           <?php else: ?>
+
             <!-- Quiz Not Passed Yet - Show Form -->
             <form id="chapterQuizForm">
               <?php foreach ($quizQuestions as $i => $question): ?>
@@ -624,40 +626,40 @@ document.getElementById('finalExamForm').onsubmit = function(e) {
         </div>
 
         <script>
-const chapterQuizForm = document.getElementById('chapterQuizForm');
-if (chapterQuizForm) {
-  chapterQuizForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(chapterQuizForm);
-    const total = parseInt(formData.get('total_quiz_questions'));
-    const answers = [];
-    const questionIDs = [];
-    for (let i = 0; i < total; i++) {
-      answers.push(formData.get('quiz_answer_' + i));
-      questionIDs.push(formData.get('quiz_question_id_' + i));
-    }
-    fetch('../../php/quiz-answer-handler.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'chapter_quiz_submit',
-        answers,
-        questionIDs,
-        quiz_id: <?= (int)$quizID ?>
-      })
-    }).then(r => r.json()).then(data => {
-      const quizResult = document.getElementById('quizResult');
-      quizResult.classList.remove('hidden');
-      if (data.success) {
-        quizResult.innerHTML = `<div class='bg-green-100 text-green-900 border-green-400 border-2 rounded-lg p-6 text-xl font-bold'>${data.message||'Chapter Quiz submitted!'}</div>`;
-        setTimeout(()=>window.location='?program_id=<?= $programID ?>', 2200);
-      } else {
-        quizResult.innerHTML = `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>${data.message||'Quiz submission error.'}</div>`;
-      }
-    });
-  });
-}
-</script>
+          const chapterQuizForm = document.getElementById('chapterQuizForm');
+          if (chapterQuizForm) {
+            chapterQuizForm.addEventListener('submit', function(e) {
+              e.preventDefault();
+              const formData = new FormData(chapterQuizForm);
+              const total = parseInt(formData.get('total_quiz_questions'));
+              const answers = [];
+              const questionIDs = [];
+              for (let i = 0; i < total; i++) {
+                answers.push(formData.get('quiz_answer_' + i));
+                questionIDs.push(formData.get('quiz_question_id_' + i));
+              }
+              fetch('../../php/quiz-answer-handler.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'chapter_quiz_submit',
+                  answers,
+                  questionIDs,
+                  quiz_id: <?= (int)$quizID ?>
+                })
+              }).then(r => r.json()).then(data => {
+                const quizResult = document.getElementById('quizResult');
+                quizResult.classList.remove('hidden');
+                if (data.success) {
+                  quizResult.innerHTML = `<div class='bg-green-100 text-green-900 border-green-400 border-2 rounded-lg p-6 text-xl font-bold'>${data.message||'Chapter Quiz submitted!'}</div>`;
+                  setTimeout(()=>window.location='?program_id=<?= $programID ?>', 2200);
+                } else {
+                  quizResult.innerHTML = `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>${data.message||'Quiz submission error.'}</div>`;
+                }
+              });
+            });
+          }
+        </script>
         <?php elseif ($currentContent && $currentType === 'story'): ?>
           <div class="bg-white rounded-xl shadow-md p-6 space-y-6">
             <div class="border-b pb-4">
@@ -775,7 +777,7 @@ if (chapterQuizForm) {
             <p class="text-gray-500">Select a story from the sidebar to begin your learning journey.</p>
           </div>
         <?php endif; ?>
-      </section>
+        </main>
     </div>
   </div>
 </div>

@@ -9,6 +9,8 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
 }
 
 $userID = $_SESSION['userID'];
+$page_title = "My Profile";
+$current_page = "";
 
 // Get user information
 $userQuery = $conn->prepare("SELECT * FROM user WHERE userID = ?");
@@ -51,14 +53,14 @@ $statsQuery->bind_param("i", $userID);
 $statsQuery->execute();
 $stats = $statsQuery->get_result()->fetch_assoc();
 ?>
-
+<?php include('../../components/header.php'); ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Profile - Al-Ghaya Student</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="icon" type="image/x-icon" href="../../images/al-ghaya_logoForPrint.svg">
     <style>
@@ -68,7 +70,7 @@ $stats = $statsQuery->get_result()->fetch_assoc();
 </head>
 <body class="bg-gray-50">
     <!-- Navigation -->
-    <nav class="bg-white shadow-sm border-b border-gray-200">
+    <!-- <nav class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
@@ -84,7 +86,8 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                 </div>
             </div>
         </div>
-    </nav>
+    </nav> -->
+    <?php include('../../components/student-nav.php'); ?>
 
     <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -92,7 +95,7 @@ $stats = $statsQuery->get_result()->fetch_assoc();
             <div class="lg:col-span-1">
                 <div class="profile-card rounded-xl shadow-lg overflow-hidden text-white">
                     <div class="p-8 text-center">
-                        <div class="w-32 h-32 rounded-full bg-white bg-opacity-20 flex items-center justify-center mx-auto mb-4">
+                        <div class="w-32 h-32 rounded-full bg-blue-600 border border-black border-[2px] bg-opacity-20 flex items-center justify-center mx-auto mb-4">
                             <span class="text-4xl font-bold text-white">
                                 <?= strtoupper(substr($user['fname'], 0, 1) . substr($user['lname'], 0, 1)) ?>
                             </span>
@@ -114,7 +117,7 @@ $stats = $statsQuery->get_result()->fetch_assoc();
             </div>
 
             <!-- Profile Edit Form -->
-            <div class="lg:col-span-2 space-y-6">
+            <div class="lg:col-span-2 space-y-6 mb-10">
                 <?php if (isset($errors) && !empty($errors)): ?>
                     <div class="bg-red-50 border border-red-200 rounded-lg p-4">
                         <div class="flex">
@@ -228,14 +231,14 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                 </div>
 
                 <!-- Change Password Section -->
-                <div class="bg-white rounded-xl shadow-sm">
+                <div class="bg-white rounded-xl shadow-sm overflow-auto mb-6">
                     <div class="px-6 py-4 border-b border-gray-200">
                         <h3 class="text-lg font-semibold text-gray-900">Change Password</h3>
                         <p class="text-gray-600 text-sm">Update your password with email verification</p>
                     </div>
                     
                     <div class="p-6">
-                        <form id="changePasswordForm" class="space-y-4">
+                        <form id="changePasswordForm" class="space-y-4 mb-2">
                             <div>
                                 <label for="current-password" class="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
                                 <div class="relative">
@@ -288,7 +291,7 @@ $stats = $statsQuery->get_result()->fetch_assoc();
                         </form>
                         
                         <!-- Password OTP Verification (Hidden initially) -->
-                        <div id="passwordOtpSection" class="hidden mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div id="passwordOtpSection" class="hidden mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
                             <h3 class="font-semibold text-blue-900 mb-3">Verify Your Identity</h3>
                             <p class="text-sm text-blue-800 mb-4">We've sent a verification code to <span class="font-medium"><?= htmlspecialchars($user['email']) ?></span></p>
                             <form id="verifyPasswordForm" class="space-y-4">
@@ -713,5 +716,6 @@ $stats = $statsQuery->get_result()->fetch_assoc();
             this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
         });
     </script>
+    <?php include('../../components/footer.php'); ?>
 </body>
 </html>

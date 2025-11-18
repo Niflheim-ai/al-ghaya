@@ -102,7 +102,7 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
             }
         ?>
         <a href="student-program-view.php?program_id=<?= $pid ?>" class="block">
-            <div class="min-w-[345px] min-h-[300px] rounded-[20px] w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300 relative">
+            <div class="w-[345px] h-[300px] rounded-[20px] flex flex-col lg:flex-row w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300 relative">
                 <!-- Status indicators -->
                 <?php if ($isInProgress): ?>
                     <div class="absolute bottom-3 right-3 bg-[#10375B] text-white text-lg font-semibold px-3 py-1 rounded-full shadow">

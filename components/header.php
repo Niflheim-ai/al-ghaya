@@ -20,7 +20,7 @@
     }
 
     .footer-sub-header {
-      @apply w-full text-left text-[21.6px] font-semibold;
+      @apply w-full text-[21.6px] font-semibold;
     }
 
     .body-text2-semibold {
