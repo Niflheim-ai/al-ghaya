@@ -128,15 +128,15 @@
     }
     
     .btn-grey {
-      @apply px-[28px] py-[16px] gap-[5px] rounded-[10px] w-fit h-fit cursor-pointer flex items-center bg-primary text-company_grey hover:bg-company_black hover:text-company_white transition duration-300 ease-in-out; 
+      @apply px-[28px] py-[16px] gap-[5px] rounded-[10px] w-fit h-fit cursor-pointer flex items-center border border-black text-company_grey hover:bg-company_black hover:text-company_white transition duration-300 ease-in-out; 
     }
 
     .btn-blue-inactive {
-      @apply px-[28px] py-[16px] gap-[5px] rounded-[10px] w-fit h-fit cursor-pointer flex items-center bg-primary text-company_grey hover:bg-company_blue/30 hover:text-company_white transition duration-300 ease-in-out; 
+      @apply px-[28px] py-[16px] gap-[5px] rounded-[10px] w-fit h-fit cursor-pointer flex items-center bg-company_blue/30 text-company_white hover:bg-company_blue hover:text-company_white transition duration-300 ease-in-out; 
     }
 
     .btn-orange-inactive {
-      @apply px-[28px] py-[16px] gap-[5px] rounded-[10px] w-fit h-fit cursor-pointer flex items-center bg-primary text-company_grey hover:bg-company_orange/30 hover:text-company_white transition duration-300 ease-in-out; 
+      @apply px-[28px] py-[16px] gap-[5px] rounded-[10px] w-fit h-fit cursor-pointer flex items-center bg-company_orange/30 text-company_white hover:bg-company_orange hover:text-company_white transition duration-300 ease-in-out; 
     }
 
     .btn-secondary {

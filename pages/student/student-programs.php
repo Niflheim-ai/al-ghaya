@@ -59,21 +59,23 @@ $page_title = "Programs";
                                     <span class="ml-2">Advanced</span>
                                 </label>
                             </div>
-                            <p class="font-semibold">Status</p>
-                            <div class="flex gap-[10px]">
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="status" value="all" class="form-radio h-5 w-5 text-blue-600" <?= (!isset($_GET['status']) || $_GET['status'] === 'all') ? 'checked' : '' ?>>
-                                    <span class="ml-2">All</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="status" value="in-progress" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['status']) && $_GET['status'] === 'in-progress') ? 'checked' : '' ?>>
-                                    <span class="ml-2">In Progress</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="status" value="completed" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['status']) && $_GET['status'] === 'completed') ? 'checked' : '' ?>>
-                                    <span class="ml-2">Completed</span>
-                                </label>
-                            </div>
+                            <?php if (!isset($_GET['tab']) || $_GET['tab'] !== 'all') : ?>
+                                <p class="font-semibold">Status</p>
+                                <div class="flex gap-[10px]">
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="status" value="all" class="form-radio h-5 w-5 text-blue-600" <?= (!isset($_GET['status']) || $_GET['status'] === 'all') ? 'checked' : '' ?>>
+                                        <span class="ml-2">All</span>
+                                    </label>
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="status" value="in-progress" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['status']) && $_GET['status'] === 'in-progress') ? 'checked' : '' ?>>
+                                        <span class="ml-2">In Progress</span>
+                                    </label>
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="status" value="completed" class="form-radio h-5 w-5 text-blue-600" <?= (isset($_GET['status']) && $_GET['status'] === 'completed') ? 'checked' : '' ?>>
+                                        <span class="ml-2">Completed</span>
+                                    </label>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <!-- Search Bar -->

@@ -223,7 +223,7 @@
                     <button type="submit" class="flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
                         <i class="ph ph-funnel"></i> Apply Filters
                     </button>
-                    <a href="student-transactions.php" class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-semibold transition-colors">
+                    <a href="student-transactions.php" class="px-6 py-2 border border-gray-400 hover:bg-red-400 text-gray-800 rounded-lg font-semibold transition-colors">
                         <i class="ph ph-x"></i> Clear
                     </a>
                 </div>

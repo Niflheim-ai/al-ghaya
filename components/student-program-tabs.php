@@ -19,5 +19,3 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'my';
         </button>
     </a>
 </div>
-
-
