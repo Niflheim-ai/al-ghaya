@@ -107,6 +107,45 @@ function uploadThumbnail($file) {
     return move_uploaded_file($file['tmp_name'], $dest) ? $filename : false;
 }
 
+/**
+ * Convert video URLs to embeddable format
+ * Supports YouTube and Google Drive links
+ */
+function convertToEmbedUrl($url) {
+    $url = trim($url);
+    
+    if (empty($url)) {
+        return '';
+    }
+    
+    // Already an embed URL - return as is
+    if (strpos($url, '/embed/') !== false || strpos($url, '/preview') !== false) {
+        return $url;
+    }
+    
+    // YouTube conversion
+    if (preg_match('/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/', $url, $matches)) {
+        return 'https://www.youtube.com/embed/' . $matches[1];
+    }
+    
+    // Google Drive conversion - Handle both formats
+    // Format 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+    // Format 2: https://drive.google.com/file/d/FILE_ID/view
+    if (preg_match('/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/', $url, $matches)) {
+        return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
+    }
+    
+    // Google Drive open link
+    // Format: https://drive.google.com/open?id=FILE_ID
+    if (preg_match('/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/', $url, $matches)) {
+        return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
+    }
+    
+    // Return original if no conversion needed
+    return $url;
+}
+
+
 // Core program CRUD
 function program_create($conn, $data) {
     $sql = "INSERT INTO programs (teacherID, title, description, difficulty_label, category, price, thumbnail, status, overview_video_url, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
@@ -467,8 +506,17 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 $status = normalize_status($incoming_status);
                 if (!$status || empty(trim($status))) { $status = 'draft'; }
                 error_log("CREATE PROGRAM: incoming='$incoming_status' normalized='$status'");
+
+                // Convert video URL to embed format
+                $rawVideoUrl = trim($_POST['overview_video_url'] ?? '');
+                $embedVideoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
+
+                // After converting URL
+                error_log("DEBUG: Video URL - Raw: '$rawVideoUrl'");
+                error_log("DEBUG: Video URL - Converted: '$embedVideoUrl'");
+                error_log("DEBUG: Data array: " . print_r($data, true));
                 
-                $data = [ 'teacherID'=>$teacher_id, 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'thumbnail'=>'default-thumbnail.jpg', 'overview_video_url'=>trim($_POST['overview_video_url'] ?? '') ];
+                $data = [ 'teacherID'=>$teacher_id, 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'thumbnail'=>'default-thumbnail.jpg', 'overview_video_url'=>$embedVideoUrl ];
                 
                 if (empty($data['title']) || strlen($data['title']) < 3) { $_SESSION['error_message'] = 'Program title must be at least 3 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
                 if (empty($data['description']) || strlen($data['description']) < 10) { $_SESSION['error_message'] = 'Program description must be at least 10 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
@@ -490,8 +538,12 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 $status = normalize_status($incoming_status);
                 if (!$status || empty(trim($status))) { $status = 'draft'; }
                 error_log("UPDATE PROGRAM: programID=$program_id incoming='$incoming_status' normalized='$status'");
+
+                // Convert video URL to embed format
+                $rawVideoUrl = trim($_POST['overview_video_url'] ?? '');
+                $embedVideoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
                 
-                $data = [ 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'overview_video_url'=>trim($_POST['overview_video_url'] ?? '') ];
+                $data = [ 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'overview_video_url'=>$embedVideoUrl ];
                 
                 if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) { $t = uploadThumbnail($_FILES['thumbnail']); if ($t) { $thumbStmt = $conn->prepare("UPDATE programs SET thumbnail = ?, dateUpdated = NOW() WHERE programID = ?"); if ($thumbStmt) { $thumbStmt->bind_param("si", $t, $program_id); $thumbStmt->execute(); $thumbStmt->close(); } } }
                 
@@ -526,6 +578,9 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? '');
                 $synopsis_english = trim($_POST['synopsis_english'] ?? '');
                 $video_url = trim($_POST['video_url'] ?? '');
+                // Convert video URL to embed format
+                $rawVideoUrl = trim($_POST['vide_ourl'] ?? '');
+                $videourl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
                 $sections_data = $_POST['sections'] ?? [];
                 
                 // Validate required fields
@@ -571,7 +626,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                         'title' => $title,
                         'synopsis_arabic' => $synopsis_arabic,
                         'synopsis_english' => $synopsis_english,
-                        'video_url' => $video_url
+                        'video_url' => $videourl
                     ]);
                     
                     if (!$story_id) {
@@ -606,6 +661,9 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? '');
                 $synopsis_english = trim($_POST['synopsis_english'] ?? '');
                 $video_url = trim($_POST['video_url'] ?? '');
+                // Convert video URL to embed format
+                $rawVideoUrl = trim($_POST['video_url'] ?? '');
+                $videourl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
                 $sections_data = $_POST['sections'] ?? [];
                 
                 // Validate required fields
@@ -637,7 +695,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                         'title' => $title,
                         'synopsis_arabic' => $synopsis_arabic,
                         'synopsis_english' => $synopsis_english,
-                        'video_url' => $video_url
+                        'video_url' => $videourl
                     ];
                     
                     if (!story_update($conn, $story_id, $data)) {

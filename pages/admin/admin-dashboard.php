@@ -251,6 +251,55 @@ function renderProgramDetails(program) {
       let storiesHtml = '';
       if (chapter.stories && chapter.stories.length > 0) {
         chapter.stories.forEach((story, sIdx) => {
+          // Interactive sections for this story
+          let interactiveSectionsHtml = '';
+          if (story.interactive_sections && story.interactive_sections.length > 0) {
+            interactiveSectionsHtml = `
+              <div class="mt-4 space-y-3">
+                <p class="text-xs font-semibold text-purple-800 mb-2">
+                  <i class="ph ph-magic-wand text-purple-600 mr-1"></i>
+                  Interactive Sections (${story.interactive_sections.length})
+                </p>
+                ${story.interactive_sections.map((section, secIdx) => {
+                  // Render questions for this section
+                  let questionsHtml = '';
+                  if (section.questions && section.questions.length > 0) {
+                    questionsHtml = section.questions.map((question, qIdx) => {
+                      // Render options
+                      let optionsHtml = question.options.map(opt => {
+                        const isCorrect = opt.is_correct == 1;
+                        return `
+                          <div class="p-2 rounded border ${isCorrect ? 'bg-green-100 border-green-500 font-semibold' : 'bg-gray-50 border-gray-300'}">
+                            ${isCorrect ? '<i class="ph ph-check-circle text-green-600 mr-1"></i>' : ''}
+                            ${escapeHtml(opt.option_text)}
+                            ${isCorrect ? '<span class="text-green-600 text-xs ml-2">(Correct)</span>' : ''}
+                          </div>
+                        `;
+                      }).join('');
+                      
+                      return `
+                        <div class="mb-3">
+                          <p class="font-medium text-gray-800 mb-2">${qIdx + 1}. ${escapeHtml(question.question_text)}</p>
+                          <p class="text-xs text-gray-500 mb-2">Type: ${question.question_type}</p>
+                          <div class="space-y-1 ml-3">
+                            ${optionsHtml}
+                          </div>
+                        </div>
+                      `;
+                    }).join('');
+                  }
+                  
+                  return `
+                    <div class="p-3 bg-purple-50 border-l-4 border-purple-400 rounded">
+                      <p class="text-xs font-semibold text-purple-900 mb-3">Section ${secIdx + 1}</p>
+                      ${questionsHtml || '<p class="text-xs text-gray-500 italic">No questions in this section</p>'}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `;
+          }
+          
           storiesHtml += `
             <div class="ml-6 mb-4 p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
               <h5 class="font-bold text-blue-900 mb-2 flex items-center gap-2">
@@ -285,6 +334,9 @@ function renderProgramDetails(program) {
                   </div>
                 </div>
               ` : (story.video_url ? `<p class="text-xs text-gray-500 italic">Video URL: ${escapeHtml(story.video_url)}</p>` : '<p class="text-xs text-gray-500 italic">No video for this story</p>')}
+              
+              <!-- Interactive Sections -->
+              ${interactiveSectionsHtml}
             </div>
           `;
         });
@@ -437,11 +489,29 @@ function renderProgramDetails(program) {
       <!-- Program Overview -->
       <div class="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-5 shadow-sm">
         <h3 class="text-xl font-bold text-blue-900 mb-4">📋 Program Overview</h3>
+        
+        <!-- Overview Video -->
+        ${program.overview_video_url_embed ? `
+          <div class="mb-4">
+            <p class="text-sm font-semibold text-blue-900 mb-2">
+              <i class="ph ph-play-circle text-blue-600 mr-1"></i>
+              Program Introduction Video
+            </p>
+            <div class="relative bg-white rounded-lg overflow-hidden" style="padding-bottom: 56.25%; height: 0;">
+              <iframe 
+                src="${escapeHtml(program.overview_video_url_embed)}" 
+                class="absolute top-0 left-0 w-full h-full"
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
+        ` : ''}
+        
         <div class="grid grid-cols-2 gap-4 text-sm mb-4">
-          <div class="bg-white p-2 rounded"><strong>Category:</strong> <span class="capitalize">${escapeHtml(program.category)}</span></div>
-          <div class="bg-white p-2 rounded"><strong>Price:</strong> ₱${parseFloat(program.price).toFixed(2)} ${escapeHtml(program.currency)}</div>
-          <div class="bg-white p-2 rounded"><strong>Difficulty:</strong> ${escapeHtml(program.difficulty_label || 'N/A')}</div>
-          <div class="bg-white p-2 rounded"><strong>Duration:</strong> ${program.estimated_duration || 'N/A'} minutes</div>
+          <div class="bg-white p-2 rounded"><strong>Difficulty:</strong> <span class="capitalize">${escapeHtml(program.category)}</span></div>
+          <div class="bg-white p-2 rounded"><strong>Price:</strong> ₱${parseFloat(program.price).toFixed(2)}</div>
         </div>
         <div class="bg-white p-3 rounded">
           <strong class="text-gray-900">Description:</strong>
@@ -452,7 +522,7 @@ function renderProgramDetails(program) {
             <strong class="text-gray-900">Prerequisites:</strong>
             <p class="text-gray-700 mt-1">${escapeHtml(program.prerequisites)}</p>
           </div>
-        ` : ''}
+        ` : ''} 
         ${program.learning_objectives ? `
           <div class="bg-white p-3 rounded mt-3">
             <strong class="text-gray-900">Learning Objectives:</strong>

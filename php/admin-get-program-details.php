@@ -2,6 +2,7 @@
 session_start();
 require_once 'dbConnection.php';
 require_once 'youtube-embed-helper.php';
+require_once 'program-core.php'; // For convertToEmbedUrl function
 
 // Check if user is admin
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
@@ -12,8 +13,6 @@ if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
 $program_id = intval($_GET['program_id'] ?? 0);
 
 error_log("DEBUG: Received program_id = " . $program_id);
-error_log("DEBUG: Session userID = " . ($_SESSION['userID'] ?? 'NOT SET'));
-error_log("DEBUG: Session role = " . ($_SESSION['role'] ?? 'NOT SET'));
 
 if (!$program_id) {
     echo json_encode(['success' => false, 'message' => 'Invalid program ID']);
@@ -21,15 +20,6 @@ if (!$program_id) {
 }
 
 try {
-    // Test basic connection first
-    $testStmt = $conn->prepare("SELECT COUNT(*) as cnt FROM programs WHERE programID = ?");
-    $testStmt->bind_param("i", $program_id);
-    $testStmt->execute();
-    $testResult = $testStmt->get_result()->fetch_assoc();
-    $testStmt->close();
-    
-    error_log("DEBUG: Program exists check = " . $testResult['cnt']);
-    
     // Get program details
     $stmt = $conn->prepare("
         SELECT p.*, 
@@ -43,44 +33,30 @@ try {
     ");
     
     if (!$stmt) {
-        error_log("DEBUG: Prepare failed - " . $conn->error);
         throw new Exception("Database prepare failed: " . $conn->error);
     }
     
     $stmt->bind_param("i", $program_id);
-    
-    if (!$stmt->execute()) {
-        error_log("DEBUG: Execute failed - " . $stmt->error);
-        throw new Exception("Query execution failed: " . $stmt->error);
-    }
-    
+    $stmt->execute();
     $result = $stmt->get_result();
-    error_log("DEBUG: Result rows = " . $result->num_rows);
-    
     $program = $result->fetch_assoc();
     $stmt->close();
     
     if (!$program) {
-        error_log("DEBUG: No program data returned");
-        error_log("DEBUG: Running test query to check data...");
-        
-        // Additional test query
-        $debugStmt = $conn->prepare("SELECT programID, title, teacherID FROM programs WHERE programID = ?");
-        $debugStmt->bind_param("i", $program_id);
-        $debugStmt->execute();
-        $debugResult = $debugStmt->get_result()->fetch_assoc();
-        $debugStmt->close();
-        
-        error_log("DEBUG: Direct query result = " . print_r($debugResult, true));
-        
         echo json_encode(['success' => false, 'message' => 'Program not found']);
         exit;
     }
     
-    error_log("DEBUG: Program loaded successfully - " . $program['title']);
+    // Convert overview video URL to embed format
+    if (!empty($program['overview_video_url'])) {
+        $program['overview_video_url_embed'] = function_exists('convertToEmbedUrl') 
+            ? convertToEmbedUrl($program['overview_video_url']) 
+            : toYouTubeEmbedUrl($program['overview_video_url']);
+    } else {
+        $program['overview_video_url_embed'] = null;
+    }
     
-    // Rest of your code...
-    // Get chapters with all details
+    // Get chapters
     $chaptersStmt = $conn->prepare("
         SELECT chapter_id, title, content, chapter_order, 
                has_quiz, story_count, quiz_question_count,
@@ -96,9 +72,11 @@ try {
     $chapters = [];
     
     while ($chapter = $chaptersResult->fetch_assoc()) {
-        // Convert chapter video URL to embed format
+        // Convert chapter video URL
         if ($chapter['video_url']) {
-            $chapter['video_url_embed'] = toYouTubeEmbedUrl($chapter['video_url']);
+            $chapter['video_url_embed'] = function_exists('convertToEmbedUrl') 
+                ? convertToEmbedUrl($chapter['video_url']) 
+                : toYouTubeEmbedUrl($chapter['video_url']);
         } else {
             $chapter['video_url_embed'] = null;
         }
@@ -125,21 +103,78 @@ try {
         
         $stories = [];
         while ($story = $storiesResult->fetch_assoc()) {
-            // Convert story video URL to embed format
+            $story_id = $story['story_id'];
+            
+            // Convert story video URL
             if ($story['video_url']) {
-                $story['video_url_embed'] = toYouTubeEmbedUrl($story['video_url']);
+                $story['video_url_embed'] = function_exists('convertToEmbedUrl') 
+                    ? convertToEmbedUrl($story['video_url']) 
+                    : toYouTubeEmbedUrl($story['video_url']);
             } else {
                 $story['video_url_embed'] = null;
             }
+            
+            // ✅ GET INTERACTIVE SECTIONS FOR THIS STORY
+            $sectionsStmt = $conn->prepare("
+                SELECT section_id, section_order
+                FROM story_interactive_sections
+                WHERE story_id = ?
+                ORDER BY section_order ASC
+            ");
+            $sectionsStmt->bind_param("i", $story_id);
+            $sectionsStmt->execute();
+            $sectionsResult = $sectionsStmt->get_result();
+            
+            $interactive_sections = [];
+            while ($section = $sectionsResult->fetch_assoc()) {
+                $section_id = $section['section_id'];
+                
+                // Get questions for this section
+                $questionsStmt = $conn->prepare("
+                    SELECT question_id, question_text, question_type, question_order
+                    FROM interactive_questions
+                    WHERE section_id = ?
+                    ORDER BY question_order ASC
+                ");
+                $questionsStmt->bind_param("i", $section_id);
+                $questionsStmt->execute();
+                $questionsResult = $questionsStmt->get_result();
+                
+                $questions = [];
+                while ($question = $questionsResult->fetch_assoc()) {
+                    $question_id = $question['question_id'];
+                    
+                    // Get options for this question
+                    $optionsStmt = $conn->prepare("
+                        SELECT option_id, option_text, is_correct, option_order
+                        FROM question_options
+                        WHERE question_id = ?
+                        ORDER BY option_order ASC
+                    ");
+                    $optionsStmt->bind_param("i", $question_id);
+                    $optionsStmt->execute();
+                    $optionsResult = $optionsStmt->get_result();
+                    $question['options'] = $optionsResult->fetch_all(MYSQLI_ASSOC);
+                    $optionsStmt->close();
+                    
+                    $questions[] = $question;
+                }
+                $questionsStmt->close();
+                
+                $section['questions'] = $questions;
+                $interactive_sections[] = $section;
+            }
+            $sectionsStmt->close();
+            
+            $story['interactive_sections'] = $interactive_sections;
             $stories[] = $story;
         }
         $chapter['stories'] = $stories;
         $storiesStmt->close();
         
-        // Get chapter quiz if exists (has_quiz = 1)
+        // Get chapter quiz if exists
         $chapter['quiz_questions'] = [];
         if ($chapter['has_quiz'] == 1) {
-            // Get quiz from chapter_quizzes table
             $quizStmt = $conn->prepare("SELECT quiz_id FROM chapter_quizzes WHERE chapter_id = ? LIMIT 1");
             $quizStmt->bind_param("i", $chapter['chapter_id']);
             $quizStmt->execute();
@@ -147,7 +182,6 @@ try {
             $quizStmt->close();
             
             if ($quizResult && isset($quizResult['quiz_id'])) {
-                // Get quiz questions with options
                 $questionsStmt = $conn->prepare("
                     SELECT quiz_question_id, question_text
                     FROM quiz_questions
@@ -160,7 +194,6 @@ try {
                 
                 $quiz_questions = [];
                 while ($question = $questionsResult->fetch_assoc()) {
-                    // Get options for this question
                     $optionsStmt = $conn->prepare("
                         SELECT quiz_option_id, option_text, is_correct
                         FROM quiz_question_options
@@ -187,7 +220,6 @@ try {
     
     $program['chapters'] = $chapters;
     
-    // Return response
     echo json_encode([
         'success' => true,
         'program' => $program
@@ -195,12 +227,9 @@ try {
     
 } catch (Exception $e) {
     error_log("admin-get-program-details error: " . $e->getMessage());
-    error_log("Error stack: " . $e->getTraceAsString());
     echo json_encode([
         'success' => false, 
-        'message' => $e->getMessage(),
-        'line' => $e->getLine(),
-        'file' => $e->getFile()
+        'message' => $e->getMessage()
     ]);
 }
 ?>
