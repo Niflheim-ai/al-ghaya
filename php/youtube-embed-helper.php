@@ -44,4 +44,29 @@
         }
         return '';
     }
+
+    function toVideoEmbedUrl($url) {
+        $url = trim($url);
+        if (!$url) return '';
+        
+        // Already an embed or preview
+        if (strpos($url, '/embed/') !== false || strpos($url, '/preview') !== false) {
+            return $url;
+        }
+        // YouTube long and short
+        if (preg_match('/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/', $url, $matches)) {
+            return 'https://www.youtube.com/embed/' . $matches[1];
+        }
+        // Google Drive "file/d/ID/view"
+        if (preg_match('/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/', $url, $matches)) {
+            return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
+        }
+        // Google Drive "open?id=ID"
+        if (preg_match('/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/', $url, $matches)) {
+            return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
+        }
+        // Default: return original
+        return $url;
+    }
+
 ?>

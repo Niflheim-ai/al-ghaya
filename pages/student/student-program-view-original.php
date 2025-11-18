@@ -113,13 +113,34 @@ $enrollees = (int)($enrolStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
 
           <!-- Overview Video (YouTube-safe embed) -->
           <?php 
-            $embedUrl = toYouTubeEmbedUrl($program['overview_video_url'] ?? '');
+            $embedUrl = toVideoEmbedUrl($program['overview_video_url'] ?? '');
+            $isGoogleDrive = strpos($embedUrl, 'drive.google.com') !== false;
           ?>
           <?php if ($embedUrl): ?>
           <div>
             <h2 class="text-xl font-bold mb-2">Overview</h2>
             <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg">
-              <iframe class="absolute top-0 left-0 w-full h-full" src="<?= htmlspecialchars($embedUrl) ?>" title="Program Overview" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;" allowfullscreen></iframe>
+              <iframe 
+                class="absolute top-0 left-0 w-full h-full"
+                src="<?= htmlspecialchars($embedUrl) ?>"
+                title="Program Overview"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;"
+                allowfullscreen
+                <?= $isGoogleDrive ? 'sandbox="allow-scripts allow-same-origin allow-presentation"' : '' // Hide pop-out as much as possible ?>>
+              </iframe>
+              <?php if ($isGoogleDrive): ?>
+                <style>
+                  /* Attempt to suppress Google Drive's popout button (best-effort, iframe isolation) */
+                  iframe[src*="drive.google.com"] {
+                    pointer-events: auto !important;
+                  }
+                </style>
+                <script>
+                  // No reliable way to hide the popout icon due to cross-origin policies,
+                  // but you may attempt to overlay a transparent div if necessary.
+                </script>
+              <?php endif; ?>
             </div>
           </div>
           <?php elseif (!empty($program['overview_video_url'])): ?>

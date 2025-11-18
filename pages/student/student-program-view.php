@@ -676,11 +676,21 @@ if (chapterQuizForm) {
               </div>
             <?php endif; ?>
             <?php if (!empty($currentContent['video_url'])): ?>
-              <?php $embedUrl = toYouTubeEmbedUrl($currentContent['video_url']); ?>
+              <?php $embedUrl = toVideoEmbedUrl($currentContent['video_url']); ?>
               <?php if ($embedUrl): ?>
                 <div class="space-y-3">
                   <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2"><i class="ph ph-video-camera text-red-600"></i> Watch Story Video</h3>
-                  <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg shadow-lg"><iframe id="storyVideo" class="absolute top-0 left-0 w-full h-full" src="<?= htmlspecialchars($embedUrl) ?>" title="Story Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;" allowfullscreen></iframe></div>
+                  <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg shadow-lg">
+                    <iframe 
+                      class="absolute top-0 left-0 w-full h-full"
+                      src="<?= htmlspecialchars($embedUrl) ?>"
+                      title="Program Overview"
+                      frameborder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;"
+                      allowfullscreen
+                      <?= $isGoogleDrive ? 'sandbox="allow-scripts allow-same-origin allow-presentation"' : '' // Hide pop-out as much as possible ?>>
+                    </iframe>
+                  </div>
                 </div>
               <?php endif; ?>
             <?php endif; ?>

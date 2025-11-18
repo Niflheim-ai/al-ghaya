@@ -34,7 +34,7 @@
                 <div class="flex flex-col items-center gap-6 p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
                     <div class="thumbnail-preview w-full max-w-md">
                         <img id="thumbnailPreview" 
-                             src="<?= $program && $program['thumbnail'] ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/default-program.jpg' ?>" 
+                             src="<?= $program && $program['thumbnail'] ? '../../uploads/thumbnails/' . $program['thumbnail'] : '../../images/blog-bg.svg' ?>" 
                              alt="Program Thumbnail" 
                              class="w-full aspect-video object-cover rounded-lg border border-gray-200">
                     </div>
@@ -63,11 +63,12 @@
             </div>
 
             <!-- Program Description -->
-            <div class="space-y-2">
+            <div class="space-y-1">
                 <label for="description" class="block text-sm font-medium text-gray-700">Program Description</label>
                 <textarea id="description" name="description" rows="4" required
                           placeholder="Describe your program..."
                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"><?= $program ? htmlspecialchars($program['description']) : '' ?></textarea>
+                <p class="text-sm text-gray-500">Needs at least 10 characters</p>
             </div>
 
             <!-- Difficulty Level -->
@@ -239,7 +240,110 @@ const programId = Number(document.getElementById('programID')?.value || 0);
 function previewThumbnail(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = e => { document.getElementById('thumbnailPreview').src = e.target.result; }; reader.readAsDataURL(input.files[0]); } }
 function goBack() { window.location.href = 'teacher-programs.php'; }
 function cancelForm() { Swal.fire({ title:'Cancel Changes?', text:'Any unsaved changes will be lost.', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', cancelButtonColor:'#6b7280', confirmButtonText:'Yes, cancel', cancelButtonText:'Keep editing' }).then(r=>{ if(r.isConfirmed){ window.location.href='teacher-programs.php'; } }); }
-function saveProgram(status) {const form = document.getElementById('programDetailsForm'); const s = document.createElement('input'); s.type = 'hidden'; s.name = 'status'; s.value = (status && typeof status === 'string' && status.trim().length) ? status : 'draft'; form.appendChild(s); if (typeof Swal !== 'undefined') {Swal.fire({title:'Saving Program...', allowOutsideClick:false, allowEscapeKey:false, showConfirmButton:false, didOpen:()=>Swal.showLoading()});}form.submit();}
+// Helper: get current status from template or via AJAX
+function getProgramStatus() {
+    const statusTag = document.querySelector('.section-title + div span');
+    return statusTag ? statusTag.textContent.trim().toLowerCase().replace(' ', '_') : '';
+}
+
+function validateProgramForm(form) {
+    // Title
+    const title = form.title.value.trim();
+    if (!title) {
+        Swal.fire({title: 'Missing Title', text: 'Program title is required.', icon: 'error'});
+        form.title.focus();
+        return false;
+    }
+    // Description (min 10 chars)
+    const description = form.description.value.trim();
+    if (!description || description.length < 10) {
+        Swal.fire({title: 'Invalid Description', text: 'Description must be at least 10 characters.', icon: 'error'});
+        form.description.focus();
+        return false;
+    }
+    // Difficulty
+    const difficultyChecked = Array.from(form.querySelectorAll('input[name="difficulty_level"]')).some(e => e.checked);
+    if (!difficultyChecked) {
+        Swal.fire({title: 'Select Difficulty', text: 'Please select a difficulty level.', icon: 'error'});
+        // Focus first difficulty card
+        form.querySelector('input[name="difficulty_level"]').focus();
+        return false;
+    }
+    // Price
+    const price = form.price.value;
+    if (price === '' || isNaN(price) || parseFloat(price) < 0) {
+        Swal.fire({title: 'Invalid Price', text: 'Please enter a valid non-negative price.', icon: 'error'});
+        form.price.focus();
+        return false;
+    }
+    // All good
+    return true;
+}
+
+function saveProgram(status) {
+    const form = document.getElementById('programDetailsForm');
+    const currentStatus = getProgramStatus(); // eg. published, pending_review, etc.
+
+    // SweetAlert confirmation logic
+    if (status === 'draft' && currentStatus === 'pending_review') {
+        Swal.fire({
+            title: 'Program Already Pending Review',
+            text: 'Saving as draft will REMOVE this program from the review queue. Are you sure you want to save as draft?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d97706',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Save as Draft',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitProgramForm(form, status);
+            }
+        });
+    } else {
+        Swal.fire({
+            title: 'Save as Draft?',
+            text: 'You can edit and submit for review later.',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Save as Draft',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitProgramForm(form, status);
+            }
+        });
+    }
+}
+
+function submitProgramForm(form, status) {
+    // Remove previous status inputs
+    Array.from(form.querySelectorAll('input[name="status"]')).forEach(e => e.remove());
+    let s = document.createElement('input');
+    s.type = 'hidden';
+    s.name = 'status';
+    s.value = (status && typeof status === 'string' && status.trim().length) ? status : 'draft';
+    form.appendChild(s);
+
+    // Custom validation with SweetAlert
+    if (!validateProgramForm(form)) {
+        // No need to call Swal.close here (the validation alert itself will show)
+        return;
+    }
+
+    // Show loading ONLY AFTER validation passes
+    Swal.fire({
+        title: 'Saving Program...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    form.submit();
+}
 
 function showAddChapterModal() {
     if (!programId) { Swal.fire({ title:'Save Program First', text:'Please save the program before adding chapters.', icon:'info', confirmButtonColor:'#3b82f6' }); return; }

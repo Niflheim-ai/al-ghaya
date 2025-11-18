@@ -502,6 +502,9 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 
             // Teacher actions with status enforcement
             case 'create_program':
+                error_log("DEBUG: Entered create_program handler");
+                error_log("DEBUG POST: " . print_r($_POST, true));
+                error_log("DEBUG FILES: " . print_r($_FILES, true));
                 $incoming_status = $_POST['status'] ?? 'MISSING';
                 $status = normalize_status($incoming_status);
                 if (!$status || empty(trim($status))) { $status = 'draft'; }
@@ -510,17 +513,22 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 // Convert video URL to embed format
                 $rawVideoUrl = trim($_POST['overview_video_url'] ?? '');
                 $embedVideoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
+                $thumbnail = "../../images/blog-bg.svg";
 
                 // After converting URL
                 error_log("DEBUG: Video URL - Raw: '$rawVideoUrl'");
                 error_log("DEBUG: Video URL - Converted: '$embedVideoUrl'");
-                error_log("DEBUG: Data array: " . print_r($data, true));
+                
                 
                 $data = [ 'teacherID'=>$teacher_id, 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'thumbnail'=>'default-thumbnail.jpg', 'overview_video_url'=>$embedVideoUrl ];
                 
                 if (empty($data['title']) || strlen($data['title']) < 3) { $_SESSION['error_message'] = 'Program title must be at least 3 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
                 if (empty($data['description']) || strlen($data['description']) < 10) { $_SESSION['error_message'] = 'Program description must be at least 10 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
-                if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) { $t = uploadThumbnail($_FILES['thumbnail']); if ($t) $data['thumbnail'] = $t; }
+                if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
+                    $t = uploadThumbnail($_FILES['thumbnail']);
+                    if ($t) $thumbnail = $t;
+                }
+                $data['thumbnail'] = $thumbnail;
                 
                 $program_id = program_create($conn, $data);
                 if ($program_id) { 
@@ -529,6 +537,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                     $_SESSION['success_message']='Program created successfully!'; 
                     header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit; 
                 }
+                error_log("DEBUG: Data array: " . print_r($data, true));
                 $_SESSION['error_message']='Failed to create program. Please try again.'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit;
                 
             case 'update_program':
@@ -545,7 +554,17 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 
                 $data = [ 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'overview_video_url'=>$embedVideoUrl ];
                 
-                if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) { $t = uploadThumbnail($_FILES['thumbnail']); if ($t) { $thumbStmt = $conn->prepare("UPDATE programs SET thumbnail = ?, dateUpdated = NOW() WHERE programID = ?"); if ($thumbStmt) { $thumbStmt->bind_param("si", $t, $program_id); $thumbStmt->execute(); $thumbStmt->close(); } } }
+                if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
+                    $t = uploadThumbnail($_FILES['thumbnail']);
+                    if ($t) {
+                        $thumbStmt = $conn->prepare("UPDATE programs SET thumbnail = ?, dateUpdated = NOW() WHERE programID = ?");
+                        if ($thumbStmt) {
+                            $thumbStmt->bind_param("si", $t, $program_id);
+                            $thumbStmt->execute();
+                            $thumbStmt->close();
+                        }
+                    }
+                }
                 
                 if (program_update($conn, $program_id, $data)) { 
                     enforce_program_status($conn, $program_id, $status);
