@@ -197,93 +197,95 @@
         <?php endif; ?>
 
         <!-- Account Status Section -->
-        <section class="content-section">
-            <h1 class="section-title">Account Status</h1>
-            <div class="section-card">
+        <section class="content-section py-6 px-2">
+            <h1 class="section-title mb-4">Account Status</h1>
+            <div class="section-card flex flex-col lg:flex-row gap-2 md:gap-4 lg:gap-0 items-stretch rounded-lg bg-white shadow">
+
                 <!-- Student Details -->
-                <div>
-                    <div class="flex items-center notranslate">
-                        <img src="<?= htmlspecialchars($userAvatar) ?>" alt="Profile" class="w-20 h-20 rounded-full object-cover">
-                        <div class="flex flex-col h-fit gap-y-[25px] ml-6">
-                            <div class="flex flex-col">
-                                <p class="label">Account Level</p>
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <p class="body-text2-semibold text-2xl font-bold text-[#10375B]">Level <?= $userStats['level'] ?></p>
-                                        <div class="relative group">
-                                            <button class="flex items-center justify-center w-5 h-5 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors duration-200">
-                                                <i class="ph ph-question text-[14px] text-gray-600"></i>
-                                            </button>
-                                            
-                                            <!-- Tooltip -->
-                                            <div class="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-64 bg-gray-900 text-white text-sm rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
-                                                <div class="space-y-2">
-                                                    <p class="font-semibold border-b border-gray-700 pb-1">Earn Points:</p>
-                                                    <p>📚 Complete lessons: <strong>50 pts</strong></p>
-                                                    <p>✅ Complete Daily Challenges: <strong>10 pts</strong></p>
-                                                    <p>📅 Daily login: <strong>10 pts</strong></p>
-                                                </div>
-                                                <!-- Arrow -->
-                                                <div class="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900"></div>
+                <div class="flex flex-col md:flex-row items-center lg:items-start py-6 px-4 gap-6">
+                    <img src="<?= htmlspecialchars($userAvatar) ?>" alt="Profile" class="w-30 h-30 rounded-full object-cover mx-auto md:mx-0">
+                    <div class="flex flex-col h-fit gap-y-6 md:gap-y-4 w-full">
+                        <div>
+                            <p class="label mb-1">Account Level</p>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <p class="body-text2-semibold text-2xl font-bold text-[#10375B] notranslate">Level <?= $userStats['level'] ?></p>
+                                    <div class="relative group">
+                                        <button class="flex items-center justify-center w-5 h-5 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors duration-200">
+                                            <i class="ph ph-question text-[14px] text-gray-600"></i>
+                                        </button>
+                                        <!-- Tooltip -->
+                                        <div class="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-64 bg-gray-900 text-white text-sm rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
+                                            <div class="space-y-2">
+                                                <p class="font-semibold border-b border-gray-700 pb-1">Earn Points:</p>
+                                                <p>📚 Complete lessons: <strong>50 pts</strong></p>
+                                                <p>✅ Complete Daily Challenges: <strong>10 pts</strong></p>
+                                                <p>📅 Daily login: <strong>10 pts</strong></p>
                                             </div>
+                                            <div class="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900"></div>
                                         </div>
                                     </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                                        <div class="bg-[#A58618] h-2.5 rounded-full transition-all duration-500" 
-                                            style="width: <?= $userStats['progress_to_next_level'] ?>%"></div>
-                                    </div>
-                                    <p class="text-sm text-gray-600 mt-1"><?= $userStats['points'] ?>/<?= $userStats['points_for_next_level'] ?> points</p>
                                 </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                    <div class="bg-[#A58618] h-2.5 rounded-full transition-all duration-500" style="width: <?= $userStats['progress_to_next_level'] ?>%"></div>
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1"><?= $userStats['points'] ?>/<?= $userStats['points_for_next_level'] ?> points</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                
-                <!-- Divider -->
-                <div class="bg-company_black w-[2px] h-[216px] rounded-[5px]"></div>
-                
+                <!-- Responsive Divider -->
+                <div class="flex-shrink-0 flex justify-center items-center px-2 w-full lg:w-auto">
+                    <!-- Vertical divider on desktop -->
+                    <div class="hidden lg:block bg-company_black w-[2px] h-[216px] rounded-[5px]"></div>
+                    <!-- Horizontal divider on mobile -->
+                    <div class="block lg:hidden bg-company_black h-[2px] w-full rounded-[5px] my-5"></div>
+                </div>
+
                 <!-- Recent Program -->
-                <div class="flex-1 flex gap-[25px] rounded-r-[10px] overflow-hidden">
+                <div class="flex-1 flex flex-col lg:flex-row gap-4 py-4 px-4">
                     <?php if ($recentProgram): ?>
-                    <div class="flex-1 flex flex-col gap-y-[25px]">
+                    <div class="flex flex-col gap-y-6 justify-between flex-1">
                         <div>
                             <p class="label">Recent Program</p>
-                            <p class="program-name-2 arabic font-bold text-lg notranslate"><?= htmlspecialchars($recentProgram['title']) ?></p>
+                            <p class="program-name-2 font-bold text-lg notranslate"><?= htmlspecialchars($recentProgram['title']) ?></p>
                             <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
                                 <div class="bg-green-500 h-2 rounded-full" style="width: <?= $recentProgram['progress'] ?>%"></div>
                             </div>
                             <p class="text-sm text-gray-600"><?= round($recentProgram['progress'], 1) ?>% Complete</p>
                         </div>
-                        
+
                         <!-- Current Chapter -->
-                        <div class="w-full h-auto flex border-[1px] border-primary p-[15px] gap-[15px] items-start rounded-lg">
+                        <div class="w-full h-auto flex border-[1px] border-primary p-[15px] gap-[15px] items-start rounded-lg mt-2">
                             <i class="ph ph-book-bookmark text-[24px] text-[#10375B]"></i>
                             <div>
                                 <p class="font-semibold">Chapter <?= $recentProgram['current_chapter'] ?></p>
                                 <p class="text-sm text-gray-600 notranslate"><?= htmlspecialchars($recentProgram['current_chapter_title'] ?: 'Continue Learning') ?></p>
                             </div>
                         </div>
-                        
+
                         <!-- Resume Program BTN -->
-                        <a href="student-program-view.php?program_id=<?= (int)$recentProgram['programID'] ?><?= isset($recentProgram['next_story_id']) ? '&story_id=' . (int)$recentProgram['next_story_id'] : '' ?>">
-                            <button type="button" class="group btn-gold w-full bg-[#A58618] text-white px-4 py-2 rounded-lg hover:bg-[#8a6f15] transition-colors">
-                                <p class="font-medium">Resume Program</p>
-                                <i class="ph ph-bookmark text-[24px] group-hover:hidden"></i>
-                                <i class="ph-duotone ph-bookmark text-[24px] hidden group-hover:block"></i>
-                            </button>
-                        </a>
+                        <div class="mt-2">
+                            <a href="student-program-view.php?program_id=<?= (int)$recentProgram['programID'] ?><?= isset($recentProgram['next_story_id']) ? '&story_id=' . (int)$recentProgram['next_story_id'] : '' ?>">
+                                <button type="button" class="group btn-gold w-full bg-[#A58618] text-white px-4 py-2 rounded-lg hover:bg-[#8a6f15] transition-colors flex justify-center items-center gap-2">
+                                    <span class="font-medium">Resume Program</span>
+                                    <i class="ph ph-bookmark text-[24px] group-hover:hidden"></i>
+                                    <i class="ph-duotone ph-bookmark text-[24px] hidden group-hover:block"></i>
+                                </button>
+                            </a>
+                        </div>
                     </div>
-                    
-                    <!-- Image that fills remaining space -->
-                    <div class="w-48 h-full min-h-[216px] flex-shrink-0">
-                        <img src="../../uploads/thumbnails/<?= htmlspecialchars($recentProgram['image'] ?: $recentProgram['thumbnail'] ?: 'default.jpg') ?>" 
-                            alt="<?= htmlspecialchars($recentProgram['title']) ?>" 
+
+                    <!-- Image: stacked below content on mobile, right side on desktop -->
+                    <div class="w-full sm:w-48 lg:w-48 h-48 sm:h-full min-h-[180px] lg:min-h-[216px] flex-shrink-0 mx-auto mt-6 lg:mt-0">
+                        <img src="../../uploads/thumbnails/<?= htmlspecialchars($recentProgram['image'] ?: $recentProgram['thumbnail'] ?: 'default.jpg') ?>"
+                            alt="<?= htmlspecialchars($recentProgram['title']) ?>"
                             class="w-full h-full object-cover rounded-lg"
                             onerror="this.src='../../images/blog-bg.svg'">
                     </div>
                     <?php else: ?>
-                    <div class="flex-1 flex flex-col gap-y-[25px] justify-center items-center text-center">
+                    <div class="flex flex-col gap-y-6 justify-center items-center text-center py-8 w-full">
                         <i class="ph ph-book text-6xl text-gray-400"></i>
                         <p class="text-gray-600">No programs enrolled yet</p>
                         <a href="student-programs.php">
@@ -338,84 +340,87 @@
 
         <!-- Daily Challenge Section -->
         <?php if ($dailyChallenge && !$dailyChallenge['attempted']): ?>
-        <section class="content-section">
-            <h1 class="section-title">Daily Challenge</h1>
-            <?php if (isset($dailyChallenge['debug_mode']) && $dailyChallenge['debug_mode']): ?>
-            <span class="bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm font-semibold">
-                🔧 DEBUG MODE - Unlimited Retries
-            </span>
-            <?php endif; ?>
-            <div class="section-card">
-                <div class="flex flex-col gap-y-[10px] min-w-[217px]">
-                    <p class="label">Challenge Program</p>
-                    <p class="program-name-2 arabic font-bold notranslate"><?= htmlspecialchars($dailyChallenge['program_title']) ?></p>
-                    <div class="flex items-center text-sm text-gray-600">
-                        <i class="ph ph-trophy mr-2"></i>
-                        <span>Earn 10 points (or lose 5 if wrong)</span>
+            <section class="content-section py-4 px-2">
+                <h1 class="section-title mb-2">Daily Challenge</h1>
+                <?php if (isset($dailyChallenge['debug_mode']) && $dailyChallenge['debug_mode']): ?>
+                <span class="bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm font-semibold inline-block mb-2">
+                    🔧 DEBUG MODE - Unlimited Retries
+                </span>
+                <?php endif; ?>
+                <div class="section-card flex flex-col lg:flex-row gap-4 lg:gap-6 items-stretch rounded-lg bg-white shadow p-4">
+                    <!-- Challenge Program Details -->
+                    <div class="flex flex-col gap-y-2 min-w-[217px] justify-center flex-1">
+                        <p class="label">Challenge Program</p>
+                        <p class="program-name-2 arabic font-bold notranslate"><?= htmlspecialchars($dailyChallenge['program_title']) ?></p>
+                        <div class="flex items-center text-sm text-gray-600">
+                            <i class="ph ph-trophy mr-2"></i>
+                            <span>Earn 10 points (or lose 5 if wrong)</span>
+                        </div>
+                    </div>
+                    <!-- Responsive Divider -->
+                    <div class="flex-shrink-0 flex justify-center items-center px-2 w-full lg:w-auto">
+                        <div class="hidden lg:block bg-company_black w-[2px] h-[216px] rounded-[5px]"></div>
+                        <div class="block lg:hidden bg-company_black h-[2px] w-full rounded-[5px] my-5"></div>
+                    </div>
+                    <!-- Challenge Question/Form -->
+                    <div class="flex-1 flex flex-col justify-center">
+                        <form method="POST" class="flex flex-col gap-y-6" id="challenge-form">
+                            <input type="hidden" name="question_id" value="<?= $dailyChallenge['question_id'] ?>">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="font-semibold text-lg mb-4"><?= htmlspecialchars($dailyChallenge['question']) ?></p>
+                            </div>
+                            <?php if ($dailyChallenge['options']): ?>
+                                <?php $options = json_decode($dailyChallenge['options'], true); ?>
+                                <?php if ($options && is_array($options)): ?>
+                                    <div class="answers flex flex-col gap-y-3">
+                                        <?php foreach ($options as $index => $option): ?>
+                                        <div class="flex items-center">
+                                            <input type="radio" id="option<?= $index ?>" name="daily-challenge" value="<?= htmlspecialchars($option) ?>"
+                                                class="accent-secondary duration-300 ease-in-out peer mr-3" required>
+                                            <label for="option<?= $index ?>"
+                                                class="flex flex-grow items-center cursor-pointer p-4 rounded-[15px] bg-gray-100 text-gray-800
+                                                peer-checked:bg-[#10375B]/20 peer-checked:text-[#10375B] transition-colors duration-300 ease-in-out">
+                                                <?= htmlspecialchars($option) ?>
+                                            </label>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <div class="answers">
+                                    <input type="text" name="daily-challenge" placeholder="Type your answer here..." required
+                                        class="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#10375B]">
+                                </div>
+                            <?php endif; ?>
+                            <button type="submit" name="submit_challenge"
+                                    class="btn-secondary bg-[#10375B] text-white px-6 py-3 rounded-lg hover:bg-blue-900 transition-colors w-full sm:w-auto">
+                                Submit Answer
+                            </button>
+                        </form>
+                        <?php if (isset($challengeResult)): ?>
+                        <div class="mt-4 p-4 rounded-lg flex items-center justify-center <?= $challengeResult === 'correct' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' ?>">
+                            <i class="ph <?= $challengeResult === 'correct' ? 'ph-check-circle' : 'ph-x-circle' ?> text-2xl mr-3"></i>
+                            <span><?= htmlspecialchars($challengeMessage) ?></span>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
-                
-                <!-- Divider -->
-                <div class="bg-company_black w-[2px] h-[216px] rounded-[5px]"></div>
-                
-                <!-- Challenge Question -->
-                <form method="POST" class="flex flex-col flex-grow gap-y-[25px]" id="challenge-form">
-                    <input type="hidden" name="question_id" value="<?= $dailyChallenge['question_id'] ?>">
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <p class="font-semibold text-lg mb-4"><?= htmlspecialchars($dailyChallenge['question']) ?></p>
-                    </div>
-                    
-                    <?php if ($dailyChallenge['options']): ?>
-                        <?php $options = json_decode($dailyChallenge['options'], true); ?>
-                        <?php if ($options && is_array($options)): ?>
-                            <div class="answers flex flex-col gap-y-3">
-                                <?php foreach ($options as $index => $option): ?>
-                                <div class="flex items-center">
-                                    <input type="radio" id="option<?= $index ?>" name="daily-challenge" value="<?= htmlspecialchars($option) ?>"
-                                        class="accent-secondary duration-300 ease-in-out peer mr-3" required>
-                                    <label for="option<?= $index ?>"
-                                        class="flex flex-grow items-center cursor-pointer p-4 rounded-[15px] bg-gray-100 text-gray-800 peer-checked:bg-[#10375B]/20 peer-checked:text-[#10375B] transition-colors duration-300 ease-in-out">
-                                        <?= htmlspecialchars($option) ?>
-                                    </label>
-                                </div>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <div class="answers">
-                            <input type="text" name="daily-challenge" placeholder="Type your answer here..." required
-                                class="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#10375B]">
-                        </div>
-                    <?php endif; ?>
-                    
-                    <button type="submit" name="submit_challenge" class="btn-secondary bg-[#10375B] text-white px-6 py-3 rounded-lg hover:bg-blue-900 transition-colors">
-                        Submit Answer
-                    </button>
-                </form>
-            </div>
-            
-            <?php if (isset($challengeResult)): ?>
-            <div class="mt-4 p-4 rounded-lg flex items-center <?= $challengeResult === 'correct' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' ?>">
-                <i class="ph <?= $challengeResult === 'correct' ? 'ph-check-circle' : 'ph-x-circle' ?> text-2xl mr-3"></i>
-                <span><?= htmlspecialchars($challengeMessage) ?></span>
-            </div>
-            <?php endif; ?>
-        </section>
-        <?php elseif ($dailyChallenge && $dailyChallenge['attempted']): ?>
-        <section class="content-section">
-            <h1 class="section-title">Daily Challenge</h1>
-            <div class="section-card p-6 text-center">
-                <i class="ph <?= $dailyChallenge['is_correct'] ? 'ph-check-circle text-green-600' : 'ph-x-circle text-red-600' ?> text-6xl mb-4"></i>
-                <h3 class="font-bold text-xl mb-2">You've completed today's challenge!</h3>
-                <p class="text-gray-600 mb-4">
-                    <?= $dailyChallenge['is_correct'] ? 
-                        "Great job! You earned {$dailyChallenge['points_awarded']} points!" : 
-                        "Not quite right. No points awarded, come back tomorrow for a new challenge!" 
-                    ?>
-                </p>
-                <p class="text-sm text-gray-500">Next challenge available tomorrow</p>
-            </div>
-        </section>
+            </section>
+            <?php elseif ($dailyChallenge && $dailyChallenge['attempted']): ?>
+            <section class="content-section py-4 px-2">
+                <h1 class="section-title mb-2">Daily Challenge</h1>
+                <div class="section-card p-6 text-center flex flex-col justify-center items-center rounded-lg bg-white shadow">
+                    <i class="ph <?= $dailyChallenge['is_correct'] ? 'ph-check-circle text-green-600' : 'ph-x-circle text-red-600' ?> text-6xl mb-4"></i>
+                    <h3 class="font-bold text-xl mb-2">You've completed today's challenge!</h3>
+                    <p class="text-gray-600 mb-4">
+                        <?= $dailyChallenge['is_correct'] ?
+                            "Great job! You earned {$dailyChallenge['points_awarded']} points!" :
+                            "Not quite right. No points awarded, come back tomorrow for a new challenge!"
+                        ?>
+                    </p>
+                    <p class="text-sm text-gray-500">Next challenge available tomorrow</p>
+                </div>
+            </section>
         <?php endif; ?>
 
         <!-- Recommended Programs Section -->

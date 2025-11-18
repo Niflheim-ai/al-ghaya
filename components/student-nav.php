@@ -28,7 +28,7 @@ if (isset($_SESSION['userID'])) {
                 </a>
             </div>
 
-            <!-- Navigation buttons -->
+            <!-- Desktop Navigation buttons -->
             <div class="hidden lg:flex justify-start gap-[20px] w-full notranslate">
                 <a href="student-dashboard.php" class="<?php if ($current_page == 'student-dashboard') {
                     echo 'group menu-item-active flex items-center';
@@ -71,10 +71,19 @@ if (isset($_SESSION['userID'])) {
                 </a>
             </div>
 
-            <!-- Profile Dropdown -->
-            <div class="flex items-center">
+            <!-- Mobile menu toggle button -->
+            <div class="lg:hidden ml-auto flex items-center">
+                <button id="mobile-menu-toggle" aria-label="Toggle mobile menu" class="text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-600">
+                    <svg class="h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Profile Dropdown and Language Selector for Desktop -->
+            <div class="hidden lg:flex items-center ml-4 space-x-4">
                 <!-- Change Language Dropdown -->
-                <div class="hidden lg:flex items-center relative z-40 mr-4 notranslate">
+                <div class="relative z-40 mr-4 notranslate">
                     <button id="lang-button"
                         class="flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-200 hover:cursor-pointer notranslate">
                         <i class="ph-light ph-globe text-secondary text-[24px]"></i>
@@ -88,9 +97,9 @@ if (isset($_SESSION['userID'])) {
                         <div class="border-t border-gray-200 my-1"></div>
                         <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="tl" data-label="FIL">Filipino</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="ar" data-label="AR">العربية</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="ar" data-label="AR">[translate:العربية]</a>
                         <div class="border-t border-gray-200 my-1"></div>
-                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="ur" data-label="UR">اردو</a>
+                        <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="ur" data-label="UR">[translate:اردو]</a>
                         <div class="border-t border-gray-200 my-1"></div>
                         <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="id" data-label="ID">Indonesia</a>
                         <div class="border-t border-gray-200 my-1"></div>
@@ -101,9 +110,6 @@ if (isset($_SESSION['userID'])) {
                         <a href="#" class="lang-option block px-4 py-2 text-sm hover:bg-gray-100" data-lang="fr" data-label="FR">Français</a>
                     </div>
                 </div>
-
-                <!-- Hidden GTranslate -->
-                <div class="gtranslate_wrapper" style="display:none;"></div>
 
                 <!-- Profile Section -->
                 <div class="relative notranslate">
@@ -160,30 +166,34 @@ if (isset($_SESSION['userID'])) {
         </div>
 
         <!-- Mobile Menu -->
-        <div id="mobile-menu" class="lg:hidden hidden">
-            <div class="px-2 pt-2 pb-3 space-y-2 bg-company_white border-t border-gray-200">
-                <a href="student-dashboard.php" class="<?php if ($current_page == 'student-dashboard') {
-                    echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
-                } else {
-                    echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
-                } ?>">Dashboard</a>
+        <div id="mobile-menu" class="lg:hidden hidden mt-4 bg-company_white border-t border-gray-200 rounded-md shadow-md px-2 pt-2 pb-3 space-y-2">
+            <a href="student-dashboard.php" class="<?php if ($current_page == 'student-dashboard') {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
+            } else {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
+            } ?>">Dashboard</a>
 
-                <a href="student-programs.php" class="<?php if ($current_page == 'student-programs') {
-                    echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
-                } else {
-                    echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
-                } ?>">Programs</a>
+            <a href="student-programs.php" class="<?php if ($current_page == 'student-programs') {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
+            } else {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
+            } ?>">Programs</a>
 
-                <a href="student-transactions.php" class="<?php if ($current_page == 'student-transactions') {
-                    echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
-                } else {
-                    echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
-                } ?>">Transactions</a>
-                
-                <div class="border-t border-gray-700 w-full my-2"></div>
-                <a href="student-profile.php" class="block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white">Profile</a>
-                <button onclick="confirmStudentSignOut()" class="block w-full text-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700">Sign Out</button>
-            </div>
+            <a href="student-transactions.php" class="<?php if ($current_page == 'student-transactions') {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
+            } else {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
+            } ?>">Transactions</a>
+
+            <a href="leaderboard.php" class="<?php if ($current_page == 'leaderboard') {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
+            } else {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
+            } ?>">Leaderboards</a>
+
+            <div class="border-t border-gray-700 w-full my-2"></div>
+            <a href="student-profile.php" class="block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white">Profile</a>
+            <button onclick="confirmStudentSignOut()" class="block w-full text-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700">Sign Out</button>
         </div>
     </div>
 </nav>
@@ -222,7 +232,6 @@ function confirmStudentSignOut() {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            // Show motivational message for students
             Swal.fire({
                 title: 'Great Progress Today!',
                 html: 'Keep up the excellent work on your Arabic learning journey!<br><br><div class="text-sm text-gray-600">Signing out securely...</div>',
@@ -237,8 +246,6 @@ function confirmStudentSignOut() {
                     }, 1500);
                 }
             });
-            
-            // Redirect to logout after the motivational message
             setTimeout(() => {
                 window.location.href = '../logout.php';
             }, 2500);
@@ -264,9 +271,22 @@ document.addEventListener('click', function(event) {
             studentDropdown.classList.add('hidden');
         }, 200);
     }
-    
+
+    // Language dropdown close
+    const langButton = document.getElementById('lang-button');
+    const langDropdown = document.getElementById('lang-dropdown');
+    if (langButton && langDropdown && !langButton.contains(event.target) && !langDropdown.contains(event.target)) {
+        langDropdown.classList.add('hidden');
+    }
+});
+
+// Mobile menu toggle button logic
+document.getElementById('mobile-menu-toggle').addEventListener('click', function() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    mobileMenu.classList.toggle('hidden');
 });
 </script>
+
 <script src="../../dist/javascript/translate.js"></script>
 
 <style>
