@@ -208,23 +208,37 @@
                             <div class="flex flex-col">
                                 <p class="label">Account Level</p>
                                 <div>
-                                    <p class="body-text2-semibold text-2xl font-bold text-[#10375B]">Level <?= $userStats['level'] ?></p>
+                                    <div class="flex items-center gap-2">
+                                        <p class="body-text2-semibold text-2xl font-bold text-[#10375B]">Level <?= $userStats['level'] ?></p>
+                                        <div class="relative group">
+                                            <button class="flex items-center justify-center w-5 h-5 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors duration-200">
+                                                <i class="ph ph-question text-[14px] text-gray-600"></i>
+                                            </button>
+                                            
+                                            <!-- Tooltip -->
+                                            <div class="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-64 bg-gray-900 text-white text-sm rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
+                                                <div class="space-y-2">
+                                                    <p class="font-semibold border-b border-gray-700 pb-1">Earn Points:</p>
+                                                    <p>📚 Complete lessons: <strong>50 pts</strong></p>
+                                                    <p>✅ Complete Daily Challenges: <strong>10 pts</strong></p>
+                                                    <p>📅 Daily login: <strong>10 pts</strong></p>
+                                                </div>
+                                                <!-- Arrow -->
+                                                <div class="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900"></div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
                                         <div class="bg-[#A58618] h-2.5 rounded-full transition-all duration-500" 
-                                             style="width: <?= $userStats['progress_to_next_level'] ?>%"></div>
+                                            style="width: <?= $userStats['progress_to_next_level'] ?>%"></div>
                                     </div>
                                     <p class="text-sm text-gray-600 mt-1"><?= $userStats['points'] ?>/<?= $userStats['points_for_next_level'] ?> points</p>
                                 </div>
                             </div>
-                            <!-- <div class="flex flex-col gap-y-[10px] items-start">
-                                <p class="label">Proficiency Level</p>
-                                <div class="proficiency-badge bg-[#10375B] text-white px-4 py-2 rounded-lg">
-                                    <p class="text-[14px] font-semibold capitalize"><?= htmlspecialchars($userStats['proficiency']) ?></p>
-                                </div>
-                            </div> -->
                         </div>
                     </div>
                 </div>
+
                 
                 <!-- Divider -->
                 <div class="bg-company_black w-[2px] h-[216px] rounded-[5px]"></div>
