@@ -463,11 +463,11 @@ $stats['update_requests'] = 0; // Placeholder
             
             <div class="flex justify-end space-x-4 pt-4">
                 <button type="button" onclick="closeAddFacultyModal()" 
-                    class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition duration-200">
+                    class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-red-400 hover:text-white font-medium transition duration-200 hover:cursor-pointer">
                     Cancel
                 </button>
                 <button type="submit" 
-                    class="px-6 py-3 bg-company_blue-500 hover:bg-company_blue text-white rounded-lg font-medium transition duration-200 flex items-center">
+                    class="px-6 py-3 bg-company_blue hover:bg-company_blue/80 hover:cursor-pointer text-white rounded-lg font-medium transition duration-200 flex items-center">
                     <i class="ph ph-user-plus text-[18px] mr-2"></i>
                     Create Account
                 </button>

@@ -1,162 +1,376 @@
 <?php
-session_start();
-include('../../php/dbConnection.php');
-require_once '../../php/config.php';
-require_once '../../php/program-core.php';
+  session_start();
+  include('../../php/dbConnection.php');
+  require_once '../../php/config.php';
+  require_once '../../php/program-core.php';
 
-if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') { header('Location: ../login.php'); exit(); }
+  if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') { header('Location: ../login.php'); exit(); }
 
-$current_page = "admin-dashboard";
-$page_title = "Admin Dashboard";
+  $current_page = "admin-dashboard";
+  $page_title = "Admin Dashboard";
 
-// Time range filter
-$range = $_GET['range'] ?? '7d';
-$now = new DateTime('now');
-$from = clone $now;
-if ($range === '30d') { $from->modify('-30 days'); } else { $from->modify('-7 days'); }
-$fromStr = $from->format('Y-m-d 00:00:00');
+  // Range
+  $range = $_GET['range'] ?? '7d';
+  $now = new DateTime('now');
+  $from = clone $now;
+  if ($range === '30d') $from->modify('-30 days'); else $from->modify('-7 days');
+  $fromStr = $from->format('Y-m-d 00:00:00');
 
-// Metrics
-function scalar($conn,$sql,$types='',$params=[]) { $stmt=$conn->prepare($sql); if($types){$stmt->bind_param($types,...$params);} $stmt->execute(); $res=$stmt->get_result(); $row=$res->fetch_assoc(); return array_values($row)[0] ?? 0; }
+  // Metrics
+  function scalar($conn,$sql,$types='',$params=[]) { $stmt=$conn->prepare($sql); if($types){$stmt->bind_param($types,...$params);} $stmt->execute(); $res=$stmt->get_result(); $row=$res->fetch_assoc(); return array_values($row)[0] ?? 0;}
+  $metrics = [
+    'students'=>scalar($conn, "SELECT COUNT(*) FROM user WHERE role='student' AND isActive=1"),
+    'teachers'=>scalar($conn, "SELECT COUNT(*) FROM user WHERE role='teacher' AND isActive=1"),
+    'programs'=>scalar($conn, "SELECT COUNT(*) FROM programs"),
+    'published'=>scalar($conn, "SELECT COUNT(*) FROM programs WHERE status='published'"),
+    'pending'=>scalar($conn, "SELECT COUNT(*) FROM programs WHERE status='pending_review'"),
+    'drafts'=>scalar($conn, "SELECT COUNT(*) FROM programs WHERE status='draft' OR status IS NULL"),
+    'signups'=>scalar($conn, "SELECT COUNT(*) FROM user WHERE role='student' AND dateCreated >= ?", 's', [$fromStr]),
+    'revenue'=>scalar($conn,"SELECT IFNULL(SUM(amount),0) FROM payment_transactions WHERE status='paid' AND dateCreated >= ?",'s',[$fromStr]),
+    'enrollments'=>scalar($conn, "SELECT COUNT(*) FROM student_program_enrollments WHERE enrollment_date >= ?", 's', [$fromStr])
+  ];
 
-$metrics = [
-  'students'  => scalar($conn, "SELECT COUNT(*) c FROM user WHERE role='student' AND isActive=1"),
-  'teachers'  => scalar($conn, "SELECT COUNT(*) c FROM user WHERE role='teacher' AND isActive=1"),
-  'programs'  => scalar($conn, "SELECT COUNT(*) c FROM programs"),
-  'published' => scalar($conn, "SELECT COUNT(*) c FROM programs WHERE status='published'"),
-  'pending'   => scalar($conn, "SELECT COUNT(*) c FROM programs WHERE status='pending_review'"),
-  'drafts'    => scalar($conn, "SELECT COUNT(*) c FROM programs WHERE status='draft' OR status IS NULL"),
-  'signups7'  => scalar($conn, "SELECT COUNT(*) c FROM user WHERE dateCreated >= ?", 's', [$fromStr])
-];
+  // Chart: Signups per day
+  $signupsData = [];
+  $sQuery = $conn->prepare("SELECT DATE(dateCreated) as d, COUNT(*) as cnt FROM user WHERE role='student' AND dateCreated >= ? GROUP BY d ORDER BY d");
+  $sQuery->bind_param("s", $fromStr); $sQuery->execute(); $r=$sQuery->get_result();
+  while($row=$r->fetch_assoc()) $signupsData[$row['d']]=(int)$row['cnt'];
+  $sQuery->close();
 
-// Pending programs for admin review
-$pendingPrograms = [];
-$stmt = $conn->prepare("
-  SELECT p.programID, p.title, p.description, p.price, p.category, p.dateUpdated,
-         CONCAT(COALESCE(u.fname,''), ' ', COALESCE(u.lname,'')) as teacher_name,
-         u.email as teacher_email
-  FROM programs p 
-  JOIN teacher t ON p.teacherID = t.teacherID 
-  JOIN user u ON t.userID = u.userID 
-  WHERE p.status = 'pending_review' 
-  ORDER BY p.dateUpdated DESC 
-  LIMIT 20
-");
-if ($stmt) {
-    $stmt->execute();
-    $res = $stmt->get_result();
-    while ($row = $res->fetch_assoc()) {
-        $pendingPrograms[] = $row;
-    }
-    $stmt->close();
-}
+  // Chart: Enrollments per day
+  $enrollData = [];
+  $eQuery = $conn->prepare("SELECT DATE(enrollment_date) as d, COUNT(*) as cnt FROM student_program_enrollments WHERE enrollment_date >= ? GROUP BY d ORDER BY d");
+  $eQuery->bind_param("s",$fromStr); $eQuery->execute(); $r=$eQuery->get_result();
+  while($row=$r->fetch_assoc()) $enrollData[$row['d']] = (int)$row['cnt'];
+  $eQuery->close();
 
-// Recent activity (last 10)
-$activity = [];
-$stmt = $conn->prepare("(
-  SELECT 'student_signup' as type, userID as id, CONCAT(COALESCE(fname,''),' ',COALESCE(lname,'')) as name, email, dateCreated as ts FROM user WHERE role='student'
-) UNION ALL (
-  SELECT 'teacher_created', userID, CONCAT(COALESCE(fname,''),' ',COALESCE(lname,'')), email, dateCreated FROM user WHERE role='teacher'
-) UNION ALL (
-  SELECT 'program_event', programID, title, NULL, dateUpdated FROM programs
-) ORDER BY ts DESC LIMIT 10");
-$stmt->execute(); $res=$stmt->get_result(); while($row=$res->fetch_assoc()){$activity[]=$row;}
+  // Chart: Revenue per day
+  $revenueData = [];
+  $rQuery = $conn->prepare("SELECT DATE(dateCreated) as d, SUM(amount) as sum FROM payment_transactions WHERE status='paid' AND dateCreated >= ? GROUP BY d ORDER BY d");
+  $rQuery->bind_param("s",$fromStr); $rQuery->execute(); $r=$rQuery->get_result();
+  while($row=$r->fetch_assoc()) $revenueData[$row['d']] = floatval($row['sum']);
+  $rQuery->close();
+
+  // Recent enrollments table
+  $enrollList = [];
+  $result = $conn->query("SELECT e.enrollment_id, e.student_id, u.fname, u.lname, e.program_id, p.title as program_title, e.enrollment_date, t.status as payment_status FROM student_program_enrollments e LEFT JOIN user u ON e.student_id=u.userID LEFT JOIN programs p ON e.program_id=p.programID LEFT JOIN payment_transactions t ON t.program_id = e.program_id AND t.student_id = e.student_id WHERE e.enrollment_date >= '$fromStr' ORDER BY e.enrollment_date DESC LIMIT 100");
+  while($row=$result->fetch_assoc()) $enrollList[] = $row;
+
+  // Pending programs for admin review
+  $pendingPrograms = [];
+  $stmt = $conn->prepare("
+    SELECT p.programID, p.title, p.description, p.price, p.category, p.dateUpdated,
+          CONCAT(COALESCE(u.fname,''), ' ', COALESCE(u.lname,'')) as teacher_name,
+          u.email as teacher_email
+    FROM programs p 
+    JOIN teacher t ON p.teacherID = t.teacherID 
+    JOIN user u ON t.userID = u.userID 
+    WHERE p.status = 'pending_review' 
+    ORDER BY p.dateUpdated DESC 
+    LIMIT 20
+  ");
+  if ($stmt) {
+      $stmt->execute();
+      $res = $stmt->get_result();
+      while ($row = $res->fetch_assoc()) {
+          $pendingPrograms[] = $row;
+      }
+      $stmt->close();
+  }
+
+  // Recent activity (last 10, filtered by range)
+  $activity = [];
+  $stmt = $conn->prepare("(
+    SELECT 'student_signup' as type, userID as id, CONCAT(COALESCE(fname,''),' ',COALESCE(lname,'')) as name, email, dateCreated as ts
+    FROM user
+    WHERE role='student' AND dateCreated >= ?
+  ) UNION ALL (
+    SELECT 'teacher_created', userID, CONCAT(COALESCE(fname,''),' ',COALESCE(lname,'')), email, dateCreated
+    FROM user
+    WHERE role='teacher' AND dateCreated >= ?
+  ) UNION ALL (
+    SELECT 'program_event', p.programID, p.title, u.email, p.dateUpdated
+    FROM programs p
+    LEFT JOIN user u ON p.teacherID = u.userID
+    WHERE p.dateUpdated >= ?
+  )
+  ORDER BY ts DESC LIMIT 30");
+  $stmt->bind_param("sss", $fromStr, $fromStr, $fromStr);
+  $stmt->execute();
+  $res = $stmt->get_result(); while ($row = $res->fetch_assoc()) {$activity[]=$row;}
 ?>
 <?php include '../../components/header.php'; ?>
 <?php include '../../components/admin-nav.php'; ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/v/dt/dt-2.0.5/datatables.min.css"/>
+<script src="https://cdn.datatables.net/v/dt/dt-2.0.5/datatables.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css"/>
 <div class="page-container"><div class="page-content">
   <section class="content-section">
     <h1 class="section-title">Admin Dashboard</h1>
-    <div class="w-full flex items-center justify-between mb-4">
-      <div class="flex items-center gap-2">
-        <label class="text-sm">Range:</label>
-        <select id="rangeSelect" class="border rounded px-2 py-1">
-          <option value="7d" <?= $range==='7d'?'selected':'' ?>>Last 7 days</option>
-          <option value="30d" <?= $range==='30d'?'selected':'' ?>>Last 30 days</option>
-        </select>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <!-- Total Revenue -->
+      <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white flex flex-col">
+        <div class="text-green-100 text-sm font-medium mb-1">Total Revenue</div>
+        <div class="text-3xl font-bold">₱<?= number_format($metrics['revenue'],2) ?></div>
+        <div class="text-green-100 text-xs mt-auto">in period</div>
       </div>
-      <button onclick="downloadAnalytics()" class="group btn-secondary"><i class="ph ph-download text-[20px] group-hover:hidden"></i><i class="ph-duotone ph-download text-[20px] hidden group-hover:block"></i><p class="font-medium">Download Summary</p></button>
+      <!-- Enrollments -->
+      <div class="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 text-white flex flex-col">
+        <div class="text-blue-100 text-sm font-medium mb-1">Enrollments</div>
+        <div class="text-3xl font-bold"><?= $metrics['enrollments'] ?></div>
+        <div class="text-blue-100 text-xs mt-auto">in period</div>
+      </div>
+      <!-- Students -->
+      <div class="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-lg p-6 text-white flex flex-col">
+        <div class="text-purple-100 text-sm font-medium mb-1">Students</div>
+        <div class="text-3xl font-bold"><?= $metrics['students'] ?></div>
+        <div class="text-purple-100 text-xs mt-auto">registered</div>
+      </div>
+      <!-- Programs -->
+      <div class="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-6 text-white flex flex-col">
+        <div class="text-orange-100 text-sm font-medium mb-1">Total Programs</div>
+        <div class="text-3xl font-bold"><?= $metrics['programs'] ?></div>
+        <div class="text-orange-100 text-xs mt-auto"><?= $metrics['published'] ?> published</div>
+      </div>
     </div>
 
-    <div class="w-full grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
-      <div class="p-4 rounded bg-company_white text-center"><div class="text-tertiary flex items-center justify-center gap-2"><i class="ph-duotone ph-users text-[28px]"></i><span class="text-2xl font-semibold"><?= $metrics['students'] ?></span></div><p>Active Students</p></div>
-      <div class="p-4 rounded bg-company_white text-center"><div class="text-tertiary flex items-center justify-center gap-2"><i class="ph-duotone ph-chalkboard-simple text-[28px]"></i><span class="text-2xl font-semibold"><?= $metrics['teachers'] ?></span></div><p>Active Teachers</p></div>
-      <div class="p-4 rounded bg-company_white text-center"><div class="text-tertiary flex items-center justify-center gap-2"><i class="ph-duotone ph-books text-[28px]"></i><span class="text-2xl font-semibold"><?= $metrics['programs'] ?></span></div><p>Total Programs</p></div>
-      <div class="p-4 rounded bg-company_green text-white text-center"><div class="flex items-center justify-center gap-2"><i class="ph-duotone ph-seal-check text-[28px]"></i><span class="text-2xl font-semibold"><?= $metrics['published'] ?></span></div><p>Published</p></div>
-      <div class="p-4 rounded bg-company_orange text-white text-center"><div class="flex items-center justify-center gap-2"><i class="ph-duotone ph-clock text-[28px]"></i><span class="text-2xl font-semibold"><?= $metrics['pending'] ?></span></div><p>Pending Review</p></div>
-      <div class="p-4 rounded bg-gray-400 text-white text-center"><div class="flex items-center justify-center gap-2"><i class="ph-duotone ph-note text-[28px]"></i><span class="text-2xl font-semibold"><?= $metrics['drafts'] ?></span></div><p>Drafts</p></div>
-      <div class="p-4 rounded bg-company_white text-center"><div class="text-tertiary flex items-center justify-center gap-2"><i class="ph-duotone ph-trend-up text-[28px]"></i><span class="text-2xl font-semibold"><?= $metrics['signups7'] ?></span></div><p>New Signups</p></div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+      <div class="bg-white rounded-lg shadow p-4 text-center border-2 border-gray-200">
+        <i class="ph-duotone ph-file-dashed text-gray-500 text-3xl mb-2"></i>
+        <p class="text-2xl font-bold text-gray-900"><?= $metrics['drafts'] ?></p>
+        <p class="text-sm text-gray-600">Draft</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4 text-center border-2 border-yellow-200">
+        <i class="ph-duotone ph-clock text-yellow-600 text-3xl mb-2"></i>
+        <p class="text-2xl font-bold text-yellow-700"><?= $metrics['pending'] ?></p>
+        <p class="text-sm text-gray-600">Pending</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4 text-center border-2 border-green-200">
+        <i class="ph-duotone ph-seal-check text-green-600 text-3xl mb-2"></i>
+        <p class="text-2xl font-bold text-green-700"><?= $metrics['published'] ?></p>
+        <p class="text-sm text-gray-600">Published</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4 text-center border-2 border-red-200">
+        <i class="ph-duotone ph-prohibit text-red-600 text-3xl mb-2"></i>
+        <p class="text-2xl font-bold text-red-700"><?= $metrics['rejected'] ?? 0 ?></p>
+        <p class="text-sm text-gray-600">Rejected</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4 text-center border-2 border-gray-200">
+        <i class="ph-duotone ph-archive text-gray-500 text-3xl mb-2"></i>
+        <p class="text-2xl font-bold text-gray-700"><?= $metrics['archived'] ?? 0 ?></p>
+        <p class="text-sm text-gray-600">Archived</p>
+      </div>
     </div>
 
-    <!-- Pending Programs Review Section -->
-    <?php if (!empty($pendingPrograms)): ?>
-    <div class="section-card mb-6">
+    <div class="section-card mb-8 bg-white rounded-xl shadow-md p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold flex items-center gap-2">
-          <i class="ph ph-clock text-company_orange"></i>
+        <h2 class="text-lg font-bold flex items-center gap-2">
+          <i class="ph ph-clock text-yellow-500"></i>
           Programs Pending Review
-          <span class="text-sm bg-orange-100 text-orange-800 px-2 py-1 rounded-full"><?= count($pendingPrograms) ?></span>
+          <span class="text-sm bg-orange-100 text-orange-800 px-2 py-1 rounded-full mr-2"><?= count($pendingPrograms) ?></span>
         </h2>
-        <button onclick="bulkApproveAll()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm">
-          <i class="ph ph-check-circle mr-1"></i>Approve All
+        <button 
+          onclick="bulkApproveAll()" 
+          class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+          <?= empty($pendingPrograms) ? 'disabled' : '' ?>>
+          <i class="ph ph-check-circle mr-1"></i>
+          Approve All
         </button>
       </div>
+
       <div class="space-y-3 max-h-96 overflow-y-auto">
-        <?php foreach ($pendingPrograms as $program): ?>
-          <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow" id="program-<?= $program['programID'] ?>">
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <div class="flex items-center gap-3 mb-2">
-                  <h3 class="font-semibold text-gray-900"><?= htmlspecialchars($program['title']) ?></h3>
-                  <span class="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">₱<?= number_format($program['price'], 2) ?></span>
-                  <span class="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full"><?= htmlspecialchars($program['category']) ?></span>
+        <?php if (empty($pendingPrograms)): ?>
+          <div class="flex flex-col items-center justify-center py-12 text-gray-400">
+            <i class="ph ph-folder-open text-5xl mb-3"></i>
+            <p class="text-lg font-semibold mb-1">No pending programs for review</p>
+            <p class="text-sm">All published programs are up to date.</p>
+          </div>
+        <?php else: ?>
+          <?php foreach ($pendingPrograms as $program): ?>
+            <div class="bg-gradient-to-br from-yellow-50 to-gray-50 border border-yellow-200 rounded-lg p-4 hover:shadow transition-all duration-150" id="program-<?= $program['programID'] ?>">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <div class="flex items-center gap-3 mb-2">
+                    <h3 class="font-bold text-gray-900"><?= htmlspecialchars($program['title']) ?></h3>
+                    <span class="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">₱<?= number_format($program['price'], 2) ?></span>
+                    <span class="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full"><?= htmlspecialchars($program['category']) ?></span>
+                  </div>
+                  <p class="text-sm text-gray-600 mb-2 line-clamp-2"><?= htmlspecialchars($program['description']) ?></p>
+                  <div class="text-xs text-gray-500 flex flex-wrap gap-2">
+                    <span class="font-medium">Teacher:</span>
+                    <span class="text-gray-900"><?= htmlspecialchars($program['teacher_name']) ?></span>
+                    <span class="text-gray-500">(<?= htmlspecialchars($program['teacher_email']) ?>)</span>
+                    <span class="ml-4">Submitted:</span>
+                    <span><?= (new DateTime($program['dateUpdated']))->format('M j, Y g:i A') ?></span>
+                  </div>
                 </div>
-                <p class="text-sm text-gray-600 mb-2 line-clamp-2"><?= htmlspecialchars($program['description']) ?></p>
-                <div class="text-xs text-gray-500">
-                  <span class="font-medium">Teacher:</span> <?= htmlspecialchars($program['teacher_name']) ?> (<?= htmlspecialchars($program['teacher_email']) ?>)
-                  <span class="ml-4">Submitted:</span> <?= (new DateTime($program['dateUpdated']))->format('M j, Y g:i A') ?>
+                <div class="flex flex-col gap-2 ml-4 items-end">
+                  <button onclick="openReviewModal(<?= $program['programID'] ?>)" class="text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 px-3 py-1 text-sm rounded transition">
+                    <i class="ph ph-eye mr-1"></i>View
+                  </button>
+                  <button onclick="approveProgram(<?= $program['programID'] ?>)" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 text-sm rounded transition">
+                    <i class="ph ph-check mr-1"></i>Approve
+                  </button>
+                  <button onclick="rejectProgram(<?= $program['programID'] ?>)" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm rounded transition">
+                    <i class="ph ph-x mr-1"></i>Reject
+                  </button>
                 </div>
-              </div>
-              <div class="flex items-center gap-2 ml-4">
-                <button onclick="openReviewModal(<?= $program['programID'] ?>)" class="text-blue-600 hover:text-blue-800 px-3 py-1 text-sm border border-blue-200 rounded hover:bg-blue-50">
-                  <i class="ph ph-eye mr-1"></i>View
-                </button>
-                <button onclick="approveProgram(<?= $program['programID'] ?>)" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 text-sm rounded">
-                  <i class="ph ph-check mr-1"></i>Approve
-                </button>
-                <button onclick="rejectProgram(<?= $program['programID'] ?>)" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm rounded">
-                  <i class="ph ph-x mr-1"></i>Reject
-                </button>
               </div>
             </div>
-          </div>
-        <?php endforeach; ?>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
     </div>
-    <?php endif; ?>
 
-    <div class="section-card">
-      <div class="flex items-center justify-between mb-4"><h2 class="text-lg font-semibold">Recent Activity</h2></div>
-      <div class="w-full overflow-x-auto">
-        <table class="w-full bg-white border border-gray-200 rounded-lg">
-          <thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Type</th><th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Name/Title</th><th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Email</th><th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Timestamp</th></tr></thead>
-          <tbody>
-          <?php if (empty($activity)) : ?>
-            <tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">No recent activity</td></tr>
-          <?php else: foreach ($activity as $row): ?>
-            <tr class="hover:bg-gray-50">
-              <td class="px-4 py-2 text-sm text-gray-700"><?= htmlspecialchars($row['type']) ?></td>
-              <td class="px-4 py-2 text-sm text-gray-900"><?= htmlspecialchars($row['name']) ?></td>
-              <td class="px-4 py-2 text-sm text-gray-500"><?= htmlspecialchars($row['email'] ?? '') ?></td>
-              <td class="px-4 py-2 text-sm text-gray-700"><?= htmlspecialchars((new DateTime($row['ts']))->format('Y-m-d H:i')) ?></td>
+
+    <!-- Top row: Range selector and export -->
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-3">
+        <label>Range:
+          <select id="rangeSelect" class="border rounded px-2 py-1">
+            <option value="7d" <?= $range==='7d'?'selected':'' ?>>Last 7 days</option>
+            <option value="30d" <?= $range==='30d'?'selected':'' ?>>Last 30 days</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid md:grid-cols-3 gap-6 mb-12">
+      <div class="bg-white rounded-lg p-4 shadow">
+        <div class="font-semibold mb-2">New Student Signups</div>
+        <canvas id="signupsChart" height="120"></canvas>
+      </div>
+      <div class="bg-white rounded-lg p-4 shadow">
+        <div class="font-semibold mb-2">Enrollments</div>
+        <canvas id="enrollChart" height="120"></canvas>
+      </div>
+      <div class="bg-white rounded-lg p-4 shadow">
+        <div class="font-semibold mb-2">Revenue (₱)</div>
+        <canvas id="revenueChart" height="120"></canvas>
+      </div>
+    </div>
+
+    <!-- Tables -->
+    <div class="bg-white rounded-lg p-6 mb-8 shadow">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">Recent Student Enrollments</h2>
+        <button onclick="tableToCSV('enrollmentsTable','enrollments.csv')" class="border px-3 py-1 rounded bg-blue-100 text-blue-800 text-sm hover:bg-blue-200">Export CSV</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="enrollmentsTable" class="display w-full mb-4 text-center">
+          <thead>
+            <tr>
+              <th>Enrollment ID</th>
+              <th>Student</th>
+              <th>Program</th>
+              <th>Payment Status</th>
+              <th>Date Enrolled</th>
             </tr>
-          <?php endforeach; endif; ?>
+          </thead>
+          <tbody>
+          <?php foreach ($enrollList as $row): ?>
+            <tr>
+              <td><?= $row['enrollment_id'] ?></td>
+              <td><?= htmlspecialchars(trim($row['fname'].' '.$row['lname'])) ?></td>
+              <td><?= htmlspecialchars($row['program_title']) ?></td>
+              <td><?= htmlspecialchars(ucfirst($row['payment_status'])) ?></td>
+              <td><?= date('M d, Y H:i', strtotime($row['enrollment_date'])) ?></td>
+            </tr>
+          <?php endforeach; ?>
           </tbody>
         </table>
       </div>
     </div>
-  </section>
-</div></div>
+
+    <div class="bg-white rounded-lg p-6 mb-8 shadow">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">Recent Activity</h2>
+        <button onclick="tableToCSV('activityTable','activity.csv')" class="border px-3 py-1 rounded bg-blue-100 text-blue-800 text-sm hover:bg-blue-200">Export CSV</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="activityTable" class="display w-full mb-4">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Name/Title</th>
+              <th>Email</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php foreach ($activity as $row): ?>
+            <tr>
+              <td><?= htmlspecialchars($row['type']) ?></td>
+              <td><?= htmlspecialchars($row['name']) ?></td>
+              <td><?= htmlspecialchars($row['email']) ?></td>
+              <td><?= date('M d, Y H:i', strtotime($row['ts'])) ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- CSV Export Helper -->
+  <script>
+    function tableToCSV(tableId, filename) {
+      let csv = [];
+      const rows = document.querySelectorAll(`#${tableId} tr`);
+      for (const row of rows) {
+        const cols = Array.from(row.querySelectorAll('th,td')).map(td=>`"${td.textContent.replace(/"/g,'""')}"`).join(",");
+        csv.push(cols);
+      }
+      const blob = new Blob([csv.join('\n')],{type:'text/csv'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+    }
+    document.getElementById('rangeSelect').addEventListener('change', function(){
+      const url=new URL(window.location.href);
+      url.searchParams.set('range', this.value);
+      window.location.href = url.toString();
+    });
+  </script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      new DataTable('#activityTable',    {paging:true, searching:true, ordering:true});
+      $('#enrollmentsTable').DataTable({
+        paging:true,
+        searching:true,
+        ordering:true,
+        columnDefs: [
+          { 
+            targets: '_all',
+            className: 'dt-center'
+          }
+        ]
+      });
+
+
+      // Chart.js Data
+      new Chart(document.getElementById('signupsChart'), {
+        type: 'line',
+        data: {labels: <?= json_encode(array_keys($signupsData)) ?>, datasets:[{label:'Signups',data:<?= json_encode(array_values($signupsData)) ?>,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true}]},
+        options:{responsive: true, scales:{y:{beginAtZero:true}}}
+      });
+      new Chart(document.getElementById('enrollChart'), {
+        type: 'line',
+        data: {labels: <?= json_encode(array_keys($enrollData)) ?>, datasets:[{label:'Enrollments',data:<?= json_encode(array_values($enrollData)) ?>,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.1)',fill:true}]},
+        options:{responsive: true, scales:{y:{beginAtZero:true}}}
+      });
+      new Chart(document.getElementById('revenueChart'), {
+        type: 'bar',
+        data: {labels: <?= json_encode(array_keys($revenueData)) ?>, datasets:[{label:'Revenue',data:<?= json_encode(array_values($revenueData)) ?>,backgroundColor:'#A58618'}]},
+        options:{responsive: true, scales:{y:{beginAtZero:true}}}
+      });
+    });
+  </script>
 
 <!-- Program Review Modal -->
 <div id="programReviewModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
