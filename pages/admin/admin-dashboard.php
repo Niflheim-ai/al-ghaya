@@ -490,25 +490,6 @@ function renderProgramDetails(program) {
       <div class="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-5 shadow-sm">
         <h3 class="text-xl font-bold text-blue-900 mb-4">📋 Program Overview</h3>
         
-        <!-- Overview Video -->
-        ${program.overview_video_url_embed ? `
-          <div class="mb-4">
-            <p class="text-sm font-semibold text-blue-900 mb-2">
-              <i class="ph ph-play-circle text-blue-600 mr-1"></i>
-              Program Introduction Video
-            </p>
-            <div class="relative bg-white rounded-lg overflow-hidden" style="padding-bottom: 56.25%; height: 0;">
-              <iframe 
-                src="${escapeHtml(program.overview_video_url_embed)}" 
-                class="absolute top-0 left-0 w-full h-full"
-                frameborder="0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                allowfullscreen>
-              </iframe>
-            </div>
-          </div>
-        ` : ''}
-        
         <div class="grid grid-cols-2 gap-4 text-sm mb-4">
           <div class="bg-white p-2 rounded"><strong>Difficulty:</strong> <span class="capitalize">${escapeHtml(program.category)}</span></div>
           <div class="bg-white p-2 rounded"><strong>Price:</strong> ₱${parseFloat(program.price).toFixed(2)}</div>
@@ -530,6 +511,25 @@ function renderProgramDetails(program) {
           </div>
         ` : ''}
       </div>
+
+      <!-- Overview Video -->
+        ${program.overview_video_url_embed ? `
+          <div class="mb-4">
+            <p class="text-sm font-semibold text-blue-900 mb-2">
+              <i class="ph ph-play-circle text-blue-600 mr-1"></i>
+              Program Introduction Video
+            </p>
+            <div class="relative bg-white rounded-lg overflow-hidden" style="padding-bottom: 56.25%; height: 0;">
+              <iframe 
+                src="${escapeHtml(program.overview_video_url_embed)}" 
+                class="absolute top-0 left-0 w-full h-full"
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
+        ` : ''}
 
       <!-- Chapters and Content -->
       <div>
