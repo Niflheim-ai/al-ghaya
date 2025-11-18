@@ -467,7 +467,7 @@ $stats['update_requests'] = 0; // Placeholder
                     Cancel
                 </button>
                 <button type="submit" 
-                    class="px-6 py-3 bg-primary hover:bg-secondary text-white rounded-lg font-medium transition duration-200 flex items-center">
+                    class="px-6 py-3 bg-company_blue-500 hover:bg-company_blue text-white rounded-lg font-medium transition duration-200 flex items-center">
                     <i class="ph ph-user-plus text-[18px] mr-2"></i>
                     Create Account
                 </button>

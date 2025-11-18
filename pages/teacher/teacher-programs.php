@@ -133,7 +133,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                     <?php endif; ?>
                 </div>
                 
-                <div class="w-full h-fit flex flex-col bg-company_white gap-[20px] p-[20px] rounded-[40px] items-start justify-start mt-8">
+                <div class="w-full h-fit flex flex-col gap-[20px] p-[20px] rounded-[40px] items-stretch justify-start mt-8 bg-company_white">
                     <div class="w-full flex gap-[25px] items-center justify-start">
                         <div class="flex items-center gap-[10px] p-[10px] text-company_blue">
                             <i class="ph ph-books text-[24px]"></i>
@@ -146,22 +146,57 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                             <p class="text-gray-500">No published programs yet.</p>
                         </div>
                     <?php else: ?>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <?php foreach ($allPrograms as $program): ?>
-                                <div class="program-card-small bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                                    <img src="<?= !empty($program['thumbnail']) && $program['thumbnail'] !== 'default-thumbnail.jpg' ? '../../uploads/thumbnails/' . htmlspecialchars($program['thumbnail']) : '../../images/default-program.jpg' ?>" 
-                                         alt="<?= htmlspecialchars($program['title']) ?>" 
-                                         class="w-full h-32 object-cover rounded-t-lg">
-                                    <div class="p-3">
-                                        <h4 class="font-medium text-sm mb-1"><?= htmlspecialchars($program['title']) ?></h4>
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm font-bold text-blue-600">₱<?= number_format($program['price'], 2) ?></span>
-                                            <span class="px-1 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"><?= htmlspecialchars($program['category']) ?></span>
+                        <?php foreach ($allPrograms as $program): ?>
+                            <?php
+                                $pid = (int)$program['programID'];
+                                $enrollees = $enrolleeCounts[$pid] ?? 0;
+                                $programImage = '../../images/blog-bg.svg';
+                                if (!empty($program['image'])) {
+                                    if (strpos($program['image'], 'thumbnails/') !== false || strpos($program['image'], 'uploads/') !== false) {
+                                        $programImage = '../../' . $program['image'];
+                                    } else {
+                                        $programImage = '../../uploads/thumbnails/' . $program['image'];
+                                    }
+                                } elseif (!empty($program['thumbnail'])) {
+                                    if (strpos($program['thumbnail'], 'thumbnails/') !== false || strpos($program['thumbnail'], 'uploads/') !== false) {
+                                        $programImage = '../../' . $program['thumbnail'];
+                                    } else {
+                                        $programImage = '../../uploads/thumbnails/' . $program['thumbnail'];
+                                    }
+                                }
+                            ?>
+                            <a href="student-program-view.php?program_id=<?= $pid ?>" class="block">
+                                <div class="w-full bg-white border border-gray-200 rounded-[20px] shadow-sm hover:shadow-md transition-shadow mb-4 flex overflow-hidden min-h-[140px]">
+                                    <!-- Thumbnail Aside: Fixed 16:9 -->
+                                    <div class="w-[220px] h-[240px] bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden rounded-l-[20px]">
+                                        <img src="<?= htmlspecialchars($programImage) ?>"
+                                            alt="<?= htmlspecialchars($program['title']) ?>"
+                                            class="w-full h-full object-cover"
+                                            style="aspect-ratio:16/9;"
+                                            onerror="this.src='../../images/blog-bg.svg'">
+                                    </div>
+                                    <!-- Content: Flexible, fills rest of row -->
+                                    <div class="flex flex-col justify-between content-between flex-1 p-6 min-h-[240px] h-full">
+                                        <div>
+                                            <h3 class="text-xl font-semibold text-gray-900 arabic"><?= htmlspecialchars($program['title']) ?></h3>
+                                            <div class="text-gray-700 text-sm leading-relaxed mt-1">
+                                                <?= htmlspecialchars(mb_strimwidth($program['description'] ?? '', 0, 220, '...')) ?>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center justify-between mt-4">
+                                            <div class="flex items-center gap-2 text-gray-600 text-sm">
+                                                <i class="ph ph-users-three text-[18px]"></i>
+                                                <span><?= $enrollees ?> enrollees</span>
+                                            </div>
+                                            <div class="proficiency-badge">
+                                                <i class="ph-fill ph-barbell text-[15px]"></i>
+                                                <span class="text-[14px] font-semibold"><?= htmlspecialchars(ucfirst(strtolower($program['category']))) ?> Difficulty</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            <?php endforeach; ?>
-                        </div>
+                            </a>
+                        <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
             </section>

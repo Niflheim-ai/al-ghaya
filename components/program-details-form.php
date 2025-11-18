@@ -83,8 +83,8 @@
                             <div class="flex items-center gap-3">
                                 <i class="ph-fill ph-barbell text-2xl text-gray-600"></i>
                                 <div>
-                                    <h4 class="font-semibold">Student Difficulty</h4>
-                                    <p class="text-sm text-gray-600">Basic level content</p>
+                                    <h4 class="font-semibold">Beginner Difficulty</h4>
+                                    <p class="text-sm text-gray-600">Beginner level content</p>
                                 </div>
                             </div>
                         </div>
@@ -97,7 +97,7 @@
                             <div class="flex items-center gap-3">
                                 <i class="ph-fill ph-barbell text-2xl text-blue-600"></i>
                                 <div>
-                                    <h4 class="font-semibold">Aspiring Difficulty</h4>
+                                    <h4 class="font-semibold">Intermediate Difficulty</h4>
                                     <p class="text-sm text-gray-600">Intermediate level content</p>
                                 </div>
                             </div>
@@ -111,7 +111,7 @@
                             <div class="flex items-center gap-3">
                                 <i class="ph-fill ph-barbell text-2xl text-yellow-600"></i>
                                 <div>
-                                    <h4 class="font-semibold">Master Difficulty</h4>
+                                    <h4 class="font-semibold">Advanced Difficulty</h4>
                                     <p class="text-sm text-gray-600">Advanced level content</p>
                                 </div>
                             </div>

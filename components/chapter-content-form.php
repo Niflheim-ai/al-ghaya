@@ -39,11 +39,6 @@ $stories = getchapter_stories($conn, $chapterId);
                     <textarea name="content" rows="5" 
                               class="w-full px-4 py-3 border border-gray-300 rounded-[10px] focus:ring-2 focus:ring-company_blue focus:border-company_blue"><?= htmlspecialchars($chapter['content'] ?? '') ?></textarea>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Reflection Question</label>
-                    <textarea name="question" rows="3" 
-                              class="w-full px-4 py-3 border border-gray-300 rounded-[10px] focus:ring-2 focus:ring-company_blue focus:border-company_blue"><?= htmlspecialchars($chapter['question'] ?? '') ?></textarea>
-                </div>
             </div>
 
             <div class="flex justify-end gap-3">
