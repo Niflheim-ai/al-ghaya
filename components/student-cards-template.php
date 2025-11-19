@@ -68,17 +68,37 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
             $symbol = currency_symbol($currency);
             $isMyTab = ($activeTab === 'my');
             
-            // ✅ Calculate actual progress if not in database
-            if ($isMyTab && !isset($program['completion_percentage'])) {
-                // Fallback: get progress from student_program_enrollments
-                $progressStmt = $conn->prepare("SELECT completion_percentage FROM student_program_enrollments WHERE student_id = ? AND program_id = ?");
-                $progressStmt->bind_param("ii", $studentId, $pid);
-                $progressStmt->execute();
-                $progressResult = $progressStmt->get_result()->fetch_assoc();
-                $progressStmt->close();
-                $completion = $progressResult ? (float)$progressResult['completion_percentage'] : 0.0;
+            // ✅ FIXED: Calculate actual progress LIVE instead of using DB value
+            if ($isMyTab) {
+                // Count total stories for this program
+                $totalStoriesStmt = $conn->prepare("
+                    SELECT COUNT(DISTINCT cs.story_id) as total
+                    FROM program_chapters pc
+                    INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                    WHERE pc.programID = ?
+                ");
+                $totalStoriesStmt->bind_param("i", $pid);
+                $totalStoriesStmt->execute();
+                $totalStories = $totalStoriesStmt->get_result()->fetch_assoc()['total'] ?? 0;
+                $totalStoriesStmt->close();
+
+                // Count completed stories for this student
+                $completedStoriesStmt = $conn->prepare("
+                    SELECT COUNT(DISTINCT ssp.story_id) as completed
+                    FROM program_chapters pc
+                    INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                    INNER JOIN student_story_progress ssp ON cs.story_id = ssp.story_id
+                    WHERE pc.programID = ? AND ssp.student_id = ? AND ssp.is_completed = 1
+                ");
+                $completedStoriesStmt->bind_param("ii", $pid, $studentId);
+                $completedStoriesStmt->execute();
+                $completedStories = $completedStoriesStmt->get_result()->fetch_assoc()['completed'] ?? 0;
+                $completedStoriesStmt->close();
+
+                // Calculate actual progress percentage
+                $completion = $totalStories > 0 ? round(($completedStories / $totalStories) * 100, 1) : 0.0;
             } else {
-                $completion = isset($program['completion_percentage']) ? (float)$program['completion_percentage'] : 0.0;
+                $completion = 0.0;
             }
             
             $isInProgress = $isMyTab && $completion > 0 && $completion < 100;
