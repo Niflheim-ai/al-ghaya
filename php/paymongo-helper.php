@@ -44,12 +44,13 @@ class PayMongo {
 
     /**
      * Create Checkout Session with multiple payment options including QRPh
+     * ✅ UPDATED: Enabled send_email_receipt for native PayMongo receipts
      */
     public static function createCheckoutSession($amount, $description, $successUrl, $failedUrl, $metadata = []) {
         $url = PAYMONGO_API_URL . '/checkout_sessions';
         
         $attributes = [
-            'send_email_receipt' => false,
+            'send_email_receipt' => true, // ✅ ENABLED: PayMongo will send receipt email automatically
             'show_description' => true,
             'show_line_items' => true,
             'line_items' => [
