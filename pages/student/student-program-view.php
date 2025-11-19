@@ -724,6 +724,14 @@ $page_title = htmlspecialchars($program['title']);
               <div class="mt-8 bg-green-50 border-2 border-green-200 rounded-xl shadow-sm p-8 flex items-center gap-4"><i class="ph ph-check-circle text-4xl text-green-500"></i><div><h3 class="text-lg font-bold text-green-800 mb-2">Story Completed!</h3><p class="text-green-900">You have finished this interactive section. You can proceed using the sidebar or Next button below.</p></div></div>
             <?php elseif (!empty($currentContent['interactive_sections'])): ?>
             <!-- Display ALL Interactive Sections -->
+            <?php 
+              $totalQuestionsInStory = 0;
+              $answeredQuestionsInStory = 0;
+
+              foreach ($currentContent['interactive_sections'] as $section) {
+                  $totalQuestionsInStory += count($section['questions']);
+              }
+            ?>
             <?php foreach ($currentContent['interactive_sections'] as $sectionIndex => $section): ?>
               <div class="mb-8">
                 <h3 class="text-2xl font-bold text-purple-900 mb-4">
@@ -893,29 +901,27 @@ quizForms.forEach(quizForm => {
           }
         }
       } else {
-        feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500';
+        feedbackDiv.className = "mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500";
         feedbackDiv.innerHTML = `
           <div class="flex items-center gap-3">
-            <i class="ph ph-x-circle text-3xl text-red-600"></i>
-            <div>
-              <h4 class="font-bold text-red-900">Incorrect Answer</h4>
-              <p class="text-red-800 text-sm">${data.message || 'Please try again.'}</p>
-            </div>
+              <i class="ph ph-x-circle text-3xl text-red-600"></i>
+              <div>
+                  <h4 class="font-bold text-red-900">Incorrect Answer</h4>
+                  <p class="text-red-800 text-sm">${data.message} Please try again.</p>
+              </div>
           </div>
-        `;
-
-        // ★★★ SHOW RETRY BUTTON ★★★
-        const retryBtn = quizForm.parentElement.querySelector('#retryBtn');
-        if (retryBtn) retryBtn.classList.remove('hidden');
-
-        // Hide submit button until retry
+          <button type="button" 
+                  onclick="retryQuestion(this)" 
+                  data-question-id="${questionId}"
+                  class="mt-4 px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors">
+              <i class="ph ph-arrow-clockwise mr-2"></i>Try Again
+          </button>
+      `;
+        
+        // Disable form until retry
         submitBtn.disabled = true;
         submitBtn.style.display = 'none';
-
-        // Disable radios to prevent changing answer without clicking retry
-        quizForm.querySelectorAll('input[type="radio"]').forEach(input => {
-          input.disabled = true;
-        });
+        quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
       }
     }).catch(error => {
       Swal.fire({title: 'Error', text: 'Failed to submit answer. Please try again.', icon: 'error', confirmButtonColor: '#dc2626'});
@@ -924,17 +930,38 @@ quizForms.forEach(quizForm => {
 });
 
 
-function retryQuestion() {
-  const feedbackDiv = document.getElementById('answerFeedback');
-  const retryBtn = document.getElementById('retryBtn');
-  const submitBtn = quizForm.querySelector('button[type="submit"]');
-  const radios = quizForm.querySelectorAll('input[type="radio"]');
-  feedbackDiv.classList.add('hidden');
-  retryBtn.classList.add('hidden');
-  submitBtn.style.display = '';
-  submitBtn.disabled = false;
-  radios.forEach(radio => { radio.checked = false; radio.disabled = false; });
-  canProceed = false;
+function retryQuestion(btn) {
+    const questionId = btn.dataset.questionId;
+    
+    // Find the specific quiz form using question ID
+    const quizForm = document.querySelector(`.quizForm[data-question-id="${questionId}"]`);
+    
+    if (!quizForm) {
+        console.error('Quiz form not found for question:', questionId);
+        return;
+    }
+    
+    const feedbackDiv = quizForm.nextElementSibling;
+    const submitBtn = quizForm.querySelector('button[type="submit"]');
+    const radios = quizForm.querySelectorAll('input[type="radio"]');
+    
+    // Reset feedback
+    feedbackDiv.classList.add('hidden');
+    feedbackDiv.innerHTML = '';
+    
+    // Re-enable form
+    if (submitBtn) {
+        submitBtn.style.display = 'block';
+        submitBtn.disabled = false;
+    }
+    
+    // Clear and enable radio buttons
+    radios.forEach(radio => {
+        radio.checked = false;
+        radio.disabled = false;
+    });
+    
+    canProceed = false;
 }
 
 // Auto-refresh progress bar on page load
