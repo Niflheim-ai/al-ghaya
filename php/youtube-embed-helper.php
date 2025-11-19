@@ -48,25 +48,50 @@
     function toVideoEmbedUrl($url) {
         $url = trim($url);
         if (!$url) return '';
-        
-        // Already an embed or preview
+
+        // Already embed URL
         if (strpos($url, '/embed/') !== false || strpos($url, '/preview') !== false) {
             return $url;
         }
-        // YouTube long and short
-        if (preg_match('/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/', $url, $matches)) {
+
+        // ============================
+        // YOUTUBE
+        // ============================
+
+        // Full match for multiple YouTube URL patterns
+        $youtubeRegex = '/
+            (?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|
+            youtu\.be\/)
+            ([a-zA-Z0-9_-]{6,})
+        /x';
+
+        if (preg_match($youtubeRegex, $url, $matches)) {
             return 'https://www.youtube.com/embed/' . $matches[1];
         }
-        // Google Drive "file/d/ID/view"
+
+        // ============================
+        // GOOGLE DRIVE
+        // ============================
+
+        // file/d/ID/...
         if (preg_match('/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/', $url, $matches)) {
             return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
         }
-        // Google Drive "open?id=ID"
+
+        // open?id=ID
         if (preg_match('/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/', $url, $matches)) {
             return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
         }
-        // Default: return original
-        return $url;
-    }
 
+        // uc?id=ID
+        if (preg_match('/drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/', $url, $matches)) {
+            return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
+        }
+
+        // ============================
+        // FALLBACK: Return empty (avoids X-Frame errors)
+        // ============================
+
+        return ''; // SAFER than returning original URL
+    }
 ?>
