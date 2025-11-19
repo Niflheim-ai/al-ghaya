@@ -142,40 +142,84 @@ class PayMongo {
     
     /**
      * Make API Request to PayMongo
+     * FIXED: Added User-Agent header and improved error handling for CloudFront 403 errors
      */
     private static function makeRequest($method, $url, $data = null) {
         $ch = curl_init();
         
+        // ✅ FIX: Add User-Agent header to prevent CloudFront 403 errors
         $headers = [
             'Authorization: Basic ' . base64_encode(PAYMONGO_SECRET_KEY . ':'),
             'Content-Type: application/json',
-            'Accept: application/json'
+            'Accept: application/json',
+            'User-Agent: Al-Ghaya-LMS/1.0 (PHP/' . PHP_VERSION . ')'
         ];
         
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, !PAYMONGO_TEST_MODE);
+        
+        // ✅ FIX: Always verify SSL in production, but allow testing in dev mode
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        
+        // ✅ FIX: Set timeout to prevent hanging requests
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        
+        // ✅ FIX: Follow redirects (CloudFront may redirect)
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
         
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             if ($data) {
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+                $jsonData = json_encode($data);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+                
+                // ✅ Log request for debugging (remove in production)
+                if (PAYMONGO_TEST_MODE) {
+                    error_log("PayMongo API Request: {$url}");
+                    error_log("Request Data: " . $jsonData);
+                }
             }
         }
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
         
         curl_close($ch);
         
+        // ✅ Enhanced error logging
         if ($curlError) {
-            error_log("PayMongo cURL Error: " . $curlError);
+            error_log("PayMongo cURL Error ({$curlErrno}): {$curlError}");
             return [
                 'success' => false, 
-                'error' => $curlError,
-                'error_type' => 'curl_error'
+                'error' => ['cURL error: ' . $curlError],
+                'error_type' => 'curl_error',
+                'http_code' => $httpCode
+            ];
+        }
+        
+        // ✅ Log full response for debugging 403 errors
+        if ($httpCode === 403) {
+            error_log("PayMongo 403 Error - Full Response: " . substr($response, 0, 500));
+            error_log("Request URL: {$url}");
+            error_log("Request Method: {$method}");
+            
+            return [
+                'success' => false,
+                'error' => [
+                    'CloudFront blocked the request. Possible causes:',
+                    '1. Invalid or test API keys being used in production',
+                    '2. API key doesn\'t have required permissions',
+                    '3. Request blocked by PayMongo\'s security',
+                    'Please verify your API keys in the .env file'
+                ],
+                'http_code' => 403,
+                'error_type' => 'cloudfront_blocked'
             ];
         }
         
@@ -184,10 +228,21 @@ class PayMongo {
         if ($httpCode >= 200 && $httpCode < 300) {
             return ['success' => true, 'data' => $result];
         } else {
-            error_log("PayMongo API Error (HTTP {$httpCode}): " . $response);
+            // ✅ Better error formatting
+            $errorMessage = 'Unknown error occurred';
+            $errors = [];
+            
+            if (is_array($result) && isset($result['errors'])) {
+                $errors = $result['errors'];
+            } elseif (is_string($response)) {
+                $errors = [$response];
+            }
+            
+            error_log("PayMongo API Error (HTTP {$httpCode}): " . json_encode($errors));
+            
             return [
                 'success' => false, 
-                'error' => $result['errors'] ?? ['Unknown error occurred'],
+                'error' => $errors,
                 'http_code' => $httpCode,
                 'error_type' => 'api_error'
             ];
