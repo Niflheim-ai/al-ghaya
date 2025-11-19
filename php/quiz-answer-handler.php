@@ -232,87 +232,111 @@ try {
             }
             exit;
         case 'get_progress':
-            $program_id = intval($_POST['program_id'] ?? 0);
-            if (!$program_id) {
-                echo json_encode(['success' => false, 'message' => 'Program ID required']);
+            $program_id = isset($data['program_id']) ? (int)$data['program_id'] : 0;
+            $student_id = $_SESSION['userID'] ?? 0;
+            
+            if ($program_id <= 0 || $student_id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
                 exit;
             }
             
-            // Use your existing function to get chapters
-            $chapters = getChapters($conn, $program_id);
+            // ✅ Calculate TRUE progress: stories + quizzes + exam
             
-            // Count total items (stories + quizzes) across all chapters
-            $total_stories = 0;
-            $total_quizzes = 0;
-            $all_story_ids = [];
-            $all_quiz_ids = [];
+            // Stories
+            $totalStoriesStmt = $conn->prepare("
+                SELECT COUNT(DISTINCT cs.story_id) as total
+                FROM program_chapters pc
+                INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                WHERE pc.programID = ?
+            ");
+            $totalStoriesStmt->bind_param("i", $program_id);
+            $totalStoriesStmt->execute();
+            $totalStories = $totalStoriesStmt->get_result()->fetch_assoc()['total'] ?? 0;
+            $totalStoriesStmt->close();
+
+            $completedStoriesStmt = $conn->prepare("
+                SELECT COUNT(DISTINCT ssp.story_id) as completed
+                FROM program_chapters pc
+                INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+                INNER JOIN student_story_progress ssp ON cs.story_id = ssp.story_id
+                WHERE pc.programID = ? AND ssp.student_id = ? AND ssp.is_completed = 1
+            ");
+            $completedStoriesStmt->bind_param("ii", $program_id, $student_id);
+            $completedStoriesStmt->execute();
+            $completedStories = $completedStoriesStmt->get_result()->fetch_assoc()['completed'] ?? 0;
+            $completedStoriesStmt->close();
+
+            // Quizzes
+            $totalQuizzesStmt = $conn->prepare("
+                SELECT COUNT(DISTINCT cq.quiz_id) as total
+                FROM chapter_quizzes cq
+                INNER JOIN program_chapters pc ON cq.chapter_id = pc.chapter_id
+                WHERE pc.programID = ?
+            ");
+            $totalQuizzesStmt->bind_param("i", $program_id);
+            $totalQuizzesStmt->execute();
+            $totalQuizzes = $totalQuizzesStmt->get_result()->fetch_assoc()['total'] ?? 0;
+            $totalQuizzesStmt->close();
+
+            $passedQuizzesStmt = $conn->prepare("
+                SELECT COUNT(DISTINCT sqa.quiz_id) AS passed
+                FROM student_quiz_attempts sqa
+                INNER JOIN chapter_quizzes cq ON sqa.quiz_id = cq.quiz_id
+                INNER JOIN program_chapters pc ON cq.chapter_id = pc.chapter_id
+                WHERE pc.programID = ? AND sqa.student_id = ? AND sqa.is_passed = 1
+            ");
+            $passedQuizzesStmt->bind_param("ii", $program_id, $student_id);
+            $passedQuizzesStmt->execute();
+            $passedQuizzes = $passedQuizzesStmt->get_result()->fetch_assoc()['passed'] ?? 0;
+            $passedQuizzesStmt->close();
+
+            // Final Exam/Certificate
+            $examTotal = 0;
+            $examDone = 0;
+            $certCheckStmt = $conn->prepare("SELECT COUNT(*) as cnt FROM student_program_certificates WHERE program_id = ?");
+            $certCheckStmt->bind_param("i", $program_id);
+            $certCheckStmt->execute();
+            $hasCert = $certCheckStmt->get_result()->fetch_assoc()['cnt'] > 0;
+            $certCheckStmt->close();
             
-            foreach ($chapters as $chapter) {
-                // Count stories
-                $stories = chapter_getStories($conn, $chapter['chapter_id']);
-                $total_stories += count($stories);
-                foreach ($stories as $story) {
-                    $all_story_ids[] = $story['story_id'];
+            if ($hasCert) {
+                $examTotal = 1;
+                $certDoneStmt = $conn->prepare("SELECT 1 FROM student_program_certificates WHERE program_id = ? AND student_id = ? LIMIT 1");
+                $certDoneStmt->bind_param("ii", $program_id, $student_id);
+                $certDoneStmt->execute();
+                if ($certDoneStmt->get_result()->fetch_assoc()) {
+                    $examDone = 1;
                 }
-                
-                // Count quizzes
-                $quiz = getChapterQuiz($conn, $chapter['chapter_id']);
-                if ($quiz) {
-                    $total_quizzes++;
-                    $all_quiz_ids[] = $quiz['quiz_id'];
-                }
+                $certDoneStmt->close();
             }
-            
-            // Count completed stories
-            $completed_stories = 0;
-            if (!empty($all_story_ids)) {
-                $placeholders = implode(',', array_fill(0, count($all_story_ids), '?'));
-                $completedStmt = $conn->prepare("
-                    SELECT COUNT(*) as completed 
-                    FROM student_story_progress 
-                    WHERE student_id = ? AND story_id IN ($placeholders) AND is_completed = 1
-                ");
-                $params = array_merge([$student_id], $all_story_ids);
-                $types = str_repeat('i', count($params));
-                $completedStmt->bind_param($types, ...$params);
-                $completedStmt->execute();
-                $completed_stories = $completedStmt->get_result()->fetch_assoc()['completed'] ?? 0;
-                $completedStmt->close();
-            }
-            
-            // Count passed quizzes
-            $passed_quizzes = 0;
-            if (!empty($all_quiz_ids)) {
-                $placeholders = implode(',', array_fill(0, count($all_quiz_ids), '?'));
-                $passedQuizStmt = $conn->prepare("
-                    SELECT COUNT(DISTINCT quiz_id) as passed
-                    FROM student_quiz_attempts
-                    WHERE student_id = ? AND quiz_id IN ($placeholders) AND is_passed = 1
-                ");
-                $params = array_merge([$student_id], $all_quiz_ids);
-                $types = str_repeat('i', count($params));
-                $passedQuizStmt->bind_param($types, ...$params);
-                $passedQuizStmt->execute();
-                $passed_quizzes = $passedQuizStmt->get_result()->fetch_assoc()['passed'] ?? 0;
-                $passedQuizStmt->close();
-            }
-            
-            // Calculate overall completion percentage (stories + quizzes)
-            $total_items = $total_stories + $total_quizzes;
-            $completed_items = $completed_stories + $passed_quizzes;
-            $completion_percentage = $total_items > 0 ? round(($completed_items / $total_items) * 100, 1) : 0;
-            
+
+            $complete = $completedStories + $passedQuizzes + $examDone;
+            $total = $totalStories + $totalQuizzes + $examTotal;
+            $completion_percentage = $total > 0 ? round(($complete / $total) * 100, 1) : 0.0;
+
+            // ✅ Also update the database for consistency
+            $updateStmt = $conn->prepare("
+                UPDATE student_program_enrollments 
+                SET completion_percentage = ?, last_accessed = NOW() 
+                WHERE student_id = ? AND program_id = ?
+            ");
+            $updateStmt->bind_param("dii", $completion_percentage, $student_id, $program_id);
+            $updateStmt->execute();
+            $updateStmt->close();
+
             echo json_encode([
                 'success' => true,
                 'completion_percentage' => $completion_percentage,
-                'completed_stories' => $completed_stories,
-                'total_stories' => $total_stories,
-                'passed_quizzes' => $passed_quizzes,
-                'total_quizzes' => $total_quizzes,
-                'completed_items' => $completed_items,
-                'total_items' => $total_items
+                'details' => [
+                    'completed_stories' => $completedStories,
+                    'total_stories' => $totalStories,
+                    'passed_quizzes' => $passedQuizzes,
+                    'total_quizzes' => $totalQuizzes,
+                    'exam_completed' => $examDone,
+                    'exam_available' => $examTotal
+                ]
             ]);
-            exit;
+        exit;
     }
 } catch (Exception $e) {
     error_log("Quiz Answer Handler Error: " . $e->getMessage());

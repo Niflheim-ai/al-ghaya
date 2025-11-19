@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'enrol
 }
 checkStudentAchievements($conn, $studentID);
 
+$programPercentage = calculateProgramProgress($conn, $studentID, $programID);
+
 if (!$isEnrolled) {
     $current_page = 'student-programs';
     $page_title = 'Program Details';
@@ -47,7 +49,7 @@ if (!$isEnrolled) {
 }
 
 $chapters = getChapters($conn, $programID);
-$completion = (float)($program['completion_percentage'] ?? 0);
+$completion = (float)($programPercentage ?? 0);
 $userStoryProgress = getUserStoryProgress($conn, $studentID, $programID);
 
 // Check exam pass/certificate
