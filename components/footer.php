@@ -46,7 +46,6 @@
     </div>
   </section>
 
-  <!-- Copyright -->
   <section class="h-fit w-fit">
     <p class="text-[14px] md:text-[15px] font-light text-center">© 2025 Al-Ghaya. All Rights Reserved.</p>
   </section>
