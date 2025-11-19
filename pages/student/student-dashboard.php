@@ -354,7 +354,7 @@
                         <p class="program-name-2 arabic font-bold notranslate"><?= htmlspecialchars($dailyChallenge['program_title']) ?></p>
                         <div class="flex items-center text-sm text-gray-600">
                             <i class="ph ph-trophy mr-2"></i>
-                            <span>Earn 10 points (or lose 5 if wrong)</span>
+                            <span>Get the correct answer and earn 10 points</span>
                         </div>
                     </div>
                     <!-- Responsive Divider -->

@@ -513,42 +513,66 @@ $page_title = htmlspecialchars($program['title']);
           <div id="examResult" class="hidden mt-8"></div>
         </div>
         <script>
-          document.getElementById('finalExamForm').onsubmit = function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            const answers = {};
-            for (var [k, v] of formData.entries()) {
-              if (k.startsWith('exam_answer_')) {
-                const idx = k.replace('exam_answer_', '');
-                answers[idx] = v;
+          const finalExamForm = document.getElementById('finalExamForm');
+
+          if (finalExamForm) {
+            finalExamForm.onsubmit = function(e) {
+              e.preventDefault();
+
+              const formData = new FormData(this);
+              const answers = {};
+
+              for (var [k, v] of formData.entries()) {
+                if (k.startsWith('exam_answer_')) {
+                  const idx = k.replace('exam_answer_', '');
+                  answers[idx] = v;
+                }
               }
-            }
-            const questionIDs = [];
-            for (let i = 0; i < formData.get('total_questions'); i++) {
-              questionIDs.push(formData.get('exam_question_id_' + i));
-            }
-            fetch('../../php/exam-answer-handler.php', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({
-                action: 'submit_final_exam',
-                answers,
-                questionIDs,
-                program_id: <?= $programID ?>
+
+              const questionIDs = [];
+              for (let i = 0; i < formData.get('total_questions'); i++) {
+                questionIDs.push(formData.get('exam_question_id_' + i));
+              }
+
+              fetch('../../php/exam-answer-handler.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  action: 'submit_final_exam',
+                  answers,
+                  questionIDs,
+                  program_id: <?= $programID ?>
+                })
               })
-            }).then(r=>r.json()).then(data => {
-              const resultDiv = document.getElementById('examResult');
-              resultDiv.classList.remove('hidden');
-              if(data.passed) {
-                resultDiv.innerHTML = `<div class='bg-green-100 text-green-900 border-green-400 border-2 rounded-lg p-6 text-xl font-bold'>Congratulations! You have earned a certificate for this program! <a href='<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>' class='underline text-green-700' target='_blank'>View Certificate</a></div>`;
-                setTimeout(()=>window.location = '?program_id=<?= $programID ?>', 2200);
-              } else {
-                resultDiv.innerHTML = `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>You did not pass the exam. All progress has been reset; you must restart the program.</div>`;
-                setTimeout(()=>window.location = '?program_id=<?= $programID ?>', 2200);
-              }
-            });
-          };
+              .then(r => r.json())
+              .then(data => {
+                const resultDiv = document.getElementById('examResult');
+                resultDiv.classList.remove('hidden');
+
+                if (data.passed) {
+                  resultDiv.innerHTML =
+                    `<div class='bg-green-100 text-green-900 border-green-400 border-2 rounded-lg p-6 text-xl font-bold'>
+                      Congratulations! You have earned a certificate for this program!
+                      <a href='<?= htmlspecialchars($certificate['certificate_url'] ?? '#') ?>'
+                        class='underline text-green-700'
+                        target='_blank'>View Certificate</a>
+                    </div>`;
+
+                  setTimeout(() => window.location = '?program_id=<?= $programID ?>', 2200);
+
+                } else {
+                  resultDiv.innerHTML =
+                    `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>
+                      You did not pass the exam. All progress has been reset; you must restart the program.
+                    </div>`;
+
+                  setTimeout(() => window.location = '?program_id=<?= $programID ?>', 2200);
+                }
+              });
+            };
+          }
         </script>
+
         <?php elseif ($currentType === 'chapter_quiz' && isset($quizQuestions)): ?>
         <?php
           // Check if student already passed this quiz
@@ -870,7 +894,28 @@ quizForms.forEach(quizForm => {
         }
       } else {
         feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500';
-        feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-x-circle text-3xl text-red-600"></i><div><h4 class="font-bold text-red-900">Incorrect Answer</h4><p class="text-red-800 text-sm">${data.message || 'Please try again.'}</p></div></div>`;
+        feedbackDiv.innerHTML = `
+          <div class="flex items-center gap-3">
+            <i class="ph ph-x-circle text-3xl text-red-600"></i>
+            <div>
+              <h4 class="font-bold text-red-900">Incorrect Answer</h4>
+              <p class="text-red-800 text-sm">${data.message || 'Please try again.'}</p>
+            </div>
+          </div>
+        `;
+
+        // ★★★ SHOW RETRY BUTTON ★★★
+        const retryBtn = quizForm.parentElement.querySelector('#retryBtn');
+        if (retryBtn) retryBtn.classList.remove('hidden');
+
+        // Hide submit button until retry
+        submitBtn.disabled = true;
+        submitBtn.style.display = 'none';
+
+        // Disable radios to prevent changing answer without clicking retry
+        quizForm.querySelectorAll('input[type="radio"]').forEach(input => {
+          input.disabled = true;
+        });
       }
     }).catch(error => {
       Swal.fire({title: 'Error', text: 'Failed to submit answer. Please try again.', icon: 'error', confirmButtonColor: '#dc2626'});
