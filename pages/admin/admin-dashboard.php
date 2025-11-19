@@ -1004,5 +1004,6 @@ function viewProgram(programId) {
     window.open(`../teacher/teacher-programs.php?action=view&program_id=${programId}`, '_blank');
 }
 </script>
+<?php include '../../components/footer.php'; ?>
 </body>
 </html>

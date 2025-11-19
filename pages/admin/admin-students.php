@@ -197,5 +197,6 @@ function downloadStudentRecords(){
   Swal.fire({icon:'success',title:'Downloaded!',text:'Student records have been downloaded.',timer:2000,showConfirmButton:false});
 }
 </script>
+<?php include '../../components/footer.php'; ?>
 </body>
 </html>

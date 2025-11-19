@@ -254,6 +254,7 @@ function deleteProgram(id){
   });
 }
 </script>
+<?php include '../../components/footer.php'; ?>
 
 </body>
 </html>

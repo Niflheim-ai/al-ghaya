@@ -873,6 +873,6 @@ document.addEventListener('keydown', function(e) {
     }
 });
 </script>
-
+<?php include '../../components/footer.php'; ?>
 </body>
 </html>

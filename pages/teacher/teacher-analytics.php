@@ -961,6 +961,7 @@ function printReport() {
 </script>
 
 <script src="../../dist/javascript/scroll-to-top.js"></script>
+<?php include '../../components/footer.php'; ?>
 
 <style>
 @media print {

@@ -283,6 +283,7 @@ require_once '../../php/program-core.php';
         console.log('Edit action confirmed');
     }
 </script>
+<?php include '../../components/footer.php'; ?>
 </body>
 
 </html>

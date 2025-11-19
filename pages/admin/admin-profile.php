@@ -453,5 +453,6 @@ $statsQuery = [
         this.value = value;
     });
     </script>
+    <?php include '../../components/footer.php'; ?>
 </body>
 </html>

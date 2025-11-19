@@ -751,5 +751,6 @@ $stats = $statsQuery->get_result()->fetch_assoc();
             this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
         });
     </script>
+    <?php include '../../components/footer.php'; ?>
 </body>
 </html>
