@@ -16,7 +16,7 @@ $page_title = "Programs";
 
 <!-- Page Container -->
 <div class="page-container">
-    <div class="page-content max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8">
+    <div class="page-content max-w-7xl mx-auto w-full sm:px-6 lg:px-8">
         <!-- 1ST Section -->
         <section class="content-section py-4 px-0 sm:px-4">
             <?php include '../../components/student-program-tabs.php'; ?>
