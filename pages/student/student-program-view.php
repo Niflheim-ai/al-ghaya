@@ -725,51 +725,112 @@ $page_title = htmlspecialchars($program['title']);
             <?php elseif (!empty($currentContent['interactive_sections'])): ?>
             <!-- Display ALL Interactive Sections -->
             <?php 
+              // First, calculate total progress for this story
               $totalQuestionsInStory = 0;
               $answeredQuestionsInStory = 0;
 
               foreach ($currentContent['interactive_sections'] as $section) {
                   $totalQuestionsInStory += count($section['questions']);
               }
-            ?>
-            <?php foreach ($currentContent['interactive_sections'] as $sectionIndex => $section): ?>
-              <div class="mb-8">
-                <h3 class="text-2xl font-bold text-purple-900 mb-4">
-                  <i class="ph ph-puzzle-piece mr-2"></i>
-                  Interactive Section <?= $sectionIndex + 1 ?>
-                </h3>
-                
-                <?php foreach ($section['questions'] as $questionIndex => $question): ?>
-                  <div id="quiz_section_<?= $section['section_id'] ?>_question_<?= $question['question_id'] ?>" class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 border-purple-300 mb-6">
-                    <p class="text-gray-800 font-medium mb-4 text-lg">
-                      <strong>Question <?= $questionIndex + 1 ?>:</strong> 
-                      <?= htmlspecialchars($question['question_text']) ?>
-                    </p>
-                    
-                    <form class="quizForm space-y-3" data-section-id="<?= $section['section_id'] ?>" data-question-id="<?= $question['question_id'] ?>" data-story-id="<?= $currentContent['story_id'] ?>">
-                      <?php if (!empty($question['options'])): ?>
-                        <?php foreach ($question['options'] as $optIndex => $option): ?>
-                          <label class="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-400 cursor-pointer transition-all">
-                            <input type="radio" 
-                                  name="answer_<?= $section['section_id'] ?>_<?= $question['question_id'] ?>" 
-                                  value="<?= $option['option_id'] ?>" 
-                                  class="w-5 h-5 text-purple-600" 
-                                  required>
-                            <span class="text-gray-800"><?= htmlspecialchars($option['option_text']) ?></span>
-                          </label>
-                        <?php endforeach; ?>
-                      <?php endif; ?>
+
+              // Now render sections
+              foreach ($currentContent['interactive_sections'] as $sectionIndex => $section): 
+              ?>
+                <div class="mb-8">
+                  <h3 class="text-2xl font-bold text-purple-900 mb-4">
+                    <i class="ph ph-puzzle-piece mr-2"></i>
+                    Interactive Section <?= $sectionIndex + 1 ?>
+                  </h3>
+                  
+                  <?php foreach ($section['questions'] as $questionIndex => $question): 
+                      $questionID = $question['question_id'];
                       
-                      <button type="submit" class="mt-6 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-lg transition-colors">
-                        <i class="ph ph-check-circle mr-2"></i>Submit Answer
-                      </button>
-                    </form>
-                    
-                    <div class="answerFeedback hidden mt-4 p-4 rounded-lg"></div>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-            <?php endforeach; ?>
+                      // ✅ CHECK: Is this question already answered correctly?
+                      $alreadyAnsweredStmt = $conn->prepare("
+                          SELECT is_correct, answer_date 
+                          FROM student_interactive_answers 
+                          WHERE student_id = ? AND question_id = ? AND is_correct = 1
+                      ");
+                      $alreadyAnsweredStmt->bind_param("ii", $studentID, $questionID);
+                      $alreadyAnsweredStmt->execute();
+                      $alreadyAnswered = $alreadyAnsweredStmt->get_result()->fetch_assoc();
+                      $alreadyAnsweredStmt->close();
+                      
+                      $isAlreadyCorrect = !empty($alreadyAnswered);
+                      
+                      if ($isAlreadyCorrect) {
+                          $answeredQuestionsInStory++;
+                      }
+                  ?>
+                    <div id="quiz_section_<?= $section['section_id'] ?>_question_<?= $question['question_id'] ?>" 
+                        class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 <?= $isAlreadyCorrect ? 'border-green-400' : 'border-purple-300' ?> mb-6">
+                      
+                      <p class="text-gray-800 font-medium mb-4 text-lg">
+                        <strong>Question <?= $questionIndex + 1 ?>:</strong> 
+                        <?= htmlspecialchars($question['question_text']) ?>
+                      </p>
+                      
+                      <?php if ($isAlreadyCorrect): ?>
+                        <!-- ✅ ALREADY ANSWERED CORRECTLY -->
+                        <div class="p-4 rounded-lg bg-green-100 border-2 border-green-500 mb-4">
+                          <div class="flex items-center gap-3">
+                            <i class="ph-fill ph-check-circle text-3xl text-green-600"></i>
+                            <div>
+                              <h6 class="font-bold text-green-900">Already Completed! ✓</h6>
+                              <p class="text-green-800 text-sm">
+                                You answered this correctly on <?= date('M j, Y', strtotime($alreadyAnswered['answer_date'])) ?>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <!-- Show disabled options -->
+                        <div class="space-y-3 opacity-60">
+                          <?php if (!empty($question['options'])): ?>
+                            <?php foreach ($question['options'] as $option): ?>
+                              <label class="flex items-center gap-3 p-4 bg-gray-100 rounded-lg border-2 border-gray-300 cursor-not-allowed">
+                                <input type="radio" disabled class="w-5 h-5">
+                                <span class="text-gray-600"><?= htmlspecialchars($option['option_text']) ?></span>
+                              </label>
+                            <?php endforeach; ?>
+                          <?php endif; ?>
+                        </div>
+                        
+                      <?php else: ?>
+                        <!-- ❓ NOT YET ANSWERED - Show Interactive Form -->
+                        <form class="quizForm space-y-3" 
+                              data-section-id="<?= $section['section_id'] ?>" 
+                              data-question-id="<?= $question['question_id'] ?>" 
+                              data-story-id="<?= $currentContent['story_id'] ?>"
+                              data-already-correct="false">
+                          
+                          <?php if (!empty($question['options'])): ?>
+                            <?php foreach ($question['options'] as $optIndex => $option): ?>
+                              <label class="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-400 hover:shadow-md cursor-pointer transition-all group">
+                                <input type="radio" 
+                                      name="answer_<?= $section['section_id'] ?>_<?= $question['question_id'] ?>" 
+                                      value="<?= $option['option_id'] ?>" 
+                                      class="w-5 h-5 text-purple-600" 
+                                      required>
+                                <span class="text-gray-800 group-hover:text-purple-900 font-medium">
+                                  <?= htmlspecialchars($option['option_text']) ?>
+                                </span>
+                              </label>
+                            <?php endforeach; ?>
+                          <?php endif; ?>
+                          
+                          <button type="submit" 
+                                  class="mt-6 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-lg transition-all transform hover:scale-[1.02]">
+                            <i class="ph ph-check-circle mr-2"></i>Submit Answer
+                          </button>
+                        </form>
+                        
+                        <div class="answerFeedback hidden mt-4 p-4 rounded-lg"></div>
+                      <?php endif; ?>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endforeach; ?>
           <?php endif; ?>
             <div id="nextStorySection" class="<?= $is_completed ? '' : 'hidden' ?> text-center pt-4">
               <?php
