@@ -496,3 +496,64 @@ if (basename($_SERVER['PHP_SELF']) === 'student-progress.php') {
         exit;
     }
 }
+
+function calculateProgramProgress($conn, $studentID, $programID) {
+    // Total stories
+    $tStoriesStmt = $conn->prepare("SELECT COUNT(DISTINCT cs.story_id) as total FROM program_chapters pc INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id WHERE pc.programID = ?");
+    $tStoriesStmt->bind_param("i", $programID);
+    $tStoriesStmt->execute();
+    $tStories = $tStoriesStmt->get_result()->fetch_assoc()['total'] ?? 0;
+    $tStoriesStmt->close();
+
+    // Completed stories
+    $cStoriesStmt = $conn->prepare("SELECT COUNT(DISTINCT ssp.story_id) as completed FROM program_chapters pc INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id INNER JOIN student_story_progress ssp ON cs.story_id = ssp.story_id WHERE pc.programID = ? AND ssp.student_id = ? AND ssp.is_completed = 1");
+    $cStoriesStmt->bind_param("ii", $programID, $studentID);
+    $cStoriesStmt->execute();
+    $cStories = $cStoriesStmt->get_result()->fetch_assoc()['completed'] ?? 0;
+    $cStoriesStmt->close();
+
+    // Total quizzes
+    $tQuizzesStmt = $conn->prepare("SELECT COUNT(DISTINCT cq.quiz_id) as total FROM chapter_quizzes cq INNER JOIN program_chapters pc ON cq.chapter_id = pc.chapter_id WHERE pc.programID = ?");
+    $tQuizzesStmt->bind_param("i", $programID);
+    $tQuizzesStmt->execute();
+    $tQuizzes = $tQuizzesStmt->get_result()->fetch_assoc()['total'] ?? 0;
+    $tQuizzesStmt->close();
+
+    // Passed quizzes
+    $cQuizzesStmt = $conn->prepare("SELECT COUNT(DISTINCT sqa.quiz_id) AS passed FROM student_quiz_attempts sqa INNER JOIN chapter_quizzes cq ON sqa.quiz_id = cq.quiz_id INNER JOIN program_chapters pc ON cq.chapter_id = pc.chapter_id WHERE pc.programID = ? AND sqa.student_id = ? AND sqa.is_passed = 1");
+    $cQuizzesStmt->bind_param("ii", $programID, $studentID);
+    $cQuizzesStmt->execute();
+    $cQuizzes = $cQuizzesStmt->get_result()->fetch_assoc()['passed'] ?? 0;
+    $cQuizzesStmt->close();
+
+    // Final Exam (if present)
+    // Assume there's only one per program; if not, adjust as needed
+    $hasFinalExam = false;
+    $finalExamComplete = false;
+    $fExamStmt = $conn->prepare("SELECT id FROM student_program_certificates WHERE program_id=? AND student_id=? LIMIT 1");
+    $fExamStmt->bind_param("ii", $programID, $studentID);
+    $fExamStmt->execute();
+    $finalExamRow = $fExamStmt->get_result()->fetch_assoc();
+    $fExamStmt->close();
+    if ($finalExamRow) {
+        $hasFinalExam = true;
+        $finalExamComplete = true;
+    } else {
+        // Check if there is an exam required (use your internal logic or set to true if *all* quizzes/stories complete usually enables it)
+        // For example, you could set $hasFinalExam = true if the program offers one.
+        // Here, we set as: if the program has any certificate record possible
+        $examPotentialStmt = $conn->prepare("SELECT COUNT(*) as exam FROM student_program_certificates WHERE program_id=?");
+        $examPotentialStmt->bind_param("i", $programID);
+        $examPotentialStmt->execute();
+        $hasFinalExam = $examPotentialStmt->get_result()->fetch_assoc()['exam'] > 0 ? true : false;
+        $examPotentialStmt->close();
+    }
+    $examFactor = $hasFinalExam ? 1 : 0;
+    $examDone   = $finalExamComplete ? 1 : 0;
+
+    $numComplete = $cStories + $cQuizzes + $examDone;
+    $numTotal    = $tStories + $tQuizzes + $examFactor;
+    $progress    = $numTotal > 0 ? round(($numComplete / $numTotal) * 100, 1) : 0.0;
+
+    return $progress;
+}

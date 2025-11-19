@@ -2,6 +2,7 @@
 session_start();
 require '../../php/dbConnection.php';
 require_once '../../php/functions.php';
+require_once '../../php/student-progress.php';
 
 if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
     header("Location: ../login.php");

@@ -1,6 +1,7 @@
 <?php
 require '../../php/dbConnection.php';
 require_once '../../php/functions.php';
+require_once '../../php/student-progress.php';
 
 // Determine which programs to fetch based on the active tab and filters
 $activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'my';
@@ -20,6 +21,80 @@ if ($activeTab === 'my') {
     $programs = array_values(array_filter($programs, function($p){
         return !isset($p['enrollment_status']) || $p['enrollment_status'] === 'not-enrolled';
     }));
+}
+
+function calcTrueProgramProgress($conn, $studentID, $programID) {
+    // Stories (total & completed)
+    $totalStoriesStmt = $conn->prepare("
+        SELECT COUNT(DISTINCT cs.story_id) as total
+        FROM program_chapters pc
+        INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+        WHERE pc.programID = ?
+    ");
+    $totalStoriesStmt->bind_param("i", $programID);
+    $totalStoriesStmt->execute();
+    $totalStories = $totalStoriesStmt->get_result()->fetch_assoc()['total'] ?? 0;
+    $totalStoriesStmt->close();
+
+    $completedStoriesStmt = $conn->prepare("
+        SELECT COUNT(DISTINCT ssp.story_id) as completed
+        FROM program_chapters pc
+        INNER JOIN chapter_stories cs ON pc.chapter_id = cs.chapter_id
+        INNER JOIN student_story_progress ssp ON cs.story_id = ssp.story_id
+        WHERE pc.programID = ? AND ssp.student_id = ? AND ssp.is_completed = 1
+    ");
+    $completedStoriesStmt->bind_param("ii", $programID, $studentID);
+    $completedStoriesStmt->execute();
+    $completedStories = $completedStoriesStmt->get_result()->fetch_assoc()['completed'] ?? 0;
+    $completedStoriesStmt->close();
+
+    // Quizzes (total & passed)
+    $totalQuizzesStmt = $conn->prepare("
+        SELECT COUNT(DISTINCT cq.quiz_id) as total
+        FROM chapter_quizzes cq
+        INNER JOIN program_chapters pc ON cq.chapter_id = pc.chapter_id
+        WHERE pc.programID = ?
+    ");
+    $totalQuizzesStmt->bind_param("i", $programID);
+    $totalQuizzesStmt->execute();
+    $totalQuizzes = $totalQuizzesStmt->get_result()->fetch_assoc()['total'] ?? 0;
+    $totalQuizzesStmt->close();
+
+    $passedQuizzesStmt = $conn->prepare("
+        SELECT COUNT(DISTINCT sqa.quiz_id) AS passed
+        FROM student_quiz_attempts sqa
+        INNER JOIN chapter_quizzes cq ON sqa.quiz_id = cq.quiz_id
+        INNER JOIN program_chapters pc ON cq.chapter_id = pc.chapter_id
+        WHERE pc.programID = ? AND sqa.student_id = ? AND sqa.is_passed = 1
+    ");
+    $passedQuizzesStmt->bind_param("ii", $programID, $studentID);
+    $passedQuizzesStmt->execute();
+    $passedQuizzes = $passedQuizzesStmt->get_result()->fetch_assoc()['passed'] ?? 0;
+    $passedQuizzesStmt->close();
+
+    // Exam: if certificate/record present, it's counted as 1 complete exam.
+    $examTotal = 0;
+    $examDone = 0;
+    $examStmt = $conn->prepare("SELECT COUNT(*) as cnt FROM student_program_certificates WHERE program_id=?");
+    $examStmt->bind_param("i", $programID);
+    $examStmt->execute();
+    $hasExam = $examStmt->get_result()->fetch_assoc()['cnt'] > 0;
+    $examStmt->close();
+    if ($hasExam) {
+        $examTotal = 1;
+        $examDoneStmt = $conn->prepare("SELECT 1 FROM student_program_certificates WHERE program_id=? AND student_id=? LIMIT 1");
+        $examDoneStmt->bind_param("ii", $programID, $studentID);
+        $examDoneStmt->execute();
+        if ($examDoneStmt->get_result()->fetch_assoc()) {
+            $examDone = 1;
+        }
+        $examDoneStmt->close();
+    }
+
+    $complete = $completedStories + $passedQuizzes + $examDone;
+    $total = $totalStories + $totalQuizzes + $examTotal;
+
+    return $total > 0 ? round(($complete / $total) * 100, 1) : 0.0;
 }
 
 // Helper: compute enrollees count per program (batch-friendly)
@@ -96,7 +171,7 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
                 $completedStoriesStmt->close();
 
                 // Calculate actual progress percentage
-                $completion = $totalStories > 0 ? round(($completedStories / $totalStories) * 100, 1) : 0.0;
+                $completion = calcTrueProgramProgress($conn, $studentId, $pid);
             } else {
                 $completion = 0.0;
             }

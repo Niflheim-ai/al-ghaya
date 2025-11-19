@@ -5,6 +5,7 @@
     require '../../php/functions.php';
     require_once '../../php/achievement-handler.php';
     require_once '../../php/daily-challenge.php';
+    require_once '../../php/student-progress.php';
 
     // Check if user is logged in and is a student
     if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
@@ -90,6 +91,9 @@
     $stmt->execute();
     $recentProgram = $stmt->get_result()->fetch_assoc();
     $stmt->close();
+
+    $recentProgramID = $recentProgram['programID'];
+    $progressPercent = calculateProgramProgress($conn, $studentID, $recentProgramID);
 
     // Add readable chapter info if program exists
     if ($recentProgram) {
@@ -251,9 +255,9 @@
                             <p class="label">Recent Program</p>
                             <p class="program-name-2 font-bold text-lg notranslate"><?= htmlspecialchars($recentProgram['title']) ?></p>
                             <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-green-500 h-2 rounded-full" style="width: <?= $recentProgram['progress'] ?>%"></div>
+                                <div class="bg-green-500 h-2 rounded-full" style="width: <?= $progressPercent ?>%"></div>
                             </div>
-                            <p class="text-sm text-gray-600"><?= round($recentProgram['progress'], 1) ?>% Complete</p>
+                            <p class="text-sm text-gray-600"><?= round($progressPercent, 1) ?>% Complete</p>
                         </div>
 
                         <!-- Current Chapter -->
