@@ -139,7 +139,7 @@ function submitDailyChallenge($conn, $user_id, $question_id, $user_answer) {
     
     // Check if answer is correct
     $is_correct = (trim(strtolower($user_answer)) === trim(strtolower($correctResult['option_text'])));
-    $points = $is_correct ? 10 : -5;
+    $points = $is_correct ? 10 : 0; // ✅ FIXED: No penalty for wrong answers, just 0 points
     
     // Record attempt (will be fresh in debug mode due to delete above)
     $insertStmt = $conn->prepare("
@@ -150,29 +150,25 @@ function submitDailyChallenge($conn, $user_id, $question_id, $user_answer) {
     $insertStmt->execute();
     $insertStmt->close();
     
-    // Update user points
-    if ($is_correct) {
+    // ✅ FIXED: Only update points if correct (no penalty for wrong answers)
+    if ($is_correct && $points > 0) {
         $updateStmt = $conn->prepare("UPDATE user SET points = points + ? WHERE userID = ?");
-    } else {
-        // Do nothing
+        $updateStmt->bind_param("ii", $points, $user_id);
+        $updateStmt->execute();
+        $updateStmt->close();
+        
+        // Create transaction record for activity feed
+        $activityType = 'daily_challenge_correct';
+        $description = 'Completed daily challenge correctly';
+        
+        $transactionStmt = $conn->prepare("
+            INSERT INTO point_transactions (userID, points, activity_type, description, dateCreated) 
+            VALUES (?, ?, ?, ?, NOW())
+        ");
+        $transactionStmt->bind_param("iiss", $user_id, $points, $activityType, $description);
+        $transactionStmt->execute();
+        $transactionStmt->close();
     }
-    $updateStmt->bind_param("ii", $points, $user_id);
-    $updateStmt->execute();
-    $updateStmt->close();
-    
-    // Create transaction record for activity feed
-    $activityType = $is_correct ? 'daily_challenge_correct' : 'daily_challenge_incorrect';
-    $description = $is_correct ? 
-        'Completed daily challenge correctly' : 
-        'Attempted daily challenge (incorrect)';
-    
-    $transactionStmt = $conn->prepare("
-        INSERT INTO point_transactions (userID, points, activity_type, description, dateCreated) 
-        VALUES (?, ?, ?, ?, NOW())
-    ");
-    $transactionStmt->bind_param("iiss", $user_id, $points, $activityType, $description);
-    $transactionStmt->execute();
-    $transactionStmt->close();
     
     $debugMsg = DEBUG_MODE ? ' [DEBUG MODE - Retry Available]' : '';
     
@@ -182,7 +178,7 @@ function submitDailyChallenge($conn, $user_id, $question_id, $user_answer) {
         'points_awarded' => $points,
         'message' => $is_correct ? 
             "Correct! You earned {$points} points!{$debugMsg}" : 
-            "Incorrect. You lost 5 points.{$debugMsg}"
+            "Incorrect. Try again tomorrow!{$debugMsg}"
     ];
 }
 
