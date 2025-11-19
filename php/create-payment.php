@@ -1,9 +1,8 @@
 <?php
 /**
- * Create Payment Handler with Multi-Provider Support
+ * Create Payment Handler: PayMongo → Xendit fallback only
  * Handles enrollment and payment creation for programs
- * Supports: PayMongo, Xendit (GCash/PayMaya/GrabPay/QR), Manual Bank Transfer
- * Automatic fallback if primary provider fails
+ * Supports: PayMongo, Xendit (GCash/PayMaya/GrabPay/QR)
  */
 
 session_start();
@@ -134,86 +133,47 @@ try {
     
     // Determine which payment provider to use
     $provider = $preferred_provider ?? PaymentConfig::getActiveProvider();
-    
     $result = null;
     $paymentId = null;
     $checkoutUrl = null;
-    
-    // Try payment providers with automatic fallback
     $providersTried = [];
+    $fallbackOrder = ['paymongo', 'xendit'];
     
     while (!$result || !$result['success']) {
         $providersTried[] = $provider;
-        
         try {
             if ($provider === 'paymongo') {
                 require_once 'paymongo-helper.php';
                 $result = PayMongo::createCheckoutSession($amount, $description, $successUrl, $cancelUrl, $metadata);
-                
                 if ($result['success']) {
                     $session = $result['data']['data'];
                     $sessionId = $session['id'];
                     $checkoutUrl = $session['attributes']['checkout_url'];
                     $paymentId = PayMongo::createPaymentTransaction($student_id, $program_id, $amount, $currency, 'checkout_session', $sessionId);
                 }
-                
             } elseif ($provider === 'xendit') {
                 require_once 'xendit-helper.php';
                 $result = XenditHelper::createInvoice($amount, $description, $successUrl, $cancelUrl, $metadata);
-                
                 if ($result['success']) {
                     $invoice = $result['data'];
                     $invoiceId = $invoice['id'];
                     $checkoutUrl = $invoice['invoice_url'];
                     $paymentId = XenditHelper::createPaymentTransaction($student_id, $program_id, $amount, $invoiceId, 'invoice');
                 }
-                
-            } elseif ($provider === 'manual') {
-                // Manual bank transfer
-                $stmt = $conn->prepare("
-                    INSERT INTO payment_transactions 
-                    (student_id, program_id, amount, currency, payment_provider, payment_method, status, dateCreated) 
-                    VALUES (?, ?, ?, 'PHP', 'manual', 'bank_transfer', 'pending', NOW())
-                ");
-                $stmt->bind_param("iid", $student_id, $program_id, $amount);
-                $stmt->execute();
-                $paymentId = $stmt->insert_id;
-                $stmt->close();
-                
-                $bankConfig = PaymentConfig::getProviderConfig('manual');
-                
-                echo json_encode([
-                    'success' => true,
-                    'manual_payment' => true,
-                    'payment_id' => $paymentId,
-                    'amount' => $amount,
-                    'currency' => 'PHP',
-                    'bank_details' => $bankConfig,
-                    'redirect_url' => '../pages/student/manual-payment.php?payment_id=' . $paymentId,
-                    'message' => 'Please complete bank transfer to proceed with enrollment.'
-                ]);
-                exit;
             }
-            
         } catch (Exception $e) {
             error_log("Payment provider '{$provider}' failed: " . $e->getMessage());
             $result = ['success' => false, 'error' => [$e->getMessage()]];
         }
-        
-        // If failed, try next provider
         if (!$result['success']) {
             $nextProvider = null;
-            $fallbackOrder = ['paymongo', 'xendit', 'manual'];
-            
             foreach ($fallbackOrder as $p) {
                 if (!in_array($p, $providersTried) && PaymentConfig::isProviderAvailable($p)) {
                     $nextProvider = $p;
                     break;
                 }
             }
-            
             if (!$nextProvider) {
-                // All providers failed
                 echo json_encode([
                     'success' => false,
                     'message' => 'Payment processing is temporarily unavailable. Please try again later or contact support.',
@@ -222,14 +182,12 @@ try {
                 ]);
                 exit;
             }
-            
             $provider = $nextProvider;
         } else {
-            // Success!
             break;
         }
     }
-    
+
     // Store session info
     $_SESSION['pending_payment'] = [
         'payment_id' => $paymentId,
@@ -238,9 +196,7 @@ try {
         'amount' => $amount,
         'currency' => $currency
     ];
-    
     error_log("Payment created: Provider={$provider}, Payment ID={$paymentId}, Student={$student_id}, Program={$program_id}");
-    
     echo json_encode([
         'success' => true,
         'checkout_url' => $checkoutUrl,
@@ -250,10 +206,8 @@ try {
         'amount' => $amount,
         'currency' => $currency
     ]);
-    
 } catch (Exception $e) {
     error_log("Payment creation error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-    
     echo json_encode([
         'success' => false, 
         'message' => 'An unexpected error occurred. Please try again later.',
