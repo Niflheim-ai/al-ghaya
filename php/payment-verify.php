@@ -1,68 +1,132 @@
 <?php
-session_start();
-require_once 'dbConnection.php';
-require_once 'paymongo-helper.php';
+    session_start();
+    require_once 'dbConnection.php';
+    require_once 'payment-config.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
-    header('Location: ../pages/login.php');
-    exit;
-}
-
-$student_id = intval($_SESSION['userID']);
-
-// Get pending payment from session
-$pendingPayment = $_SESSION['pending_payment'] ?? null;
-
-if (!$pendingPayment) {
-    header('Location: ../pages/student/student-programs.php');
-    exit;
-}
-
-$session_id = $pendingPayment['session_id'];
-$program_id = $pendingPayment['program_id'];
-$payment_id = $pendingPayment['payment_id'];
-
-// Clear pending payment
-unset($_SESSION['pending_payment']);
-
-$enrollmentSuccess = false;
-$programTitle = '';
-$paymentStatus = 'unknown';
-
-try {
-    // Verify payment with PayMongo
-    $result = PayMongo::retrieveCheckoutSession($session_id);
-    
-    if ($result['success']) {
-        $session = $result['data']['data'];
-        $paymentStatus = $session['attributes']['payment_intent']['attributes']['status'] ?? 'unknown';
-        
-        if ($paymentStatus === 'succeeded' || $paymentStatus === 'processing' || $paymentStatus === 'awaiting_payment_method') {
-            // Update payment status in database
-            PayMongo::updatePaymentStatus($payment_id, 'paid', $session['attributes']);
-            
-            // Enroll student
-            $enrollmentId = PayMongo::enrollStudentInProgram($student_id, $program_id, $payment_id);
-            
-            $enrollmentSuccess = (bool)$enrollmentId;
-            
-            error_log("Enrollment successful: Student {$student_id}, Program {$program_id}, Enrollment {$enrollmentId}");
-        }
+    // Check if user is logged in
+    if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'student') {
+        header('Location: ../pages/login.php');
+        exit;
     }
-    
-    // Get program details
-    $stmt = $conn->prepare("SELECT title FROM programs WHERE programID = ?");
-    $stmt->bind_param("i", $program_id);
-    $stmt->execute();
-    $program = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-    
-    $programTitle = $program['title'] ?? 'the program';
-    
-} catch (Exception $e) {
-    error_log("Payment verification error: " . $e->getMessage());
-}
+
+    $student_id = intval($_SESSION['userID']);
+
+    // Get pending payment from session  
+    $pendingPayment = $_SESSION['pending_payment'] ?? null;
+
+    if (!$pendingPayment) {
+        header('Location: ../pages/student/student-programs.php');
+        exit;
+    }
+
+    // NEW: Get provider from session (supports both PayMongo and Xendit)
+    $payment_id = $pendingPayment['payment_id'] ?? null;
+    $program_id = $pendingPayment['program_id'] ?? null;
+    $provider = $pendingPayment['provider'] ?? 'paymongo';
+
+    if (!$payment_id || !$program_id) {
+        header('Location: ../pages/student/student-programs.php');
+        exit;
+    }
+
+    // Clear pending payment
+    unset($_SESSION['pending_payment']);
+
+    $enrollmentSuccess = false;
+    $programTitle = '';
+    $paymentStatus = 'unknown';
+    $errorMessage = '';
+
+    try {
+        // Verify payment based on provider
+        if ($provider === 'paymongo') {
+            require_once 'paymongo-helper.php';
+            
+            // Get payment record to find session_id
+            $stmt = $conn->prepare("SELECT payment_session_id FROM payment_transactions WHERE payment_id = ?");
+            $stmt->bind_param("i", $payment_id);
+            $stmt->execute();
+            $paymentRecord = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            
+            if ($paymentRecord && $paymentRecord['payment_session_id']) {
+                $session_id = $paymentRecord['payment_session_id'];
+                $result = PayMongo::retrieveCheckoutSession($session_id);
+                
+                if ($result['success']) {
+                    $session = $result['data']['data'];
+                    $paymentStatus = $session['attributes']['payment_intent']['attributes']['status'] ?? 'unknown';
+                    
+                    if ($paymentStatus === 'succeeded' || $paymentStatus === 'processing') {
+                        PayMongo::updatePaymentStatus($payment_id, 'paid', $session['attributes']);
+                        $enrollmentId = PayMongo::enrollStudentInProgram($student_id, $program_id, $payment_id);
+                        $enrollmentSuccess = (bool)$enrollmentId;
+                        error_log("PayMongo enrollment: Student {$student_id}, Program {$program_id}");
+                    }
+                } else {
+                    $paymentStatus = 'failed';
+                    $errorMessage = 'Failed to verify payment with PayMongo.';
+                }
+            } else {
+                $paymentStatus = 'invalid';
+                $errorMessage = 'Payment session not found.';
+            }
+            
+        } elseif ($provider === 'xendit') {
+            require_once 'xendit-helper.php';
+            
+            $stmt = $conn->prepare("SELECT payment_session_id FROM payment_transactions WHERE payment_id = ?");
+            $stmt->bind_param("i", $payment_id);
+            $stmt->execute();
+            $paymentRecord = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            
+            if ($paymentRecord && $paymentRecord['payment_session_id']) {
+                $invoice_id = $paymentRecord['payment_session_id'];
+                $result = XenditHelper::getInvoice($invoice_id);
+                
+                if ($result['success']) {
+                    $invoice = $result['data'];
+                    $invoiceStatus = strtolower($invoice['status'] ?? 'unknown');
+                    
+                    if ($invoiceStatus === 'paid' || $invoiceStatus === 'settled') {
+                        $paymentStatus = 'succeeded';
+                        XenditHelper::updatePaymentStatus($payment_id, 'paid', $invoice);
+                        
+                        $stmt = $conn->prepare("
+                            INSERT INTO student_program_enrollments 
+                            (student_id, program_id, enrollment_date, completion_percentage, last_accessed) 
+                            VALUES (?, ?, NOW(), 0.00, NOW())
+                            ON DUPLICATE KEY UPDATE last_accessed = NOW()
+                        ");
+                        $stmt->bind_param("ii", $student_id, $program_id);
+                        $enrollmentSuccess = $stmt->execute();
+                        $stmt->close();
+                        error_log("Xendit enrollment: Student {$student_id}, Program {$program_id}");
+                    } elseif ($invoiceStatus === 'pending') {
+                        $paymentStatus = 'pending';
+                        $errorMessage = 'Payment is still pending.';
+                    } else {
+                        $paymentStatus = $invoiceStatus;
+                        $errorMessage = 'Payment could not be verified.';
+                    }
+                }
+            }
+        }
+        
+        // Get program title
+        $stmt = $conn->prepare("SELECT title FROM programs WHERE programID = ?");
+        $stmt->bind_param("i", $program_id);
+        $stmt->execute();
+        $program = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $programTitle = $program['title'] ?? 'the program';
+        
+    } catch (Exception $e) {
+        error_log("Payment verification error: " . $e->getMessage());
+        $paymentStatus = 'error';
+        $errorMessage = 'An error occurred while verifying your payment.';
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -107,7 +171,7 @@ try {
                 
                 <!-- Success Message -->
                 <h1 class="text-3xl md:text-4xl font-bold text-white-600 mb-4 bg-green rounded-lg">
-                    Payment Successful!
+                    Payment Successful! via <?= ucfirst($provider) ?>
                 </h1>
                 
                 <p class="text-gray-600 text-lg mb-6">
@@ -165,7 +229,8 @@ try {
                 
                 <!-- Error Message -->
                 <h1 class="text-3xl md:text-4xl font-bold text-red-600 mb-4">
-                    Enrollment Failed
+                    Enrollment Failed Payment Provider: <?= ucfirst($provider) ?> | Reference: #<?= $payment_id ?>
+
                 </h1>
                 
                 <!-- Payment Status -->
@@ -202,7 +267,7 @@ try {
                 
                 <!-- Action Buttons -->
                 <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                    <a href="student-programs.php" 
+                    <a href="../pages/student/student-programs.php" 
                        class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-semibold shadow-lg transition-colors">
                         <i class="ph ph-arrow-left"></i>
                         Back to Programs

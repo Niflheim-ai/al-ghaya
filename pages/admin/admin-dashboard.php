@@ -99,6 +99,7 @@
   $stmt->execute();
   $res = $stmt->get_result(); while ($row = $res->fetch_assoc()) {$activity[]=$row;}
 ?>
+
 <?php include '../../components/header.php'; ?>
 <?php include '../../components/admin-nav.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -338,6 +339,198 @@
   </script>
 
   <script>
+    function approveProgram(programId) {
+      Swal.fire({
+          title: 'Approve Program?',
+          text: 'This will publish the program and make it available to students.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#10b981',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Yes, approve it!',
+          cancelButtonText: 'Cancel'
+      }).then((result) => {
+          if (result.isConfirmed) {
+              Swal.fire({
+                  title: 'Approving...',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  showConfirmButton: false,
+                  didOpen: () => { Swal.showLoading(); }
+              });
+              
+              const fd = new FormData();
+              fd.append('action', 'approve_program');
+              fd.append('programID', programId);
+              
+              fetch('../../php/program-core.php', {
+                  method: 'POST',
+                  body: fd
+              })
+              .then(r => r.json())
+              .then(data => {
+                  if (data.success) {
+                      Swal.fire({
+                          title: 'Approved!',
+                          text: 'Program has been published successfully.',
+                          icon: 'success',
+                          confirmButtonColor: '#3b82f6'
+                      }).then(() => {
+                          document.getElementById(`program-${programId}`).remove();
+                          location.reload();
+                      });
+                  } else {
+                      Swal.fire({
+                          title: 'Error',
+                          text: data.message || 'Failed to approve program.',
+                          icon: 'error',
+                          confirmButtonColor: '#3b82f6'
+                      });
+                  }
+              })
+              .catch(() => {
+                  Swal.fire({
+                      title: 'Error',
+                      text: 'Network error. Please try again.',
+                      icon: 'error',
+                      confirmButtonColor: '#3b82f6'
+                  });
+              });
+          }
+      });
+  }
+
+  function rejectProgram(programId) {
+      Swal.fire({
+          title: 'Reject Program?',
+          text: 'This will send the program back to draft status.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#dc2626',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Yes, reject it',
+          cancelButtonText: 'Cancel'
+      }).then((result) => {
+          if (result.isConfirmed) {
+              Swal.fire({
+                  title: 'Rejecting...',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  showConfirmButton: false,
+                  didOpen: () => { Swal.showLoading(); }
+              });
+              
+              const fd = new FormData();
+              fd.append('action', 'reject_program');
+              fd.append('programID', programId);
+              
+              fetch('../../php/program-core.php', {
+                  method: 'POST',
+                  body: fd
+              })
+              .then(r => r.json())
+              .then(data => {
+                  if (data.success) {
+                      Swal.fire({
+                          title: 'Rejected',
+                          text: 'Program has been sent back to draft status.',
+                          icon: 'success',
+                          confirmButtonColor: '#3b82f6'
+                      }).then(() => {
+                          document.getElementById(`program-${programId}`).remove();
+                          location.reload();
+                      });
+                  } else {
+                      Swal.fire({
+                          title: 'Error',
+                          text: data.message || 'Failed to reject program.',
+                          icon: 'error',
+                          confirmButtonColor: '#3b82f6'
+                      });
+                  }
+              })
+              .catch(() => {
+                  Swal.fire({
+                      title: 'Error',
+                      text: 'Network error. Please try again.',
+                      icon: 'error',
+                      confirmButtonColor: '#3b82f6'
+                  });
+              });
+          }
+      });
+  }
+
+  function bulkApproveAll() {
+      const pendingCount = <?= count($pendingPrograms) ?>;
+      if (pendingCount === 0) {
+          Swal.fire({
+              title: 'No Programs',
+              text: 'No pending programs to approve.',
+              icon: 'info'
+          });
+          return;
+      }
+      
+      Swal.fire({
+          title: `Approve All ${pendingCount} Programs?`,
+          text: 'This will publish all pending programs and make them available to students.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#10b981',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Yes, approve all!',
+          cancelButtonText: 'Cancel'
+      }).then((result) => {
+          if (result.isConfirmed) {
+              Swal.fire({
+                  title: 'Approving all programs...',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  showConfirmButton: false,
+                  didOpen: () => { Swal.showLoading(); }
+              });
+              
+              const programIds = <?= json_encode(array_column($pendingPrograms, 'programID')) ?>;
+              const fd = new FormData();
+              fd.append('action', 'bulk_approve_programs');
+              fd.append('program_ids', JSON.stringify(programIds));
+              
+              fetch('../../php/program-core.php', {
+                  method: 'POST',
+                  body: fd
+              })
+              .then(r => r.json())
+              .then(data => {
+                  if (data.success) {
+                      Swal.fire({
+                          title: 'All Approved!',
+                          text: `${data.approved || pendingCount} programs have been published successfully.`,
+                          icon: 'success',
+                          confirmButtonColor: '#3b82f6'
+                      }).then(() => {
+                          location.reload();
+                      });
+                  } else {
+                      Swal.fire({
+                          title: 'Error',
+                          text: data.message || 'Failed to approve all programs.',
+                          icon: 'error',
+                          confirmButtonColor: '#3b82f6'
+                      });
+                  }
+              })
+              .catch(() => {
+                  Swal.fire({
+                      title: 'Error',
+                      text: 'Network error. Please try again.',
+                      icon: 'error',
+                      confirmButtonColor: '#3b82f6'
+                  });
+              });
+          }
+      });
+  }
     document.addEventListener('DOMContentLoaded', function() {
       new DataTable('#activityTable',    {paging:true, searching:true, ordering:true});
       $('#enrollmentsTable').DataTable({
@@ -809,199 +1002,6 @@ function downloadAnalytics(){
 function viewProgram(programId) {
     // Open program details in new tab or modal
     window.open(`../teacher/teacher-programs.php?action=view&program_id=${programId}`, '_blank');
-}
-
-function approveProgram(programId) {
-    Swal.fire({
-        title: 'Approve Program?',
-        text: 'This will publish the program and make it available to students.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#10b981',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, approve it!',
-        cancelButtonText: 'Cancel'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Approving...',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-            
-            const fd = new FormData();
-            fd.append('action', 'approve_program');
-            fd.append('programID', programId);
-            
-            fetch('../../php/program-core.php', {
-                method: 'POST',
-                body: fd
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        title: 'Approved!',
-                        text: 'Program has been published successfully.',
-                        icon: 'success',
-                        confirmButtonColor: '#3b82f6'
-                    }).then(() => {
-                        document.getElementById(`program-${programId}`).remove();
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Error',
-                        text: data.message || 'Failed to approve program.',
-                        icon: 'error',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                }
-            })
-            .catch(() => {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Network error. Please try again.',
-                    icon: 'error',
-                    confirmButtonColor: '#3b82f6'
-                });
-            });
-        }
-    });
-}
-
-function rejectProgram(programId) {
-    Swal.fire({
-        title: 'Reject Program?',
-        text: 'This will send the program back to draft status.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, reject it',
-        cancelButtonText: 'Cancel'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Rejecting...',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-            
-            const fd = new FormData();
-            fd.append('action', 'reject_program');
-            fd.append('programID', programId);
-            
-            fetch('../../php/program-core.php', {
-                method: 'POST',
-                body: fd
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        title: 'Rejected',
-                        text: 'Program has been sent back to draft status.',
-                        icon: 'success',
-                        confirmButtonColor: '#3b82f6'
-                    }).then(() => {
-                        document.getElementById(`program-${programId}`).remove();
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Error',
-                        text: data.message || 'Failed to reject program.',
-                        icon: 'error',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                }
-            })
-            .catch(() => {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Network error. Please try again.',
-                    icon: 'error',
-                    confirmButtonColor: '#3b82f6'
-                });
-            });
-        }
-    });
-}
-
-function bulkApproveAll() {
-    const pendingCount = <?= count($pendingPrograms) ?>;
-    if (pendingCount === 0) {
-        Swal.fire({
-            title: 'No Programs',
-            text: 'No pending programs to approve.',
-            icon: 'info'
-        });
-        return;
-    }
-    
-    Swal.fire({
-        title: `Approve All ${pendingCount} Programs?`,
-        text: 'This will publish all pending programs and make them available to students.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#10b981',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, approve all!',
-        cancelButtonText: 'Cancel'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Approving all programs...',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-            
-            const programIds = <?= json_encode(array_column($pendingPrograms, 'programID')) ?>;
-            const fd = new FormData();
-            fd.append('action', 'bulk_approve_programs');
-            fd.append('program_ids', JSON.stringify(programIds));
-            
-            fetch('../../php/program-core.php', {
-                method: 'POST',
-                body: fd
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        title: 'All Approved!',
-                        text: `${data.approved || pendingCount} programs have been published successfully.`,
-                        icon: 'success',
-                        confirmButtonColor: '#3b82f6'
-                    }).then(() => {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Error',
-                        text: data.message || 'Failed to approve all programs.',
-                        icon: 'error',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                }
-            })
-            .catch(() => {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Network error. Please try again.',
-                    icon: 'error',
-                    confirmButtonColor: '#3b82f6'
-                });
-            });
-        }
-    });
 }
 </script>
 </body>
