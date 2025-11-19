@@ -25,7 +25,7 @@ $page_title = "Programs";
                 <?= isset($_GET['tab']) && $_GET['tab'] === 'all' ? 'All Programs' : 'Enrolled Programs' ?>
             </h1>
 
-            <div class="section-card flex flex-col gap-4 lg:gap-6 p-1 rounded-lg bg-white shadow w-full">
+            <div class="section-card flex flex-col gap-4 lg:gap-6 rounded-lg bg-white shadow w-full">
                 <!-- Filters -->
                 <form method="GET" action="" class="w-full flex flex-col gap-4 sm:gap-6">
                     <div class="w-full flex flex-col gap-4 sm:gap-6">

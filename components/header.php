@@ -74,7 +74,7 @@
     }
 
     .section-card {
-      @apply w-full h-auto flex bg-company_white rounded-[30px] p-[50px] overflow-hidden items-center;
+      @apply w-full h-auto flex bg-company_white rounded-[30px] p-[20px] lg:p-[40px] overflow-hidden items-center;
     }
    
     .section-card-payment {
