@@ -127,7 +127,7 @@ try {
     // Build URLs
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
-    $baseUrl = $protocol . '://' . $host . '/al-ghaya';
+    $baseUrl = $protocol . '://' . $host;
     $successUrl = $baseUrl . '/php/payment-verify.php';
     $cancelUrl = $baseUrl . '/pages/student/student-program-view.php?program_id=' . $program_id . '&payment=cancelled';
     
