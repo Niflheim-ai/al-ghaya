@@ -728,13 +728,28 @@ $page_title = htmlspecialchars($program['title']);
             </div>
             <?php if (!empty($currentContent['synopsis_arabic'])): ?>
               <div class="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-5 border-r-4 border-blue-600">
-                <h3 class="text-lg font-semibold text-blue-900 mb-2 flex items-center gap-2"><i class="ph ph-book-open"></i> ملخص القصة (Arabic Synopsis)</h3>
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-lg font-semibold text-blue-900 flex items-center gap-2 mb-0">
+                    <i class="ph ph-book-open"></i> ملخص القصة (Arabic Synopsis)
+                  </h3>
+                  <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($currentContent['synopsis_arabic'])) ?>" title="استمع">
+                    <i class="ph ph-speaker-simple-high"></i>
+                  </button>
+                </div>
                 <p class="text-gray-800 leading-relaxed text-right" dir="rtl"><?= nl2br(htmlspecialchars($currentContent['synopsis_arabic'])) ?></p>
               </div>
             <?php endif; ?>
+
             <?php if (!empty($currentContent['synopsis_english'])): ?>
               <div class="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-5 border-l-4 border-green-600">
-                <h3 class="text-lg font-semibold text-green-900 mb-2 flex items-center gap-2"><i class="ph ph-book-open"></i> English Synopsis</h3>
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-lg font-semibold text-green-900 flex items-center gap-2 mb-0">
+                    <i class="ph ph-book-open"></i> English Synopsis
+                  </h3>
+                  <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($currentContent['synopsis_english'])) ?>" title="Listen">
+                    <i class="ph ph-speaker-simple-high"></i>
+                  </button>
+                </div>
                 <p class="text-gray-800 leading-relaxed"><?= nl2br(htmlspecialchars($currentContent['synopsis_english'])) ?></p>
               </div>
             <?php endif; ?>
