@@ -513,9 +513,9 @@ $page_title = htmlspecialchars($program['title']);
                 <label class="flex gap-2 items-center">
                   <input type="radio" name="exam_answer_<?= $i ?>" value="<?= $opt['quiz_option_id'] ?>" required>
                   <?= htmlspecialchars($opt['option_text']) ?>
-                  <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($opt['option_text'])) ?>" title="Listen">
+                  <!-- <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($opt['option_text'])) ?>" title="Listen">
                     <i class="ph ph-speaker-simple-high"></i>
-                  </button>
+                  </button> -->
                 </label>
               </div>
               <?php endforeach; ?>
