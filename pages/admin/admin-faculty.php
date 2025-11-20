@@ -272,6 +272,12 @@ if ($publishQuery) {
 
 // Get update requests - you can customize this based on your update request logic
 $stats['update_requests'] = 0; // Placeholder
+
+$userQuery = $conn->prepare("SELECT fname, lname, email FROM user WHERE userID = ?");
+$userQuery->bind_param("i", $_SESSION['userID']);
+$userQuery->execute();
+$userInfo = $userQuery->get_result()->fetch_assoc();
+$userInitials = strtoupper(substr($userInfo['fname'], 0, 1) . substr($userInfo['lname'], 0, 1));
 ?>
 
 <?php include '../../components/header.php'; ?>
@@ -484,6 +490,35 @@ $stats['update_requests'] = 0; // Placeholder
     </div>
 </div>
 
+<!-- Program Review Modal -->
+<div id="programReviewModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-xl">
+    <!-- Modal Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
+      <div>
+        <h2 class="text-2xl font-bold" id="modalProgramTitle">Program Review</h2>
+        <p class="text-blue-100 text-sm mt-1" id="modalProgramTeacher"></p>
+      </div>
+      <button onclick="closeReviewModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="overflow-y-auto max-h-[calc(90vh-200px)] p-6" id="modalContent">
+      <div class="text-center py-8">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p class="text-gray-600 mt-4">Loading program details...</p>
+      </div>
+    </div>
+
+    <!-- Modal Footer with Actions -->
+    <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
+      <button onclick="closeReviewModal()" class="px-4 py-2 bg-red-600 rounded rounded-md text-white hover:text-gray-800 hover:bg-red-400">
+        Go Back
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -689,15 +724,153 @@ function archiveTeacher(userID, teacherName, archive) {
     });
 }
 
+let lastViewedTeacherId = null;
+
 function viewTeacher(userID) {
-    // Implement teacher details view - you can create a modal or redirect to a details page
-    console.log('View teacher details for userID:', userID);
-    Swal.fire({
-        icon: 'info',
-        title: 'Teacher Details',
-        text: 'Teacher details view will be implemented here.',
-        confirmButtonText: 'OK'
+  lastViewedTeacherId = userID;
+
+  Swal.fire({
+    title: '<span style="display:flex;align-items:center;gap:16px;"><i class="ph ph-chalkboard-simple" style="color:#2563eb;font-size:2em"></i> Teacher Details</span>',
+    width: 800,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    showCloseButton: false,
+    background: '#f9fafb',
+    customClass: { popup: 'swal2-popup-minimal' },
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  fetch('../../php/admin-get-teacher-details.php?teacherId=' + encodeURIComponent(userID))
+    .then(response => response.json())
+    .then(data => {
+      if (!data.success) {
+        Swal.fire('Error', data.message || 'Could not load teacher details.', 'error');
+        return;
+      }
+      let teacher = data.teacher;
+      let programs = data.programs;
+
+      let progList = programs.map(p =>
+        `<tr>
+          <td>
+            <a href="#" 
+               onclick="Swal.close(); openReviewModal(${p.programID}, ${userID}); return false;" 
+               style="color:#2563eb;text-decoration:none;font-weight:500;transition:color .15s;"
+               onmouseover="this.style.color='#334155'" 
+               onmouseout="this.style.color='#2563eb'">
+              ${escapeHtml(p.title)}
+            </a>
+          </td>
+          <td style="text-align:right">${p.enrollee_count}</td>
+        </tr>`
+      ).join('');
+
+      let progTableAndChart = `
+        <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">
+          <div style="flex:1 1 320px;min-width:260px;">
+            <div style="font-weight:600;font-size:16px;color:#475569;margin-bottom:15px;">Programs</div>
+            <table style="width:100%;background:#fff;border-radius:12px;overflow:hidden;">
+              <thead>
+                <tr>
+                  <th style="padding:10px 8px;text-align:left;color:#64748b;font-size:13px;font-weight:500;background:#f3f5f7;">Name</th>
+                  <th style="padding:10px 8px;text-align:right;color:#64748b;font-size:13px;font-weight:500;background:#f3f5f7;">Enrollees</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${progList || '<tr><td colspan="2" style="padding:14px 0;text-align:center;color:#aaa;font-size:15px;">No programs found</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+          <div style="flex:1 1 340px;min-width:220px;padding-left:16px;">
+            <div style="font-weight:600;font-size:16px;color:#475569;margin-bottom:14px;letter-spacing:.3px;">
+              Enrollees per Program
+            </div>
+            <div style="padding:8px 0 0;border-radius:16px;background:#fff;">
+              <canvas id="teacherProgramsChart" height="180" style="max-width:100%;background:#fff;border-radius:14px;"></canvas>
+            </div>
+          </div>
+        </div>
+      `;
+
+      Swal.fire({
+        html: `
+          <div style="text-align:left">
+            <div style="margin-bottom:22px;display:flex;align-items:center;gap:16px;">
+              <img src="../../images/male.svg" style="width:50px;height:50px;border-radius:50%;background:#e5e7eb;border:2px solid #f3f5f7;" />
+              <div>
+                <div style="font-size:1.4em;color:#2563eb;font-weight:700;">${escapeHtml(teacher.fname + ' ' + teacher.lname)}</div>
+                <div style="font-size:1em;color:#888;margin-bottom:4px;">Faculty Member</div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#475569;">
+                  <span style="padding:3px 12px;background:#e0e4ea;border-radius:8px;font-weight:500;">
+                    ${escapeHtml(teacher.specialization || 'No Specialization')}
+                  </span>
+                  <span style="padding:3px 12px;background:#fee2b3;border-radius:8px;font-weight:500;">
+                    Programs: ${data.total_programs}
+                  </span>
+                  <span style="padding:3px 12px;background:#d2f3e3;border-radius:8px;color:#15803d;font-weight:500;">
+                    Enrollees: ${data.total_enrollees}
+                  </span>
+                </div>
+              </div>
+            </div>
+            ${progTableAndChart}
+            <div style="margin-top:24px;text-align:right">
+              <button onclick="Swal.close()" style="background:#2563eb;color:#fff;font-size:15px;padding:7px 22px;border:none;border-radius:8px;font-weight:500;cursor:pointer;">
+                Close
+              </button>
+            </div>
+          </div>
+        `,
+        width: 800,
+        showCloseButton: false,
+        showConfirmButton: false,
+        background: '#f9fafb',
+        customClass: { popup: 'swal2-popup-minimal' },
+        didOpen: () => {
+          if (programs.length) {
+            let ctx = document.getElementById('teacherProgramsChart').getContext('2d');
+            new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels: programs.map(p => p.title),
+                datasets: [{
+                  label: 'Enrollees',
+                  data: programs.map(p => p.enrollee_count),
+                  backgroundColor: '#2563eb',
+                  barPercentage: 0.8,
+                  categoryPercentage: 0.55,
+                  borderRadius: 5,
+                  borderSkipped: false
+                }]
+              },
+              options: {
+                indexAxis: 'y',
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { enabled: true }
+                },
+                scales: {
+                  x: {
+                    grid: { color: "#f3f5f7" },
+                    ticks: { color: "#64748b", font: { size: 13 } }
+                  },
+                  y: {
+                    grid: { color: "#f3f5f7" },
+                    ticks: { color: "#64748b", font: { size: 13 } }
+                  },
+                }
+              }
+            });
+          }
+        }
+      });
     });
+}
+
+function escapeHtml(text) {
+  let div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function downloadFacultyRecords() {
@@ -873,6 +1046,375 @@ document.addEventListener('keydown', function(e) {
     }
 });
 </script>
+
+<!-- Open View Program Modal -->
+<script>
+    let currentProgramId = null;
+
+    // Open review modal and load program details
+    function openReviewModal(programId) {
+        currentProgramId = programId;
+        document.getElementById('programReviewModal').classList.remove('hidden');
+        loadProgramDetails(programId);
+    }
+
+    // Close modal
+    function closeReviewModal() {
+        const reviewModal = document.getElementById('programReviewModal');
+        if (reviewModal) reviewModal.classList.add('hidden');
+
+        // Show the last-viewed teacher modal again
+        if (lastViewedTeacherId !== null) {
+            // Use your actual modal show function for viewTeacher
+            viewTeacher(lastViewedTeacherId);
+        }
+        currentProgramId = null;
+    }
+
+    function loadProgramDetails(programId) {
+    const modalContent = document.getElementById('modalContent');
+    
+    console.log('Loading program ID:', programId);
+    
+    fetch(`../../php/admin-get-program-details.php?program_id=${programId}`)
+        .then(response => response.json())
+        .then(data => {
+        console.log('Full response:', data); // ✅ Debug
+        if (data.success) {
+            console.log('Program chapters:', data.program.chapters); // ✅ Debug
+            if (data.program.chapters && data.program.chapters.length > 0) {
+            console.log('First chapter:', data.program.chapters[0]); // ✅ Debug
+            console.log('Has quiz?', data.program.chapters[0].has_quiz); // ✅ Debug
+            console.log('Question?', data.program.chapters[0].question); // ✅ Debug
+            }
+            renderProgramDetails(data.program);
+        } else {
+            modalContent.innerHTML = `<div class="text-center py-8 text-red-600">Error loading program: ${data.message}</div>`;
+        }
+        })
+        .catch(error => {
+        modalContent.innerHTML = `<div class="text-center py-8 text-red-600">Failed to load program details.</div>`;
+        console.error('Error:', error);
+        });
+    }
+
+    // Render program details in modal
+    function renderProgramDetails(program) {
+    const modalContent = document.getElementById('modalContent');
+    document.getElementById('modalProgramTitle').textContent = program.title;
+    document.getElementById('modalProgramTeacher').textContent = `Teacher: ${program.teacher_name} (${program.teacher_email})`;
+    
+    let chaptersHtml = '';
+    if (program.chapters && program.chapters.length > 0) {
+        program.chapters.forEach((chapter, idx) => {
+        // Stories section
+        let storiesHtml = '';
+        if (chapter.stories && chapter.stories.length > 0) {
+            chapter.stories.forEach((story, sIdx) => {
+            // Interactive sections for this story
+            let interactiveSectionsHtml = '';
+            if (story.interactive_sections && story.interactive_sections.length > 0) {
+                interactiveSectionsHtml = `
+                <div class="mt-4 space-y-3">
+                    <p class="text-xs font-semibold text-purple-800 mb-2">
+                    <i class="ph ph-magic-wand text-purple-600 mr-1"></i>
+                    Interactive Sections (${story.interactive_sections.length})
+                    </p>
+                    ${story.interactive_sections.map((section, secIdx) => {
+                    // Render questions for this section
+                    let questionsHtml = '';
+                    if (section.questions && section.questions.length > 0) {
+                        questionsHtml = section.questions.map((question, qIdx) => {
+                        // Render options
+                        let optionsHtml = question.options.map(opt => {
+                            const isCorrect = opt.is_correct == 1;
+                            return `
+                            <div class="p-2 rounded border ${isCorrect ? 'bg-green-100 border-green-500 font-semibold' : 'bg-gray-50 border-gray-300'}">
+                                ${isCorrect ? '<i class="ph ph-check-circle text-green-600 mr-1"></i>' : ''}
+                                ${escapeHtml(opt.option_text)}
+                                ${isCorrect ? '<span class="text-green-600 text-xs ml-2">(Correct)</span>' : ''}
+                            </div>
+                            `;
+                        }).join('');
+                        
+                        return `
+                            <div class="mb-3">
+                            <p class="font-medium text-gray-800 mb-2">${qIdx + 1}. ${escapeHtml(question.question_text)}</p>
+                            <p class="text-xs text-gray-500 mb-2">Type: ${question.question_type}</p>
+                            <div class="space-y-1 ml-3">
+                                ${optionsHtml}
+                            </div>
+                            </div>
+                        `;
+                        }).join('');
+                    }
+                    
+                    return `
+                        <div class="p-3 bg-purple-50 border-l-4 border-purple-400 rounded">
+                        <p class="text-xs font-semibold text-purple-900 mb-3">Section ${secIdx + 1}</p>
+                        ${questionsHtml || '<p class="text-xs text-gray-500 italic">No questions in this section</p>'}
+                        </div>
+                    `;
+                    }).join('')}
+                </div>
+                `;
+            }
+            
+            storiesHtml += `
+                <div class="ml-6 mb-4 p-4 bg-white border border-gray-300 rounded-lg shadow-sm">
+                <h5 class="font-bold text-blue-900 mb-2 flex items-center gap-2">
+                    <i class="ph ph-book-open text-blue-600"></i>
+                    Story ${sIdx + 1}: ${escapeHtml(story.title)}
+                </h5>
+                
+                <!-- Arabic Synopsis -->
+                <div class="mb-3 p-3 bg-amber-50 border-l-4 border-amber-400 rounded">
+                    <p class="text-xs font-semibold text-amber-800 mb-1">Arabic Synopsis:</p>
+                    <p class="text-sm text-gray-800 arabic leading-relaxed">${escapeHtml(story.synopsis_arabic)}</p>
+                </div>
+                
+                <!-- English Synopsis -->
+                <div class="mb-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                    <p class="text-xs font-semibold text-blue-800 mb-1">English Synopsis:</p>
+                    <p class="text-sm text-gray-800 leading-relaxed">${escapeHtml(story.synopsis_english)}</p>
+                </div>
+                
+                <!-- Video Player -->
+                ${story.video_url_embed ? `
+                    <div class="mt-3">
+                    <p class="text-xs font-semibold text-gray-700 mb-2">Video Content:</p>
+                    <div class="relative" style="padding-bottom: 56.25%; height: 0;">
+                        <iframe 
+                        src="${escapeHtml(story.video_url_embed)}" 
+                        class="absolute top-0 left-0 w-full h-full rounded-lg"
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        allowfullscreen>
+                        </iframe>
+                    </div>
+                    </div>
+                ` : (story.video_url ? `<p class="text-xs text-gray-500 italic">Video URL: ${escapeHtml(story.video_url)}</p>` : '<p class="text-xs text-gray-500 italic">No video for this story</p>')}
+                
+                <!-- Interactive Sections -->
+                ${interactiveSectionsHtml}
+                </div>
+            `;
+            });
+        } else {
+            storiesHtml = '<p class="ml-6 text-sm text-gray-500 italic">No stories in this chapter</p>';
+        }
+        
+        // Chapter Interactive Question (if exists)
+        let chapterQuestionHtml = '';
+        if (chapter.question && chapter.question_type) {
+            let optionsHtml = '';
+            if (chapter.question_type === 'multiple_choice' && chapter.answer_options_parsed) {
+            optionsHtml = chapter.answer_options_parsed.map(option => {
+                const isCorrect = option === chapter.correct_answer;
+                return `
+                <div class="p-2 rounded border ${isCorrect ? 'bg-green-100 border-green-500 font-semibold' : 'bg-gray-50 border-gray-300'}">
+                    ${isCorrect ? '<i class="ph ph-check-circle text-green-600 mr-2"></i>' : ''}
+                    ${escapeHtml(option)}
+                    ${isCorrect ? '<span class="text-green-600 text-xs ml-2">(Correct Answer)</span>' : ''}
+                </div>
+                `;
+            }).join('');
+            } else if (chapter.question_type === 'true_false') {
+            optionsHtml = `
+                <div class="p-2 rounded border ${chapter.correct_answer === 'True' ? 'bg-green-100 border-green-500 font-semibold' : 'bg-gray-50 border-gray-300'}">
+                ${chapter.correct_answer === 'True' ? '<i class="ph ph-check-circle text-green-600 mr-2"></i>' : ''}
+                True
+                ${chapter.correct_answer === 'True' ? '<span class="text-green-600 text-xs ml-2">(Correct Answer)</span>' : ''}
+                </div>
+                <div class="p-2 rounded border ${chapter.correct_answer === 'False' ? 'bg-green-100 border-green-500 font-semibold' : 'bg-gray-50 border-gray-300'}">
+                ${chapter.correct_answer === 'False' ? '<i class="ph ph-check-circle text-green-600 mr-2"></i>' : ''}
+                False
+                ${chapter.correct_answer === 'False' ? '<span class="text-green-600 text-xs ml-2">(Correct Answer)</span>' : ''}
+                </div>
+            `;
+            } else {
+            optionsHtml = `<div class="p-2 bg-green-100 border border-green-500 rounded"><strong>Correct Answer:</strong> ${escapeHtml(chapter.correct_answer)}</div>`;
+            }
+            
+            chapterQuestionHtml = `
+            <div class="ml-6 mt-4 p-4 bg-purple-50 border-2 border-purple-400 rounded-lg">
+                <h6 class="font-semibold text-purple-900 mb-2 flex items-center gap-2">
+                <i class="ph ph-question text-purple-600"></i>
+                Chapter Interactive Question (${chapter.points_reward} points)
+                </h6>
+                <p class="text-sm font-medium text-gray-800 mb-3">${escapeHtml(chapter.question)}</p>
+                <div class="space-y-2">
+                ${optionsHtml}
+                </div>
+            </div>
+            `;
+        }
+        
+        // Chapter Media
+        let chapterMediaHtml = '';
+        if (chapter.video_url_embed || chapter.audio_url) {
+            chapterMediaHtml = '<div class="ml-6 mt-3 space-y-3">';
+            if (chapter.video_url_embed) {
+            chapterMediaHtml += `
+                <div>
+                <p class="text-xs font-semibold text-gray-700 mb-2">Chapter Video:</p>
+                <div class="relative" style="padding-bottom: 56.25%; height: 0;">
+                    <iframe 
+                    src="${escapeHtml(chapter.video_url_embed)}" 
+                    class="absolute top-0 left-0 w-full h-full rounded-lg"
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                    allowfullscreen>
+                    </iframe>
+                </div>
+                </div>
+            `;
+            }
+            if (chapter.audio_url) {
+            chapterMediaHtml += `
+                <div>
+                <p class="text-xs font-semibold text-gray-700 mb-2">Chapter Audio:</p>
+                <audio controls class="w-full">
+                    <source src="${escapeHtml(chapter.audio_url)}" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+                </div>
+            `;
+            }
+            chapterMediaHtml += '</div>';
+        }
+        
+        // Chapter Quiz
+        let quizHtml = '';
+        if (chapter.has_quiz && chapter.quiz_questions && chapter.quiz_questions.length > 0) {
+            let questionsHtml = chapter.quiz_questions.map((q, qIdx) => {
+            let optionsListHtml = q.options.map(opt => {
+                const isCorrect = opt.is_correct == 1;
+                return `
+                <div class="p-2 rounded border ${isCorrect ? 'bg-green-100 border-green-500 font-semibold' : 'bg-gray-50 border-gray-300'}">
+                    ${isCorrect ? '<i class="ph ph-check-circle text-green-600 mr-2"></i>' : ''}
+                    ${escapeHtml(opt.option_text)}
+                    ${isCorrect ? '<span class="text-green-600 text-xs ml-2">(Correct)</span>' : ''}
+                </div>
+                `;
+            }).join('');
+            
+            return `
+                <div class="mb-3 p-3 bg-white border border-gray-300 rounded">
+                <p class="font-medium text-gray-800 mb-2">${qIdx + 1}. ${escapeHtml(q.question_text)}</p>
+                <div class="space-y-1 ml-4">
+                    ${optionsListHtml}
+                </div>
+                </div>
+            `;
+            }).join('');
+            
+            quizHtml = `
+            <div class="ml-6 mt-4 p-4 bg-green-50 border-2 border-green-400 rounded-lg">
+                <h6 class="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                <i class="ph ph-exam text-green-600"></i>
+                Chapter Quiz (${chapter.quiz_questions.length} questions)
+                </h6>
+                ${questionsHtml}
+            </div>
+            `;
+        }
+        
+        chaptersHtml += `
+            <div class="mb-6 border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-xl font-bold text-gray-900">
+                <i class="ph ph-book-bookmark text-blue-600 mr-2"></i>
+                Chapter ${chapter.chapter_order}: ${escapeHtml(chapter.title)}
+                </h4>
+                <div class="flex gap-2 text-xs">
+                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded font-semibold">${chapter.story_count} stories</span>
+                ${chapter.has_quiz ? `<span class="bg-green-100 text-green-800 px-2 py-1 rounded font-semibold">Has Quiz</span>` : ''}
+                </div>
+            </div>
+            ${chapter.content ? `<div class="mb-4 p-3 bg-white border-l-4 border-blue-500 rounded"><p class="text-sm text-gray-700">${escapeHtml(chapter.content)}</p></div>` : ''}
+            ${chapterMediaHtml}
+            ${storiesHtml}
+            ${chapterQuestionHtml}
+            ${quizHtml}
+            </div>
+        `;
+        });
+    } else {
+        chaptersHtml = '<p class="text-gray-500 italic">No chapters found in this program</p>';
+    }
+    
+    modalContent.innerHTML = `
+        <div class="space-y-6">
+        <!-- Program Overview -->
+        <div class="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-5 shadow-sm">
+            <h3 class="text-xl font-bold text-blue-900 mb-4">📋 Program Overview</h3>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+            <div class="bg-white p-2 rounded"><strong>Difficulty:</strong> <span class="capitalize">${escapeHtml(program.category)}</span></div>
+            <div class="bg-white p-2 rounded"><strong>Price:</strong> ₱${parseFloat(program.price).toFixed(2)}</div>
+            </div>
+            <div class="bg-white p-3 rounded">
+            <strong class="text-gray-900">Description:</strong>
+            <p class="text-gray-700 mt-1">${escapeHtml(program.description)}</p>
+            </div>
+            ${program.prerequisites ? `
+            <div class="bg-white p-3 rounded mt-3">
+                <strong class="text-gray-900">Prerequisites:</strong>
+                <p class="text-gray-700 mt-1">${escapeHtml(program.prerequisites)}</p>
+            </div>
+            ` : ''} 
+            ${program.learning_objectives ? `
+            <div class="bg-white p-3 rounded mt-3">
+                <strong class="text-gray-900">Learning Objectives:</strong>
+                <p class="text-gray-700 mt-1">${escapeHtml(program.learning_objectives)}</p>
+            </div>
+            ` : ''}
+        </div>
+
+        <!-- Overview Video -->
+            ${program.overview_video_url_embed ? `
+            <div class="mb-4">
+                <p class="text-sm font-semibold text-blue-900 mb-2">
+                <i class="ph ph-play-circle text-blue-600 mr-1"></i>
+                Program Introduction Video
+                </p>
+                <div class="relative bg-white rounded-lg overflow-hidden" style="padding-bottom: 56.25%; height: 0;">
+                <iframe 
+                    src="${escapeHtml(program.overview_video_url_embed)}" 
+                    class="absolute top-0 left-0 w-full h-full"
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                    allowfullscreen>
+                </iframe>
+                </div>
+            </div>
+            ` : ''}
+
+        <!-- Chapters and Content -->
+        <div>
+            <h3 class="text-xl font-bold text-gray-900 mb-4">📚 Program Content (${program.chapters ? program.chapters.length : 0} Chapters)</h3>
+            ${chaptersHtml}
+        </div>
+        </div>
+    `;
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeReviewModal();
+    }
+    });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <?php include '../../components/footer.php'; ?>
 </body>
 </html>
