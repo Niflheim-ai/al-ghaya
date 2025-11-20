@@ -883,158 +883,158 @@ $page_title = htmlspecialchars($program['title']);
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-const programId = <?= $programID ?>;
-let canProceed = false;
+  const programId = <?= $programID ?>;
+  let canProceed = false;
 
-function toggleChapter(chapterId) {
-  const panel = document.getElementById('chapter-panel-' + chapterId);
-  const chevron = document.getElementById('chev-' + chapterId);
-  if (panel.classList.contains('hidden')) {
-    panel.classList.remove('hidden');
-    chevron.style.transform = 'rotate(0deg)';
-  } else {
-    panel.classList.add('hidden');
-    chevron.style.transform = 'rotate(-90deg)';
+  function toggleChapter(chapterId) {
+    const panel = document.getElementById('chapter-panel-' + chapterId);
+    const chevron = document.getElementById('chev-' + chapterId);
+    if (panel.classList.contains('hidden')) {
+      panel.classList.remove('hidden');
+      chevron.style.transform = 'rotate(0deg)';
+    } else {
+      panel.classList.add('hidden');
+      chevron.style.transform = 'rotate(-90deg)';
+    }
   }
-}
 
-<?php if ($currentContent && isset($currentContent['chapter_id'])): ?>
-toggleChapter(<?= $currentContent['chapter_id'] ?>);
-<?php endif; ?>
+  <?php if ($currentContent && isset($currentContent['chapter_id'])): ?>
+  toggleChapter(<?= $currentContent['chapter_id'] ?>);
+  <?php endif; ?>
 
-function updateProgress() {
-  fetch('../../php/quiz-answer-handler.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({action: 'get_progress', program_id: programId})
-  }).then(response => response.json()).then(data => {
-    if (data.success) {
-      const percentage = data.completion_percentage || 0;
-      const progressBar = document.getElementById('progressBar');
-      const progressPercent = document.getElementById('progressPercent');
-      if (progressBar) progressBar.style.width = percentage + '%';
-      if (progressPercent) progressPercent.textContent = percentage.toFixed(1) + '%';
-    }
-  }).catch(error => console.error('Progress update error:', error));
-}
-
-// Handle ALL quiz forms
-const quizForms = document.querySelectorAll('.quizForm');
-quizForms.forEach(quizForm => {
-  const storyIdFromPHP = <?php echo $storyID; ?>;
-  
-  quizForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(quizForm);
-    const questionId = quizForm.dataset.questionId;
-    const sectionId = quizForm.dataset.sectionId;
-    const storyId = quizForm.dataset.storyId;
-    
-    // Get selected answer
-    const selectedAnswer = Array.from(formData.values())[0];
-    
-    if (!selectedAnswer) {
-      Swal.fire({title:'No Answer Selected', text:'Please select an answer before submitting.', icon:'warning', confirmButtonColor:'#ea580c'});
-      return;
-    }
-    
+  function updateProgress() {
     fetch('../../php/quiz-answer-handler.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'check_interactive_answer',
-        question_id: questionId,  
-        option_id: selectedAnswer,
-        story_id: storyId,
-        section_id: sectionId
-      })
+      body: JSON.stringify({action: 'get_progress', program_id: programId})
     }).then(response => response.json()).then(data => {
-      const feedbackDiv = quizForm.nextElementSibling;
-      const submitBtn = quizForm.querySelector('button[type="submit"]');
-      
-      feedbackDiv.classList.remove('hidden');
-      
-      if (data.correct) {
-        feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-green-100 border-2 border-green-500';
-        feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-check-circle text-3xl text-green-600"></i><div><h4 class="font-bold text-green-900">Correct! Well Done! 🎉</h4><p class="text-green-800 text-sm">${data.message || 'Continue to next section.'}</p></div></div>`;
-        
-        submitBtn.disabled = true;
-        quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
-        updateProgress();
-        // Reveal Next Story Section button instantly when section completed
-        if (data.sectionCompleted) {
-          const nextSectionDiv = document.getElementById('nextStorySection');
-          if (nextSectionDiv) {
-            nextSectionDiv.classList.remove('hidden');
-          }
-        }
-      } else {
-        feedbackDiv.className = "mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500";
-        feedbackDiv.innerHTML = `
-          <div class="flex items-center gap-3">
-              <i class="ph ph-x-circle text-3xl text-red-600"></i>
-              <div>
-                  <h4 class="font-bold text-red-900">Incorrect Answer</h4>
-                  <p class="text-red-800 text-sm">${data.message} Please try again.</p>
-              </div>
-          </div>
-          <button type="button" 
-                  onclick="retryQuestion(this)" 
-                  data-question-id="${questionId}"
-                  class="mt-4 px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors">
-              <i class="ph ph-arrow-clockwise mr-2"></i>Try Again
-          </button>
-      `;
-        
-        // Disable form until retry
-        submitBtn.disabled = true;
-        submitBtn.style.display = 'none';
-        quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
+      if (data.success) {
+        const percentage = data.completion_percentage || 0;
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        if (progressBar) progressBar.style.width = percentage + '%';
+        if (progressPercent) progressPercent.textContent = percentage.toFixed(1) + '%';
       }
-    }).catch(error => {
-      Swal.fire({title: 'Error', text: 'Failed to submit answer. Please try again.', icon: 'error', confirmButtonColor: '#dc2626'});
+    }).catch(error => console.error('Progress update error:', error));
+  }
+
+  // Handle ALL quiz forms
+  const quizForms = document.querySelectorAll('.quizForm');
+  quizForms.forEach(quizForm => {
+    const storyIdFromPHP = <?php echo $storyID; ?>;
+    
+    quizForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(quizForm);
+      const questionId = quizForm.dataset.questionId;
+      const sectionId = quizForm.dataset.sectionId;
+      const storyId = quizForm.dataset.storyId;
+      
+      // Get selected answer
+      const selectedAnswer = Array.from(formData.values())[0];
+      
+      if (!selectedAnswer) {
+        Swal.fire({title:'No Answer Selected', text:'Please select an answer before submitting.', icon:'warning', confirmButtonColor:'#ea580c'});
+        return;
+      }
+      
+      fetch('../../php/quiz-answer-handler.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check_interactive_answer',
+          question_id: questionId,  
+          option_id: selectedAnswer,
+          story_id: storyId,
+          section_id: sectionId
+        })
+      }).then(response => response.json()).then(data => {
+        const feedbackDiv = quizForm.nextElementSibling;
+        const submitBtn = quizForm.querySelector('button[type="submit"]');
+        
+        feedbackDiv.classList.remove('hidden');
+        
+        if (data.correct) {
+          feedbackDiv.className = 'mt-4 p-4 rounded-lg bg-green-100 border-2 border-green-500';
+          feedbackDiv.innerHTML = `<div class="flex items-center gap-3"><i class="ph ph-check-circle text-3xl text-green-600"></i><div><h4 class="font-bold text-green-900">Correct! Well Done! 🎉</h4><p class="text-green-800 text-sm">${data.message || 'Continue to next section.'}</p></div></div>`;
+          
+          submitBtn.disabled = true;
+          quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
+          updateProgress();
+          // Reveal Next Story Section button instantly when section completed
+          if (data.sectionCompleted) {
+            const nextSectionDiv = document.getElementById('nextStorySection');
+            if (nextSectionDiv) {
+              nextSectionDiv.classList.remove('hidden');
+            }
+          }
+        } else {
+          feedbackDiv.className = "mt-4 p-4 rounded-lg bg-red-100 border-2 border-red-500";
+          feedbackDiv.innerHTML = `
+            <div class="flex items-center gap-3">
+                <i class="ph ph-x-circle text-3xl text-red-600"></i>
+                <div>
+                    <h4 class="font-bold text-red-900">Incorrect Answer</h4>
+                    <p class="text-red-800 text-sm">${data.message} Please try again.</p>
+                </div>
+            </div>
+            <button type="button" 
+                    onclick="retryQuestion(this)" 
+                    data-question-id="${questionId}"
+                    class="mt-4 px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors">
+                <i class="ph ph-arrow-clockwise mr-2"></i>Try Again
+            </button>
+        `;
+          
+          // Disable form until retry
+          submitBtn.disabled = true;
+          submitBtn.style.display = 'none';
+          quizForm.querySelectorAll('input[type="radio"]').forEach(input => input.disabled = true);
+        }
+      }).catch(error => {
+        Swal.fire({title: 'Error', text: 'Failed to submit answer. Please try again.', icon: 'error', confirmButtonColor: '#dc2626'});
+      });
     });
   });
-});
 
 
-function retryQuestion(btn) {
-    const questionId = btn.dataset.questionId;
-    
-    // Find the specific quiz form using question ID
-    const quizForm = document.querySelector(`.quizForm[data-question-id="${questionId}"]`);
-    
-    if (!quizForm) {
-        console.error('Quiz form not found for question:', questionId);
-        return;
-    }
-    
-    const feedbackDiv = quizForm.nextElementSibling;
-    const submitBtn = quizForm.querySelector('button[type="submit"]');
-    const radios = quizForm.querySelectorAll('input[type="radio"]');
-    
-    // Reset feedback
-    feedbackDiv.classList.add('hidden');
-    feedbackDiv.innerHTML = '';
-    
-    // Re-enable form
-    if (submitBtn) {
-        submitBtn.style.display = 'block';
-        submitBtn.disabled = false;
-    }
-    
-    // Clear and enable radio buttons
-    radios.forEach(radio => {
-        radio.checked = false;
-        radio.disabled = false;
-    });
-    
-    canProceed = false;
-}
+  function retryQuestion(btn) {
+      const questionId = btn.dataset.questionId;
+      
+      // Find the specific quiz form using question ID
+      const quizForm = document.querySelector(`.quizForm[data-question-id="${questionId}"]`);
+      
+      if (!quizForm) {
+          console.error('Quiz form not found for question:', questionId);
+          return;
+      }
+      
+      const feedbackDiv = quizForm.nextElementSibling;
+      const submitBtn = quizForm.querySelector('button[type="submit"]');
+      const radios = quizForm.querySelectorAll('input[type="radio"]');
+      
+      // Reset feedback
+      feedbackDiv.classList.add('hidden');
+      feedbackDiv.innerHTML = '';
+      
+      // Re-enable form
+      if (submitBtn) {
+          submitBtn.style.display = 'block';
+          submitBtn.disabled = false;
+      }
+      
+      // Clear and enable radio buttons
+      radios.forEach(radio => {
+          radio.checked = false;
+          radio.disabled = false;
+      });
+      
+      canProceed = false;
+  }
 
-// Auto-refresh progress bar on page load
-document.addEventListener('DOMContentLoaded', function() {
-    updateProgress();
-});
+  // Auto-refresh progress bar on page load
+  document.addEventListener('DOMContentLoaded', function() {
+      updateProgress();
+  });
 </script>
 <?php include '../../components/footer.php'; ?>
