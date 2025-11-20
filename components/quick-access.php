@@ -77,6 +77,13 @@
                                 Choose what you want to update:
                             </p>
                         </div>
+                        <button onclick="showProgramCloneSelector()" class="w-full text-left px-4 py-2 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center gap-3">
+                            <i class="ph ph-pencil-simple text-yellow-600"></i>
+                            <div>
+                                <div class="font-medium text-yellow-900">Update Published Program</div>
+                                <div class="text-sm text-yellow-700">Clone and edit a program (without affecting current enrollees)</div>
+                            </div>
+                        </button>
                         <div class="mt-4 space-y-3">
                             <button onclick="bulkUpdateStatus()" class="w-full text-left px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-3">
                                 <i class="ph ph-arrow-circle-up text-blue-600"></i>
@@ -344,6 +351,67 @@ function closeUpdateModal() {
     if (modal) {
         modal.classList.add('hidden');
     }
+}
+
+function showProgramCloneSelector() {
+    // Optionally close your modal, or let SweetAlert overlay over it
+    closeUpdateModal();
+    document.getElementById('updateModal').classList.add('hidden');
+    Swal.fire({
+        title: 'Select a Program to Update',
+        html: '<div id="cloneProgramList" style="min-height:120px;text-align:center;display:flex;align-items:center;justify-content:center;"><i class="ph ph-spinner animate-spin text-2xl text-blue-500"></i> Loading published programs...</div>',
+        showCloseButton: true,
+        width: 500,
+        background: '#fcfbf5',
+        didOpen: () => {
+            fetch("../../php/get-published-programs.php")
+                .then(r => r.json()).then(data => {
+                    let html = '';
+                    if (data && data.length) {
+                        html += `<ul style="margin:0;padding:0;list-style:none;">` +
+                        data.map(prog =>
+                        `<li style="margin-bottom:12px;padding:7px 12px;background:#fff;border-radius:7px;">
+                            <span style="font-weight:500;color:#2563eb;">${escapeHtml(prog.title)}</span>
+                            <button onclick="doCloneAndEditProgram(${prog.programID});" style="background:#2563eb;color:#fff;padding:3px 12px;border-radius:6px;font-size:14px;font-weight:500;margin-left:10px;cursor:pointer;">
+                                Clone to Update
+                            </button>
+                        </li>`).join('') + '</ul>';
+                    } else {
+                        html = `<div style="color:#aaa;">No published programs found.</div>`;
+                    }
+                    document.getElementById('cloneProgramList').innerHTML = html;
+                });
+        }
+    });
+}
+
+function doCloneAndEditProgram(programId) {
+    Swal.fire({ title: 'Cloning program...', allowOutsideClick: false, didOpen:()=>Swal.showLoading() });
+    fetch("../../php/clone-program.php", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: "programId=" + encodeURIComponent(programId)
+    }).then(r=>r.json()).then(res => {
+        if (res.success) {
+            Swal.fire({
+                icon: "success",
+                title: "Draft created!",
+                text: "You can now edit and re-publish your update.",
+                timer: 1100,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.href = "program-edit.php?program_id=" + res.newProgramId;
+            });
+        } else {
+            Swal.fire('Error', 'Failed to create draft copy for update.', 'error');
+        }
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function bulkUpdateStatus() {

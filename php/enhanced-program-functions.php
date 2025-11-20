@@ -33,6 +33,19 @@ function getTeacherPrograms($conn, $teacher_id, $status = null) {
     return $result->fetch_all(MYSQLI_ASSOC);
 }
 
+function getTeacherPublishedPrograms($conn, $teacher_id) {
+    $sql = "SELECT p.*, t.userID 
+            FROM programs p 
+            JOIN teacher t ON p.teacherID = t.teacherID 
+            WHERE p.status = 'published' AND t.teacherID = ?
+            ORDER BY p.dateCreated DESC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $teacher_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
 /**
  * Get all published programs (for Program Library)
  */
