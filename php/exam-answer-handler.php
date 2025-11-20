@@ -3,6 +3,8 @@
 session_start();
 require_once 'dbConnection.php';
 require_once 'program-core.php';
+require_once 'gamification.php';
+require_once 'achievement-handler.php';
 
 // POST: action, answers, questionIDs, program_id
 header('Content-Type: application/json');
@@ -66,22 +68,50 @@ if ($action === 'submit_final_exam') {
         $certStmt->bind_param("iis", $student_id, $program_id, $certificateUrl);
         $certStmt->execute();
         $certStmt->close();
+
+        // --- Add this block ---
+        $programFinishPoints = 50; // or any value
+        // Fetch program title
+        $titleStmt = $conn->prepare("SELECT title FROM programs WHERE programID = ?");
+        $titleStmt->bind_param("i", $program_id);
+        $titleStmt->execute();
+        $titleRow = $titleStmt->get_result()->fetch_assoc();
+        $titleStmt->close();
+        $programTitle = $titleRow ? $titleRow['title'] : ('Program ID ' . $program_id);
+
+        $gamification = new GamificationSystem($conn);
+        $gamification->awardPoints(
+            $student_id,
+            $programFinishPoints,
+            'program_complete',
+            'Completed program final exam for "' . $programTitle . '"'
+        );
+        $achievementHandler = new AchievementHandler($conn, $student_id);
+        $achievementHandler->checkPointsAchievements();
         
         echo json_encode([
             'success' => true,
             'passed' => true,
-            'message' => 'Congratulations! You passed the exam and earned your certificate!',
+            'message' => htmlspecialchars("Congratulations! You passed the exam and earned your certificate! You've been awarded 50 points!"),
             'certificate_url' => $certificateUrl
         ]);
         exit;
     } else {
-      // Reset all progress!
-      $conn->query("DELETE FROM student_story_progress WHERE student_id={$student_id} AND story_id IN (SELECT cs.story_id FROM chapter_stories cs JOIN program_chapters pc ON cs.chapter_id=pc.chapter_id WHERE pc.programID={$program_id})");
-      $conn->query("DELETE FROM student_quiz_attempts WHERE student_id={$student_id} AND quiz_id IN (SELECT cq.quiz_id FROM chapter_quizzes cq JOIN program_chapters pc ON cq.chapter_id=pc.chapter_id WHERE pc.programID={$program_id})");
-      $conn->query("DELETE FROM student_chapter_progress WHERE studentID={$student_id} AND programID={$program_id}");
-      $conn->query("UPDATE student_program_enrollments SET completion_percentage=0 WHERE student_id={$student_id} AND program_id={$program_id}");
-      echo json_encode(['success'=>true, 'passed'=>false, 'score'=>$score_percent]);
-    }
+        // Reset all progress!
+        $conn->query("DELETE FROM student_story_progress WHERE student_id={$student_id} AND story_id IN (SELECT cs.story_id FROM chapter_stories cs JOIN program_chapters pc ON cs.chapter_id=pc.chapter_id WHERE pc.programID={$program_id})");
+        $conn->query("DELETE FROM student_quiz_attempts WHERE student_id={$student_id} AND quiz_id IN (SELECT cq.quiz_id FROM chapter_quizzes cq JOIN program_chapters pc ON cq.chapter_id=pc.chapter_id WHERE pc.programID={$program_id})");
+        $conn->query("DELETE FROM student_chapter_progress WHERE studentID={$student_id} AND programID={$program_id}");
+        $conn->query("UPDATE student_program_enrollments SET completion_percentage=0 WHERE student_id={$student_id} AND program_id={$program_id}");
+        $conn->query("
+            DELETE sia FROM student_interactive_answers sia
+            INNER JOIN interactive_questions iq ON sia.question_id = iq.question_id
+            INNER JOIN story_interactive_sections sis ON iq.section_id = sis.section_id
+            INNER JOIN chapter_stories cs ON sis.story_id = cs.story_id
+            INNER JOIN program_chapters pc ON cs.chapter_id = pc.chapter_id
+            WHERE sia.student_id = {$student_id} AND pc.programID = {$program_id}
+        ");
+        echo json_encode(['success'=>true, 'passed'=>false, 'score'=>$score_percent]);
+    }   
     exit;
 }
 echo json_encode(['success'=>false,'message'=>'Invalid action']);

@@ -222,7 +222,7 @@
                                         <div class="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-64 bg-gray-900 text-white text-sm rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
                                             <div class="space-y-2">
                                                 <p class="font-semibold border-b border-gray-700 pb-1">Earn Points:</p>
-                                                <p>📚 Complete lessons: <strong>50 pts</strong></p>
+                                                <p>📚 Complete a program: <strong>50 pts</strong></p>
                                                 <p>✅ Complete Daily Challenges: <strong>10 pts</strong></p>
                                                 <p>📅 Daily login: <strong>10 pts</strong></p>
                                             </div>

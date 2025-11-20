@@ -493,6 +493,7 @@ $page_title = htmlspecialchars($program['title']);
         <?php if ($currentType === 'final_exam'): ?>
         <div class="bg-white rounded-xl shadow-md p-6 mt-8">
           <h2 class="text-2xl font-bold text-orange-800 mb-4 flex items-center gap-2"><i class="ph ph-exam text-orange-500"></i> Program Final Exam</h2>
+          <h3 class="text-md font-bold text-red-500 mb-4 flex items-center gap-2"><i class="ph ph-warning text-red-500"></i>Warning: Failing the final exam would lead to program reset, answer carefully.</h3>
           <form id="finalExamForm">
             <?php foreach ($compiledExamQuestions as $i => $question): ?>
             <div class="mb-6 border-b pb-5">
@@ -564,11 +565,15 @@ $page_title = htmlspecialchars($program['title']);
 
                 } else {
                   resultDiv.innerHTML =
-                    `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>
-                      You did not pass the exam. All progress has been reset; you must restart the program.
-                    </div>`;
-
-                  setTimeout(() => window.location = '?program_id=<?= $programID ?>', 2200);
+                  `<div class='bg-red-100 text-red-900 border-red-400 border-2 rounded-lg p-6 text-xl font-bold'>
+                    You did not pass the exam. Your program progress has been reset.
+                    <br><span class="text-base font-normal">Click below to restart from the beginning.</span>
+                    <div class="mt-4">
+                      <a href='?program_id=<?= $programID ?>' class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold inline-block">
+                        Restart Program
+                      </a>
+                    </div>
+                  </div>;`;
                 }
               });
             };
