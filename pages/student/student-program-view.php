@@ -953,27 +953,56 @@ $page_title = htmlspecialchars($program['title']);
     }
   }
 
+  let speechInProgress = false;
+
   function detectLanguage(text) {
-    if (/[\u0600-\u06FF]/.test(text)) return 'ar-SA'; // Arabic range
-    if (/\b(ang|ng|sa|ako|ikaw|siya|namin|kayo|sila|maganda|mahal|bata|bahay|pamilya)\b/i.test(text)) return 'fil-PH'; // Filipino approx
-    return 'en-US';
+      if (/[\u0600-\u06FF]/.test(text)) return 'ar-SA';
+      if (/\b(ang|ng|sa|ako|ikaw|siya|namin|kayo|sila|maganda|mahal|bata|bahay|pamilya)\b/i.test(text)) return 'fil-PH';
+      return 'en-US';
   }
 
   function speakText(text) {
-      if (!window.speechSynthesis) return alert('Text-to-Speech not supported in this browser.');
-      window.speechSynthesis.cancel();
+      if (!window.speechSynthesis) {
+          Swal.fire({
+              icon: 'warning',
+              title: 'Text-to-Speech Not Supported',
+              text: 'Sorry, your browser does not support text-to-speech. Please use a modern browser like Chrome, Edge, or Opera.'
+          });
+          return;
+      }
       let lang = detectLanguage(text);
+      let voices = window.speechSynthesis.getVoices();
+      let match = voices.find(v => v.lang === lang)
+              || (lang.startsWith('ar') && voices.find(v => v.lang.startsWith('ar')))
+              || (lang.startsWith('fil') && voices.find(v => v.lang.startsWith('fil')));
+      if (!match) {
+          Swal.fire({
+              icon: 'warning',
+              title: 'Voice Not Available',
+              html: 'Your browser does not have a compatible voice installed for this language (' +
+                    (lang === 'ar-SA' ? 'Arabic' : lang === 'fil-PH' ? 'Filipino' : 'English') +
+                    ').<br>To enable this feature, add the language voice in your system\'s speech settings and restart your browser.'
+          });
+          return;
+      }
+
+      if (speechInProgress) {
+          window.speechSynthesis.cancel();
+          speechInProgress = false;
+          return;
+      }
+      window.speechSynthesis.cancel();
       let utter = new SpeechSynthesisUtterance(text);
       utter.lang = lang;
+      utter.voice = match;
       utter.rate = 1;
       utter.pitch = 1;
-      let voices = window.speechSynthesis.getVoices();
-      if (voices.length && lang) {
-          let match = voices.find(v => v.lang === lang);
-          if (match) utter.voice = match;
-      }
+      utter.onstart = function() { speechInProgress = true; };
+      utter.onend = function() { speechInProgress = false; };
+      utter.onerror = function() { speechInProgress = false; };
       window.speechSynthesis.speak(utter);
   }
+
   document.addEventListener('click', function(e) {
       let btn = e.target.closest('.tts-btn');
       if (btn && btn.dataset.tts) {
