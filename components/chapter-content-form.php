@@ -134,10 +134,10 @@ $stories = getchapter_stories($conn, $chapterId);
                                 </a>
                                 
                                 <div class="flex items-center gap-3">
-                                    <a href="teacher-programs.php?action=edit_interactive&program_id=<?= $programId ?>&chapter_id=<?= $chapterId ?>&story_id=<?= (int)$story['story_id'] ?>" 
+                                    <!-- <a href="teacher-programs.php?action=edit_interactive&program_id=<?= $programId ?>&chapter_id=<?= $chapterId ?>&story_id=<?= (int)$story['story_id'] ?>" 
                                        class="text-purple-600 hover:opacity-75 text-sm font-medium inline-flex items-center gap-1">
                                         <i class="ph ph-chats"></i> Interactive
-                                    </a>
+                                    </a> -->
                                     <button type="button" onclick="deleteStory(<?= (int)$story['story_id'] ?>)" 
                                             class="text-red-600 hover:opacity-75 text-sm font-medium inline-flex items-center gap-1">
                                         <i class="ph ph-trash"></i> Delete
