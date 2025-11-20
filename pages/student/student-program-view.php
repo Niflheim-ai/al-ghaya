@@ -492,16 +492,30 @@ $page_title = htmlspecialchars($program['title']);
         <?php // MAIN CONTENT LOGIC (Story, Quiz, Exam) ?>
         <?php if ($currentType === 'final_exam'): ?>
         <div class="bg-white rounded-xl shadow-md p-6 mt-8">
-          <h2 class="text-2xl font-bold text-orange-800 mb-4 flex items-center gap-2"><i class="ph ph-exam text-orange-500"></i> Program Final Exam</h2>
-          <h3 class="text-md font-bold text-red-500 mb-4 flex items-center gap-2"><i class="ph ph-warning text-red-500"></i>Warning: Failing the final exam would lead to program reset, answer carefully.</h3>
+          <h2 class="text-2xl font-bold text-orange-800 mb-4 flex items-center gap-2">
+            <i class="ph ph-exam text-orange-500"></i> Program Final Exam
+          </h2>
+          <h3 class="text-md font-bold text-red-500 mb-4 flex items-center gap-2">
+            <i class="ph ph-warning text-red-500"></i>
+            Warning: Failing the final exam would lead to program reset, answer carefully.
+          </h3>
           <form id="finalExamForm">
             <?php foreach ($compiledExamQuestions as $i => $question): ?>
             <div class="mb-6 border-b pb-5">
-              <div class="font-semibold mb-2">Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?></div>
+              <div class="flex items-center gap-2 font-semibold mb-2">
+                Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?>
+                <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($question['question_text'])) ?>" title="Listen">
+                  <i class="ph ph-speaker-simple-high"></i>
+                </button>
+              </div>
               <?php foreach ($question['options'] as $opt): ?>
               <div class="mb-2">
                 <label class="flex gap-2 items-center">
-                  <input type="radio" name="exam_answer_<?= $i ?>" value="<?= $opt['quiz_option_id'] ?>" required> <?= htmlspecialchars($opt['option_text']) ?>
+                  <input type="radio" name="exam_answer_<?= $i ?>" value="<?= $opt['quiz_option_id'] ?>" required>
+                  <?= htmlspecialchars($opt['option_text']) ?>
+                  <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($opt['option_text'])) ?>" title="Listen">
+                    <i class="ph ph-speaker-simple-high"></i>
+                  </button>
                 </label>
               </div>
               <?php endforeach; ?>
@@ -617,13 +631,21 @@ $page_title = htmlspecialchars($program['title']);
               <h4 class="font-semibold text-gray-700 mb-4">Quiz Questions (For Review):</h4>
               <?php foreach ($quizQuestions as $i => $question): ?>
                 <div class="mb-6 pb-4 border-b border-gray-300">
-                  <div class="font-semibold mb-2 text-gray-800">Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?></div>
+                  <div class="flex items-center gap-2 font-semibold mb-2 text-gray-800">
+                    Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?>
+                    <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($question['question_text'])) ?>" title="Listen">
+                        <i class="ph ph-speaker-simple-high"></i>
+                    </button>
+                  </div>
                   <?php foreach ($question['options'] as $opt): ?>
                     <div class="mb-2 flex items-center gap-2">
                       <span class="text-gray-600"><?= $opt['is_correct'] ? '✓' : '○' ?></span>
                       <span class="<?= $opt['is_correct'] ? 'font-semibold text-green-700' : 'text-gray-700' ?>">
                         <?= htmlspecialchars($opt['option_text']) ?>
                       </span>
+                      <!-- <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($opt['option_text'])) ?>" title="Listen">
+                          <i class="ph ph-speaker-simple-high"></i>
+                      </button> -->
                     </div>
                   <?php endforeach; ?>
                 </div>
@@ -635,12 +657,20 @@ $page_title = htmlspecialchars($program['title']);
             <form id="chapterQuizForm">
               <?php foreach ($quizQuestions as $i => $question): ?>
               <div class="mb-6 border-b pb-5">
-                <div class="font-semibold mb-2">Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?></div>
+                <div class="flex items-center gap-2 font-semibold mb-2 text-gray-800">
+                  Q<?= $i+1 ?>: <?= htmlspecialchars($question['question_text']) ?>
+                  <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($question['question_text'])) ?>" title="Listen">
+                      <i class="ph ph-speaker-simple-high"></i>
+                  </button>
+                </div>
                 <?php foreach ($question['options'] as $opt): ?>
                 <div class="mb-2">
                   <label class="flex gap-2 items-center">
-                    <input type="radio" name="quiz_answer_<?= $i ?>" value="<?= $opt['quiz_option_id'] ?>" required> 
+                    <input type="radio" name="quiz_answer_<?= $i ?>" value="<?= $opt['quiz_option_id'] ?>" required>
                     <?= htmlspecialchars($opt['option_text']) ?>
+                    <!-- <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($opt['option_text'])) ?>" title="Listen">
+                        <i class="ph ph-speaker-simple-high"></i>
+                    </button> -->
                   </label>
                 </div>
                 <?php endforeach; ?>
@@ -655,7 +685,7 @@ $page_title = htmlspecialchars($program['title']);
             <div id="quizResult" class="hidden mt-8"></div>
           <?php endif; ?>
         </div>
-
+        
         <script>
           const chapterQuizForm = document.getElementById('chapterQuizForm');
           if (chapterQuizForm) {
@@ -743,101 +773,111 @@ $page_title = htmlspecialchars($program['title']);
               // Now render sections
               foreach ($currentContent['interactive_sections'] as $sectionIndex => $section): 
               ?>
-                <div class="mb-8">
-                  <h3 class="text-2xl font-bold text-purple-900 mb-4">
-                    <i class="ph ph-puzzle-piece mr-2"></i>
-                    Interactive Section <?= $sectionIndex + 1 ?>
-                  </h3>
-                  
-                  <?php foreach ($section['questions'] as $questionIndex => $question): 
-                      $questionID = $question['question_id'];
-                      
-                      // ✅ CHECK: Is this question already answered correctly?
-                      $alreadyAnsweredStmt = $conn->prepare("
-                          SELECT is_correct, answer_date 
-                          FROM student_interactive_answers 
-                          WHERE student_id = ? AND question_id = ? AND is_correct = 1
-                      ");
-                      $alreadyAnsweredStmt->bind_param("ii", $studentID, $questionID);
-                      $alreadyAnsweredStmt->execute();
-                      $alreadyAnswered = $alreadyAnsweredStmt->get_result()->fetch_assoc();
-                      $alreadyAnsweredStmt->close();
-                      
-                      $isAlreadyCorrect = !empty($alreadyAnswered);
-                      
-                      if ($isAlreadyCorrect) {
-                          $answeredQuestionsInStory++;
-                      }
-                  ?>
-                    <div id="quiz_section_<?= $section['section_id'] ?>_question_<?= $question['question_id'] ?>" 
-                        class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 <?= $isAlreadyCorrect ? 'border-green-400' : 'border-purple-300' ?> mb-6">
-                      
-                      <p class="text-gray-800 font-medium mb-4 text-lg">
-                        <strong>Question <?= $questionIndex + 1 ?>:</strong> 
-                        <?= htmlspecialchars($question['question_text']) ?>
-                      </p>
-                      
-                      <?php if ($isAlreadyCorrect): ?>
-                        <!-- ✅ ALREADY ANSWERED CORRECTLY -->
-                        <div class="p-4 rounded-lg bg-green-100 border-2 border-green-500 mb-4">
-                          <div class="flex items-center gap-3">
-                            <i class="ph-fill ph-check-circle text-3xl text-green-600"></i>
-                            <div>
-                              <h6 class="font-bold text-green-900">Already Completed! ✓</h6>
-                              <p class="text-green-800 text-sm">
-                                You answered this correctly on <?= date('M j, Y', strtotime($alreadyAnswered['answer_date'])) ?>
-                              </p>
-                            </div>
+              <div class="mb-8">
+                <h3 class="text-2xl font-bold text-purple-900 mb-4">
+                  <i class="ph ph-puzzle-piece mr-2"></i>
+                  Interactive Section <?= $sectionIndex + 1 ?>
+                </h3>
+                
+                <?php foreach ($section['questions'] as $questionIndex => $question): 
+                    $questionID = $question['question_id'];
+                    
+                    // ✅ CHECK: Is this question already answered correctly?
+                    $alreadyAnsweredStmt = $conn->prepare("
+                        SELECT is_correct, answer_date 
+                        FROM student_interactive_answers 
+                        WHERE student_id = ? AND question_id = ? AND is_correct = 1
+                    ");
+                    $alreadyAnsweredStmt->bind_param("ii", $studentID, $questionID);
+                    $alreadyAnsweredStmt->execute();
+                    $alreadyAnswered = $alreadyAnsweredStmt->get_result()->fetch_assoc();
+                    $alreadyAnsweredStmt->close();
+                    
+                    $isAlreadyCorrect = !empty($alreadyAnswered);
+                    
+                    if ($isAlreadyCorrect) {
+                        $answeredQuestionsInStory++;
+                    }
+                ?>
+                  <div id="quiz_section_<?= $section['section_id'] ?>_question_<?= $question['question_id'] ?>" 
+                      class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 <?= $isAlreadyCorrect ? 'border-green-400' : 'border-purple-300' ?> mb-6">
+                    
+                    <!-- Question text with speaker icon -->
+                    <div class="flex items-center gap-2 text-gray-800 font-medium mb-4 text-lg">
+                      <strong>Question <?= $questionIndex + 1 ?>:</strong>
+                      <span><?= htmlspecialchars($question['question_text']) ?></span>
+                      <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($question['question_text'])) ?>" title="Listen">
+                        <i class="ph ph-speaker-simple-high"></i>
+                      </button>
+                    </div>
+                    
+                    <?php if ($isAlreadyCorrect): ?>
+                      <!-- ✅ ALREADY ANSWERED CORRECTLY -->
+                      <div class="p-4 rounded-lg bg-green-100 border-2 border-green-500 mb-4">
+                        <div class="flex items-center gap-3">
+                          <i class="ph-fill ph-check-circle text-3xl text-green-600"></i>
+                          <div>
+                            <h6 class="font-bold text-green-900">Already Completed! ✓</h6>
+                            <p class="text-green-800 text-sm">
+                              You answered this correctly on <?= date('M j, Y', strtotime($alreadyAnswered['answer_date'])) ?>
+                            </p>
                           </div>
                         </div>
+                      </div>
+                      
+                      <!-- Show disabled options (with speaker) -->
+                      <div class="space-y-3 opacity-60">
+                        <?php if (!empty($question['options'])): ?>
+                          <?php foreach ($question['options'] as $option): ?>
+                            <label class="flex items-center gap-3 p-4 bg-gray-100 rounded-lg border-2 border-gray-300 cursor-not-allowed">
+                              <input type="radio" disabled class="w-5 h-5">
+                              <span class="text-gray-600"><?= htmlspecialchars($option['option_text']) ?></span>
+                              <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($option['option_text'])) ?>" title="Listen">
+                                <i class="ph ph-speaker-simple-high"></i>
+                              </button>
+                            </label>
+                          <?php endforeach; ?>
+                        <?php endif; ?>
+                      </div>
+                      
+                    <?php else: ?>
+                      <!-- ❓ NOT YET ANSWERED - Show Interactive Form -->
+                      <form class="quizForm space-y-3" 
+                            data-section-id="<?= $section['section_id'] ?>" 
+                            data-question-id="<?= $question['question_id'] ?>" 
+                            data-story-id="<?= $currentContent['story_id'] ?>"
+                            data-already-correct="false">
                         
-                        <!-- Show disabled options -->
-                        <div class="space-y-3 opacity-60">
-                          <?php if (!empty($question['options'])): ?>
-                            <?php foreach ($question['options'] as $option): ?>
-                              <label class="flex items-center gap-3 p-4 bg-gray-100 rounded-lg border-2 border-gray-300 cursor-not-allowed">
-                                <input type="radio" disabled class="w-5 h-5">
-                                <span class="text-gray-600"><?= htmlspecialchars($option['option_text']) ?></span>
-                              </label>
-                            <?php endforeach; ?>
-                          <?php endif; ?>
-                        </div>
+                        <?php if (!empty($question['options'])): ?>
+                          <?php foreach ($question['options'] as $optIndex => $option): ?>
+                            <label class="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-400 hover:shadow-md cursor-pointer transition-all group">
+                              <input type="radio" 
+                                    name="answer_<?= $section['section_id'] ?>_<?= $question['question_id'] ?>" 
+                                    value="<?= $option['option_id'] ?>" 
+                                    class="w-5 h-5 text-purple-600" 
+                                    required>
+                              <span class="text-gray-800 group-hover:text-purple-900 font-medium">
+                                <?= htmlspecialchars($option['option_text']) ?>
+                              </span>
+                              <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($option['option_text'])) ?>" title="Listen">
+                                <i class="ph ph-speaker-simple-high"></i>
+                              </button>
+                            </label>
+                          <?php endforeach; ?>
+                        <?php endif; ?>
                         
-                      <?php else: ?>
-                        <!-- ❓ NOT YET ANSWERED - Show Interactive Form -->
-                        <form class="quizForm space-y-3" 
-                              data-section-id="<?= $section['section_id'] ?>" 
-                              data-question-id="<?= $question['question_id'] ?>" 
-                              data-story-id="<?= $currentContent['story_id'] ?>"
-                              data-already-correct="false">
-                          
-                          <?php if (!empty($question['options'])): ?>
-                            <?php foreach ($question['options'] as $optIndex => $option): ?>
-                              <label class="flex items-center gap-3 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-400 hover:shadow-md cursor-pointer transition-all group">
-                                <input type="radio" 
-                                      name="answer_<?= $section['section_id'] ?>_<?= $question['question_id'] ?>" 
-                                      value="<?= $option['option_id'] ?>" 
-                                      class="w-5 h-5 text-purple-600" 
-                                      required>
-                                <span class="text-gray-800 group-hover:text-purple-900 font-medium">
-                                  <?= htmlspecialchars($option['option_text']) ?>
-                                </span>
-                              </label>
-                            <?php endforeach; ?>
-                          <?php endif; ?>
-                          
-                          <button type="submit" 
-                                  class="mt-6 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-lg transition-all transform hover:scale-[1.02]">
-                            <i class="ph ph-check-circle mr-2"></i>Submit Answer
-                          </button>
-                        </form>
-                        
-                        <div class="answerFeedback hidden mt-4 p-4 rounded-lg"></div>
-                      <?php endif; ?>
-                    </div>
-                  <?php endforeach; ?>
-                </div>
-              <?php endforeach; ?>
+                        <button type="submit" 
+                                class="mt-6 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-lg transition-all transform hover:scale-[1.02]">
+                          <i class="ph ph-check-circle mr-2"></i>Submit Answer
+                        </button>
+                      </form>
+                      
+                      <div class="answerFeedback hidden mt-4 p-4 rounded-lg"></div>
+                    <?php endif; ?>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            <?php endforeach; ?>
           <?php endif; ?>
             <div id="nextStorySection" class="<?= $is_completed ? '' : 'hidden' ?> text-center pt-4">
               <?php
@@ -897,6 +937,34 @@ $page_title = htmlspecialchars($program['title']);
       chevron.style.transform = 'rotate(-90deg)';
     }
   }
+
+  function detectLanguage(text) {
+    if (/[\u0600-\u06FF]/.test(text)) return 'ar-SA'; // Arabic range
+    if (/\b(ang|ng|sa|ako|ikaw|siya|namin|kayo|sila|maganda|mahal|bata|bahay|pamilya)\b/i.test(text)) return 'fil-PH'; // Filipino approx
+    return 'en-US';
+  }
+
+  function speakText(text) {
+      if (!window.speechSynthesis) return alert('Text-to-Speech not supported in this browser.');
+      window.speechSynthesis.cancel();
+      let lang = detectLanguage(text);
+      let utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+      utter.rate = 1;
+      utter.pitch = 1;
+      let voices = window.speechSynthesis.getVoices();
+      if (voices.length && lang) {
+          let match = voices.find(v => v.lang === lang);
+          if (match) utter.voice = match;
+      }
+      window.speechSynthesis.speak(utter);
+  }
+  document.addEventListener('click', function(e) {
+      let btn = e.target.closest('.tts-btn');
+      if (btn && btn.dataset.tts) {
+          speakText(btn.dataset.tts);
+      }
+  });
 
   <?php if ($currentContent && isset($currentContent['chapter_id'])): ?>
   toggleChapter(<?= $currentContent['chapter_id'] ?>);
