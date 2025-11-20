@@ -112,10 +112,19 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                                         <div class="flex justify-between items-center">
                                             <span class="text-xs text-gray-500">Updated <?= date('M d, Y', strtotime($program['dateUpdated'] ?? $program['dateCreated'])) ?></span>
                                             <div class="flex gap-2">
-                                                <a href="?action=create&program_id=<?= $program['programID'] ?>" 
-                                                   class="text-blue-500 hover:text-blue-700 text-sm">
+                                                <?php if (($program['status'] ?? 'draft') === 'published'): ?>
+                                                <a href="?action=create&program_id=<?= $program['programID'] ?>"
+                                                class="text-gray-700 hover:text-gray-900 text-sm"
+                                                title="View Program">
+                                                    <i class="ph ph-eye"></i> View
+                                                </a>
+                                            <?php else: ?>
+                                                <a href="?action=create&program_id=<?= $program['programID'] ?>"
+                                                class="text-blue-500 hover:text-blue-700 text-sm"
+                                                title="Edit Program">
                                                     <i class="ph ph-pencil-simple"></i> Edit
                                                 </a>
+                                            <?php endif; ?>
                                                 <button onclick="archiveProgram(<?= $program['programID'] ?>)" 
                                                         class="text-gray-600 hover:text-gray-800 text-sm">
                                                     <i class="ph ph-archive"></i> Archive

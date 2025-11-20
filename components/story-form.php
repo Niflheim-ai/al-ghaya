@@ -2,11 +2,14 @@
 <?php
 require_once __DIR__ . '/../php/program-core.php';
 
-// Ensure required vars exist from parent page
+// Ensure required vars from parent page
 $programId = isset($program_id) ? (int)$program_id : 0;
 $chapterId = isset($chapter_id) ? (int)$chapter_id : 0;
 $storyData = $story ?? null;
 $storyId = isset($storyData['story_id']) ? (int)$storyData['story_id'] : 0;
+
+// Figure out if parent program is published (you must pass $program from the parent page)
+$isPublished = isset($program) && strtolower($program['status']) === 'published';
 
 // Get existing interactive sections if editing
 if ($storyId > 0) {
@@ -28,7 +31,11 @@ if ($storyId > 0) {
             <?= htmlspecialchars($chapter['title'] ?? '') ?>
         </div>
     </div>
-
+    <?php if ($isPublished): ?>
+        <div class="mb-5 px-4 py-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 rounded-lg">
+            <b>This story belongs to a published program and cannot be edited.</b>
+        </div>
+    <?php endif; ?>
     <div class="bg-white rounded-xl shadow-lg p-8">
         <form id="storyForm" method="POST" action="../../php/program-core.php" class="space-y-8">
             <input type="hidden" name="action" value="<?= $storyData ? 'update_story' : 'create_story' ?>">
@@ -42,23 +49,26 @@ if ($storyId > 0) {
             <div class="space-y-2">
                 <label for="title" class="block text-sm font-medium text-gray-700">Story Title</label>
                 <input type="text" id="title" name="title" required
-                       value="<?= $storyData ? htmlspecialchars($storyData['title']) : '' ?>"
-                       placeholder="e.g. Hadith"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    value="<?= $storyData ? htmlspecialchars($storyData['title']) : '' ?>"
+                    placeholder="e.g. Hadith"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    <?= $isPublished ? 'disabled' : '' ?>>
             </div>
 
             <!-- Story Synopsis (Arabic) -->
             <div class="space-y-2">
                 <label for="synopsis_arabic" class="block text-sm font-medium text-gray-700">Story Synopsis (Arabic)</label>
                 <textarea id="synopsis_arabic" name="synopsis_arabic" rows="4" required
-                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 arabic-text"><?= $storyData ? htmlspecialchars($storyData['synopsis_arabic']) : '' ?></textarea>
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 arabic-text"
+                          <?= $isPublished ? 'disabled' : '' ?>><?= $storyData ? htmlspecialchars($storyData['synopsis_arabic']) : '' ?></textarea>
             </div>
 
             <!-- Story Synopsis (English) -->
             <div class="space-y-2">
                 <label for="synopsis_english" class="block text-sm font-medium text-gray-700">Story Synopsis (English)</label>
                 <textarea id="synopsis_english" name="synopsis_english" rows="4" required
-                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"><?= $storyData ? htmlspecialchars($storyData['synopsis_english']) : '' ?></textarea>
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          <?= $isPublished ? 'disabled' : '' ?>><?= $storyData ? htmlspecialchars($storyData['synopsis_english']) : '' ?></textarea>
             </div>
 
             <!-- Video Link -->
@@ -66,11 +76,13 @@ if ($storyId > 0) {
                 <label for="video_url" class="block text-sm font-medium text-gray-700">Video link of the Story</label>
                 <div class="relative">
                     <input type="url" id="video_url" name="video_url" required
-                           value="<?= $storyData ? htmlspecialchars($storyData['video_url']) : '' ?>"
-                           placeholder="https://youtube.com/..."
-                           class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <button type="button" onclick="validateVideoUrl()" 
-                            class="absolute right-2 top-2 p-2 text-gray-400 hover:text-blue-600">
+                        value="<?= $storyData ? htmlspecialchars($storyData['video_url']) : '' ?>"
+                        placeholder="https://youtube.com/..."
+                        class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        <?= $isPublished ? 'disabled' : '' ?>>
+                    <button type="button" onclick="validateVideoUrl()"
+                        class="absolute right-2 top-2 p-2 text-gray-400 hover:text-blue-600"
+                        <?= $isPublished ? 'disabled' : '' ?>>
                         <i class="ph ph-check-circle text-xl"></i>
                     </button>
                 </div>
@@ -84,13 +96,13 @@ if ($storyId > 0) {
                         <h3 class="text-lg font-semibold text-gray-900">Interactive Sections</h3>
                         <p class="text-sm text-gray-500 mt-1">Create 1-3 interactive multiple choice questions for this story</p>
                     </div>
+                    <?php if (!$isPublished): ?>
                     <button type="button" onclick="addInteractiveSection()" id="addSectionBtn"
-                            class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors inline-flex items-center gap-2"
-                            <?= count($interactiveSections) >= 3 ? 'disabled' : '' ?>>
+                        class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
                         <i class="ph ph-plus"></i>Add Section
                     </button>
+                    <?php endif; ?>
                 </div>
-                
                 <div id="interactiveSectionsContainer" class="space-y-4">
                     <?php if (empty($interactiveSections)): ?>
                         <div id="noSectionsPlaceholder" class="text-center py-8 text-gray-400 border-2 border-dashed border-gray-300 rounded-lg">
@@ -105,44 +117,43 @@ if ($storyId > 0) {
                                         <i class="ph ph-chat-circle-dots text-xl text-purple-600"></i>
                                         <h4 class="font-medium text-gray-900">Interactive Section <?= $index + 1 ?></h4>
                                     </div>
-                                    <button type="button" onclick="removeInteractiveSection(<?= $index ?>)" 
-                                            class="text-red-500 hover:text-red-700 p-1">
+                                    <button type="button" onclick="removeInteractiveSection(<?= $index ?>)"
+                                        class="text-red-500 hover:text-red-700 p-1 <?= $isPublished ? 'opacity-50 cursor-not-allowed' : '' ?>"
+                                        <?= $isPublished ? 'disabled' : '' ?>>
                                         <i class="ph ph-trash text-xl"></i>
                                     </button>
                                 </div>
-                                
                                 <input type="hidden" name="sections[<?= $index ?>][section_id]" value="<?= (int)$section['section_id'] ?>">
                                 <input type="hidden" name="sections[<?= $index ?>][section_order]" value="<?= $index + 1 ?>">
-                                
-                                <!-- Questions for this section -->
                                 <div class="space-y-4">
                                     <?php if (!empty($section['questions'])): ?>
                                         <?php foreach ($section['questions'] as $qIndex => $question): ?>
                                             <div class="question-item bg-white border border-gray-200 rounded-lg p-4">
                                                 <div class="space-y-3">
                                                     <label class="block text-sm font-medium text-gray-700">Question</label>
-                                                    <input type="text" 
-                                                           name="sections[<?= $index ?>][questions][<?= $qIndex ?>][text]" 
-                                                           value="<?= htmlspecialchars($question['question_text']) ?>"
-                                                           placeholder="Enter your question"
-                                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-                                                    
-                                                    <!-- Options -->
+                                                    <input type="text"
+                                                        name="sections[<?= $index ?>][questions][<?= $qIndex ?>][text]"
+                                                        value="<?= htmlspecialchars($question['question_text']) ?>"
+                                                        placeholder="Enter your question"
+                                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                                        required <?= $isPublished ? 'disabled' : '' ?>>
                                                     <div class="space-y-2 pl-4">
                                                         <p class="text-xs text-gray-500 mb-2">Check the correct answer(s):</p>
                                                         <?php if (!empty($question['options'])): ?>
                                                             <?php foreach ($question['options'] as $oIndex => $option): ?>
                                                                 <div class="flex items-center gap-2">
-                                                                    <input type="checkbox" 
-                                                                           name="sections[<?= $index ?>][questions][<?= $qIndex ?>][options][<?= $oIndex ?>][is_correct]"
-                                                                           <?= $option['is_correct'] ? 'checked' : '' ?>
-                                                                           value="1"
-                                                                           class="rounded text-green-500">
-                                                                    <input type="text" 
-                                                                           name="sections[<?= $index ?>][questions][<?= $qIndex ?>][options][<?= $oIndex ?>][text]"
-                                                                           value="<?= htmlspecialchars($option['option_text']) ?>"
-                                                                           placeholder="Option <?= $oIndex + 1 ?>"
-                                                                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg" required>
+                                                                    <input type="checkbox"
+                                                                        name="sections[<?= $index ?>][questions][<?= $qIndex ?>][options][<?= $oIndex ?>][is_correct]"
+                                                                        <?= $option['is_correct'] ? 'checked' : '' ?>
+                                                                        value="1"
+                                                                        class="rounded text-green-500"
+                                                                        <?= $isPublished ? 'disabled' : '' ?>>
+                                                                    <input type="text"
+                                                                        name="sections[<?= $index ?>][questions][<?= $qIndex ?>][options][<?= $oIndex ?>][text]"
+                                                                        value="<?= htmlspecialchars($option['option_text']) ?>"
+                                                                        placeholder="Option <?= $oIndex + 1 ?>"
+                                                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                                                                        required <?= $isPublished ? 'disabled' : '' ?>>
                                                                 </div>
                                                             <?php endforeach; ?>
                                                         <?php endif; ?>
@@ -159,16 +170,17 @@ if ($storyId > 0) {
                     <?php endif; ?>
                 </div>
             </div>
-
             <div class="flex justify-between items-center pt-6 border-t border-gray-200">
-                <button type="button" onclick="cancelStoryForm()" 
-                        class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                <button type="button" onclick="cancelStoryForm()"
+                    class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
-                <button type="button" onclick="saveStory()" 
-                        class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
+                <?php if (!$isPublished): ?>
+                <button type="button" onclick="saveStory()"
+                    class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
                     <i class="ph ph-floppy-disk"></i><?= $storyData ? 'Update Story' : 'Save Story' ?>
                 </button>
+                <?php endif; ?>
             </div>
         </form>
     </div>

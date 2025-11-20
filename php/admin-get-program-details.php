@@ -1,14 +1,7 @@
 <?php
-session_start();
 require_once 'dbConnection.php';
 require_once 'youtube-embed-helper.php';
 require_once 'program-core.php'; // For convertToEmbedUrl function
-
-// Check if user is admin
-if (!isset($_SESSION['userID']) || $_SESSION['role'] !== 'admin') {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit;
-}
 
 $program_id = intval($_GET['program_id'] ?? 0);
 

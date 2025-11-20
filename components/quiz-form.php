@@ -1,9 +1,10 @@
 <?php
-// Quiz Form Component - Create and manage chapter quizzes
 $programId = isset($program_id) ? (int)$program_id : 0;
 $chapterId = isset($chapter_id) ? (int)$chapter_id : 0;
 $quiz = isset($quiz) ? $quiz : null;
+$quiz_questions = isset($quiz_questions) ? $quiz_questions : [];
 $isEdit = $quiz !== null;
+$isPublished = isset($program) && strtolower($program['status']) === 'published';
 ?>
 
 <section class="content-section">
@@ -21,6 +22,12 @@ $isEdit = $quiz !== null;
         </div>
     </div>
 
+    <?php if ($isPublished): ?>
+        <div class="mb-5 px-4 py-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 rounded-lg">
+            <b>This quiz belongs to a published program. Content is view-only.</b>
+        </div>
+    <?php endif; ?>
+
     <div class="bg-white rounded-xl shadow-lg p-8">
         <!-- Quiz Info -->
         <div class="mb-8 p-6 bg-blue-50 rounded-lg">
@@ -34,57 +41,74 @@ $isEdit = $quiz !== null;
         </div>
 
         <!-- Quiz Title -->
-        <form id="quizForm" class="space-y-8">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Quiz Title</label>
-                    <input type="text" id="quizTitle" 
-                           value="<?= htmlspecialchars($quiz['title'] ?? $chapter['title'] . ' Quiz') ?>" 
-                           class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                           required>
-                </div>
-            </div>
-
-            <!-- Questions Section -->
-            <div class="space-y-6">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xl font-semibold">Quiz Questions</h3>
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm text-gray-500">Questions: <span id="questionCount">0</span>/30</span>
-                        <button type="button" onclick="addQuestion()" 
-                                class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
-                            <i class="ph ph-plus mr-1"></i> Add Question
-                        </button>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Quiz Title</label>
+                <?php if ($isPublished): ?>
+                    <div class="font-medium text-lg bg-gray-100 px-3 py-2 rounded mb-4">
+                        <?= htmlspecialchars($quiz['title'] ?? $chapter['title'] . ' Quiz') ?>
                     </div>
-                </div>
+                <?php else: ?>
+                    <input type="text" id="quizTitle"
+                        value="<?= htmlspecialchars($quiz['title'] ?? $chapter['title'] . ' Quiz') ?>"
+                        class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required>
+                <?php endif; ?>
+            </div>
+        </div>
 
-                <div id="questionsContainer" class="space-y-6">
-                    <!-- Questions will be added here dynamically -->
-                </div>
-
-                <div id="noQuestionsMessage" class="text-center py-12 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+        <!-- Questions Section -->
+        <div class="space-y-6">
+            <h3 class="text-xl font-semibold mb-4">Quiz Questions</h3>
+            <?php if (!empty($quiz_questions)): ?>
+                <?php foreach ($quiz_questions as $qIdx => $question): ?>
+                    <div class="question-item bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <h4 class="font-medium text-gray-900">Question <?= $qIdx + 1 ?></h4>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Question Text</label>
+                            <div class="w-full px-3 py-2 border border-gray-200 rounded bg-gray-100"><?= htmlspecialchars($question['question_text']) ?></div>
+                        </div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Answer Options</label>
+                        <div class="space-y-2 pl-4">
+                            <?php foreach ($question['options'] as $oIdx => $option): ?>
+                                <div class="flex items-center gap-2">
+                                    <input type="radio" disabled <?= $option['is_correct'] ? 'checked' : '' ?>>
+                                    <span class="flex-1 px-3 py-2 border border-gray-200 rounded bg-gray-50"><?= htmlspecialchars($option['option_text']) ?></span>
+                                    <?php if ($option['is_correct']): ?>
+                                        <span class="text-green-600 font-bold ml-2">Correct</span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="text-center py-12 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
                     <i class="ph ph-question text-5xl mb-4"></i>
                     <h4 class="text-lg font-medium mb-2">No Questions Yet</h4>
-                    <p class="mb-4">Click "Add Question" to create your first quiz question.</p>
-                    <button type="button" onclick="addQuestion()" 
-                            class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
-                        <i class="ph ph-plus mr-2"></i> Add First Question
-                    </button>
+                    <p>No quiz questions exist for this chapter.</p>
                 </div>
-            </div>
+            <?php endif; ?>
+        </div>
 
-            <!-- Save Button -->
+        <!-- Edit/Save/Cancel Buttons (visible ONLY if not published) -->
+        <?php if (!$isPublished): ?>
+        <form id="quizForm" class="space-y-8">
+            <!-- ... original editable fields/buttons go here ... -->
             <div class="flex justify-end gap-3 pt-6 border-t">
-                <button type="button" onclick="goBack()" 
-                        class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                <button type="button" onclick="goBack()"
+                    class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
-                <button type="submit" id="saveButton" disabled
-                        class="px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors">
+                <button type="submit" id="saveButton"
+                    class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
                     <i class="ph ph-check mr-1"></i> <?= $isEdit ? 'Update Quiz' : 'Save Quiz' ?>
                 </button>
             </div>
         </form>
+        <?php endif; ?>
     </div>
 </section>
 

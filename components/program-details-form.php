@@ -1,4 +1,7 @@
 <!-- Program Details Form Component -->
+<?php $isPublished = $program && strtolower($program['status']) === 'published'; ?>
+
+<!-- Program Details Form Component -->
 <section class="content-section">
     <input type="hidden" id="programID" value="<?= isset($program['programID']) ? (int)$program['programID'] : (isset($program_id) ? (int)$program_id : 0) ?>">
     <div class="flex items-center justify-between mb-6">
@@ -20,6 +23,13 @@
         <?php endif; ?>
     </div>
 
+    <?php if ($isPublished): ?>
+        <div class="mb-5 px-4 py-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 rounded-lg">
+            This program is <b>published</b> and cannot be edited directly.<br>
+            To update, use <b>the “update” action</b> to create a new editable draft.
+        </div>
+    <?php endif; ?>
+
     <div class="bg-white rounded-xl shadow-lg p-8">
         <form id="programDetailsForm" method="POST" action="../../php/program-core.php" enctype="multipart/form-data" class="space-y-8">
             <input type="hidden" name="action" value="<?= $program ? 'update_program' : 'create_program' ?>">
@@ -40,9 +50,9 @@
                     </div>
                     <div class="text-center">
                         <input type="file" id="thumbnail" name="thumbnail" accept="image/*" 
-                               class="hidden" onchange="previewThumbnail(this)">
+                               class="hidden" onchange="previewThumbnail(this)" <?= $isPublished ? 'disabled' : '' ?>>
                         <label for="thumbnail" 
-                               class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center gap-2">
+                               class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center gap-2 <?= $isPublished ? 'opacity-60 pointer-events-none' : '' ?>">
                             <i class="ph ph-upload-simple text-xl"></i>
                             Upload Image
                         </label>
@@ -59,7 +69,7 @@
                 <input type="text" id="title" name="title" required
                        value="<?= $program ? htmlspecialchars($program['title']) : '' ?>"
                        placeholder="e.g. Hadith (حديث)"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
             </div>
 
             <!-- Program Description -->
@@ -67,7 +77,7 @@
                 <label for="description" class="block text-sm font-medium text-gray-700">Program Description</label>
                 <textarea id="description" name="description" rows="4" required
                           placeholder="Describe your program..."
-                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"><?= $program ? htmlspecialchars($program['description']) : '' ?></textarea>
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" <?= $isPublished ? 'disabled' : '' ?>><?= $program ? htmlspecialchars($program['description']) : '' ?></textarea>
                 <p class="text-sm text-gray-500">Needs at least 10 characters</p>
             </div>
 
@@ -78,7 +88,7 @@
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Student" 
                                <?= (!$program || ($program['difficulty_label'] ?? 'Student') === 'Student') ? 'checked' : '' ?>
-                               class="sr-only" required>
+                               class="sr-only" required <?= $isPublished ? 'disabled' : '' ?>>
                         <div class="difficulty-card student-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
                                 <i class="ph-fill ph-barbell text-2xl text-gray-600"></i>
@@ -92,7 +102,7 @@
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Aspiring" 
                                <?= ($program && ($program['difficulty_label'] ?? '') === 'Aspiring') ? 'checked' : '' ?>
-                               class="sr-only">
+                               class="sr-only" <?= $isPublished ? 'disabled' : '' ?>>
                         <div class="difficulty-card aspiring-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
                                 <i class="ph-fill ph-barbell text-2xl text-blue-600"></i>
@@ -106,7 +116,7 @@
                     <label class="relative cursor-pointer">
                         <input type="radio" name="difficulty_level" value="Master" 
                                <?= ($program && ($program['difficulty_label'] ?? '') === 'Master') ? 'checked' : '' ?>
-                               class="sr-only">
+                               class="sr-only" <?= $isPublished ? 'disabled' : '' ?>>
                         <div class="difficulty-card master-difficulty p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                             <div class="flex items-center gap-3">
                                 <i class="ph-fill ph-barbell text-2xl text-yellow-600"></i>
@@ -127,7 +137,7 @@
                     <span class="absolute left-3 top-3 text-gray-500">₱</span>
                     <input type="number" id="price" name="price" min="0" step="0.01" required
                            value="<?= $program ? $program['price'] : '500.00' ?>"
-                           class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                           class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
                 </div>
             </div>
 
@@ -137,7 +147,7 @@
                 <input type="url" id="overview_video_url" name="overview_video_url"
                        value="<?= $program ? htmlspecialchars($program['overview_video_url'] ?? '') : '' ?>"
                        placeholder="https://youtube.com/..."
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
                 <p class="text-sm text-gray-500">A YouTube video to be displayed in the program overview</p>
             </div>
 
@@ -147,7 +157,7 @@
             <div class="space-y-6">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-900">Chapters</h3>
-                    <?php if ($program): ?>
+                    <?php if ($program && !$isPublished): ?>
                         <button type="button" id="addChapterBtn" 
                                 class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
                             <i class="ph ph-plus"></i>Add Chapter
@@ -172,14 +182,23 @@
                                     <span class="font-medium"><?= htmlspecialchars($chapter['title']) ?></span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <button type="button" onclick="editChapter(<?= $program['programID'] ?>, <?= $chapter['chapter_id'] ?>)" 
-                                            class="text-blue-500 hover:text-blue-700 p-2 rounded hover:bg-blue-50 transition-colors">
-                                        <i class="ph ph-pencil-simple"></i>
+                                    <button type="button"
+                                        onclick="editChapter(<?= $program['programID'] ?>, <?= $chapter['chapter_id'] ?>)"
+                                        class="p-2 rounded hover:bg-blue-50 transition-colors
+                                            <?= $isPublished ? 'text-gray-500 hover:text-gray-700' : 'text-blue-500 hover:text-blue-700' ?>"
+                                        title="<?= $isPublished ? 'View Chapter (published, read-only)' : 'Edit Chapter' ?>">
+                                        <?php if ($isPublished): ?>
+                                            <i class="ph ph-eye"></i>
+                                        <?php else: ?>
+                                            <i class="ph ph-pencil-simple"></i>
+                                        <?php endif; ?>
                                     </button>
+                                    <?php if (!$isPublished): ?>
                                     <button type="button" onclick="deleteChapter(<?= $program['programID'] ?>, <?= $chapter['chapter_id'] ?>)" 
-                                            class="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors">
+                                                class="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors">
                                         <i class="ph ph-trash"></i>
                                     </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -191,15 +210,19 @@
 
             <!-- Save Actions: only Save as Draft here -->
             <div class="flex justify-between items-center">
+                <?php if (!$isPublished): ?>
                 <button type="button" onclick="cancelForm()" 
                         class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
+                <?php endif; ?>
                 <div class="flex gap-3">
+                    <?php if (!$isPublished): ?>
                     <button type="button" onclick="saveProgram('draft')" 
                             class="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
                         <i class="ph ph-floppy-disk"></i>Save as Draft
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </form>
