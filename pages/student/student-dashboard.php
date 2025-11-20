@@ -92,8 +92,12 @@
     $recentProgram = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    $recentProgramID = $recentProgram['programID'];
-    $progressPercent = calculateProgramProgress($conn, $studentID, $recentProgramID);
+    $progressPercent = 0;
+    $recentProgramID = null;
+    if ($recentProgram && isset($recentProgram['programID'])) {
+        $recentProgramID = $recentProgram['programID'];
+        $progressPercent = calculateProgramProgress($conn, $studentID, $recentProgramID);
+    }
 
     // Add readable chapter info if program exists
     if ($recentProgram) {
