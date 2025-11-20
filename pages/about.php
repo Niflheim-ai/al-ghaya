@@ -59,7 +59,7 @@
     <div id="contact" class="container mx-auto flex flex-col lg:flex-row items-center pt-10 px-4 lg:px-10 max-w-full lg:max-w-[70%]">
         <!-- Left Illustration (Visible only on large screens) -->
         <div class="hidden lg:flex w-1/2 justify-center mb-6 lg:mb-0">
-            <img src="../images/Explain3.svg" alt="Illustration" class="w-[350px] max-w-full">
+            <img src="/images/Explain3.svg" alt="Illustration" class="w-[350px] max-w-full">
         </div>
 
         <!-- Text Container -->
@@ -90,7 +90,7 @@
 
         <!-- Right Illustration (Visible only on large screens) -->
         <div class="hidden lg:flex w-1/2 justify-center mt-6 lg:mt-0">
-            <img src="../images/Explain-right.svg" alt="Illustration" class="w-[300px] max-w-full">
+            <img src="/images/Explain-right.svg" alt="Illustration" class="w-[300px] max-w-full">
         </div>
     </div>
 
@@ -98,7 +98,7 @@
     <div class="container mx-auto flex flex-col lg:flex-row items-center gap-8 px-4 mt-16 max-w-full lg:max-w-[70%] mb-20">
         <!-- Left Illustration (Visible only on large screens) -->
         <div class="hidden lg:flex w-1/2 justify-center mb-6 lg:mb-0">
-            <img src="../images/pointG.svg" alt="Illustration" class="w-[300px] max-w-full">
+            <img src="/images/pointG.svg" alt="Illustration" class="w-[300px] max-w-full">
         </div>
 
         <!-- Text Container -->
