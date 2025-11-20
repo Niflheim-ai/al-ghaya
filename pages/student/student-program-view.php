@@ -806,9 +806,9 @@ $page_title = htmlspecialchars($program['title']);
                     <div class="flex items-center gap-2 text-gray-800 font-medium mb-4 text-lg">
                       <strong>Question <?= $questionIndex + 1 ?>:</strong>
                       <span><?= htmlspecialchars($question['question_text']) ?></span>
-                      <!-- <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($question['question_text'])) ?>" title="Listen">
+                      <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($question['question_text'])) ?>" title="Listen">
                         <i class="ph ph-speaker-simple-high"></i>
-                      </button> -->
+                      </button>
                     </div>
                     
                     <?php if ($isAlreadyCorrect): ?>
@@ -859,9 +859,9 @@ $page_title = htmlspecialchars($program['title']);
                               <span class="text-gray-800 group-hover:text-purple-900 font-medium">
                                 <?= htmlspecialchars($option['option_text']) ?>
                               </span>
-                              <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($option['option_text'])) ?>" title="Listen">
+                              <!-- <button type="button" class="tts-btn ml-2" data-tts="<?= htmlspecialchars(strip_tags($option['option_text'])) ?>" title="Listen">
                                 <i class="ph ph-speaker-simple-high"></i>
-                              </button>
+                              </button> -->
                             </label>
                           <?php endforeach; ?>
                         <?php endif; ?>
