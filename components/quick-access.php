@@ -1,4 +1,4 @@
-<!-- Quick Access Toolbar Component - Hardened with fallbacks and better error handling -->
+<!-- Quick Access Toolbar Component -->
 <div class="quick-access-card">
     <button type="button" class="group btn-blue" onclick="createNewProgram()">
         <i class="ph ph-plus-square text-[24px] group-hover:hidden"></i>
@@ -17,7 +17,7 @@
     </button>
 </div>
 
-<!-- Publish Modal -->
+<!-- Publish Modal (unchanged) -->
 <div id="publishModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
@@ -57,7 +57,7 @@
     </div>
 </div>
 
-<!-- Update Options Modal -->
+<!-- ✅ UPDATED: Update Options Modal -->
 <div id="updateModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
@@ -70,35 +70,32 @@
                     </div>
                     <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
                         <h3 class="text-lg leading-6 font-medium text-gray-900">
-                            Update Published Programs
+                            Update Published Program
                         </h3>
                         <div class="mt-2">
                             <p class="text-sm text-gray-500">
-                                Choose what you want to update:
+                                Select a published program to create a new version. This will:
                             </p>
+                            <ul class="mt-2 text-sm text-gray-600 list-disc list-inside space-y-1">
+                                <li>Create a new draft version you can edit</li>
+                                <li>Keep the old version for existing enrollees</li>
+                                <li>Hide the old version from new students</li>
+                            </ul>
                         </div>
                         <div class="mt-4 max-h-60 overflow-y-auto">
                             <div id="updateProgramsList" class="space-y-2">
                                 <!-- Published Programs will be loaded here -->
                             </div>
                         </div>
-                        <div class="mt-4 space-y-3">
-                            <!-- <button onclick="showProgramCloneSelector()" class="w-full text-left px-4 py-2 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center gap-3">
-                            <i class="ph ph-pencil-simple text-yellow-600"></i>
-                            <div>
-                                <div class="font-medium text-yellow-900">Update Published Program</div>
-                                <div class="text-sm text-yellow-700">Clone and edit a program (without affecting current enrollees)</div>
-                            </div> -->
-                        </div>
                     </div>
                 </div>
             </div>
             <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button type="button" onclick="editProgram()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-yellow-600 text-base font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm">
-                    Clone and Edit Selected
+                <button type="button" onclick="createProgramUpdate()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-orange-600 text-base font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Create New Version
                 </button>
-                <button type="button" onclick="closeUpdateModal()" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto sm:text-sm">
-                    Close
+                <button type="button" onclick="closeUpdateModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    Cancel
                 </button>
             </div>
         </div>
@@ -108,13 +105,11 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 function createNewProgram() {
-    // Show loading state
     const btn = event.target.closest('button');
     const originalContent = btn.innerHTML;
     btn.innerHTML = '<i class="ph ph-spinner-gap animate-spin text-[24px] mr-2"></i><p class="font-medium">Creating...</p>';
     btn.disabled = true;
     
-    // Determine correct path based on current location
     const currentPath = window.location.pathname;
     let redirectPath;
     
@@ -126,7 +121,6 @@ function createNewProgram() {
         redirectPath = 'pages/teacher/teacher-programs.php?action=create';
     }
     
-    // Simple redirect - let server handle creation and redirect
     window.location.href = redirectPath;
 }
 
@@ -147,7 +141,6 @@ function closePublishModal() {
 }
 
 function loadDraftPrograms() {
-    // Multiple fallback paths
     const currentPath = window.location.pathname;
     const possiblePaths = [
         currentPath.includes('/pages/teacher/') ? '../../php/program-core.php' : 
@@ -158,7 +151,6 @@ function loadDraftPrograms() {
         'php/program-core.php'
     ];
     
-    // Remove duplicates
     const apiUrls = [...new Set(possiblePaths)];
     
     function tryFetch(urlIndex = 0) {
@@ -174,9 +166,7 @@ function loadDraftPrograms() {
         
         fetch(apiUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ action: 'get_draft_programs' }),
             credentials: 'same-origin'
         })
@@ -228,7 +218,6 @@ function loadDraftPrograms() {
                 return;
             }
             
-            // Try next URL
             tryFetch(urlIndex + 1);
         });
     }
@@ -236,8 +225,8 @@ function loadDraftPrograms() {
     tryFetch();
 }
 
+// ✅ UPDATED: Load Published Programs for Update Modal
 function loadPublishedPrograms() {
-    // Multiple fallback paths
     const currentPath = window.location.pathname;
     const possiblePaths = [
         currentPath.includes('/pages/teacher/') ? '../../php/program-core.php' : 
@@ -248,12 +237,11 @@ function loadPublishedPrograms() {
         'php/program-core.php'
     ];
     
-    // Remove duplicates
     const apiUrls = [...new Set(possiblePaths)];
     
     function tryFetch(urlIndex = 0) {
         if (urlIndex >= apiUrls.length) {
-            const programsList = document.getElementById('publishProgramsList');
+            const programsList = document.getElementById('updateProgramsList');
             if (programsList) {
                 programsList.innerHTML = '<p class="text-red-500 text-center py-4">Unable to load programs. Please check your connection.</p>';
             }
@@ -264,9 +252,7 @@ function loadPublishedPrograms() {
         
         fetch(apiUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ action: 'get_published_programs' }),
             credentials: 'same-origin'
         })
@@ -285,17 +271,27 @@ function loadPublishedPrograms() {
             const programsList = document.getElementById('updateProgramsList');
             if (programsList) {
                 if (data.success && data.programs && data.programs.length > 0) {
-                    programsList.innerHTML = data.programs.map(program => `
-                        <label class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
-                            <input type="radio" name="update_program_id" value="${program.programID}" class="form-radio text-yellow-600">
-                            <div class="flex-1">
-                                <div class="font-medium text-gray-900">${program.title || 'Untitled Program'}</div>
-                                <div class="text-sm text-gray-500">₱${parseFloat(program.price || 0).toFixed(2)} • ${program.category || 'beginner'}</div>
-                            </div>
-                        </label>
-                    `).join('');
+                    programsList.innerHTML = data.programs.map(program => {
+                        // ✅ Show version badge if available
+                        const versionBadge = program.version_number > 1 
+                            ? `<span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">v${program.version_number}</span>` 
+                            : '';
+                        
+                        return `
+                            <label class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
+                                <input type="radio" name="update_program_id" value="${program.programID}" class="form-radio text-orange-600">
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">
+                                        ${program.title || 'Untitled Program'}
+                                        ${versionBadge}
+                                    </div>
+                                    <div class="text-sm text-gray-500">₱${parseFloat(program.price || 0).toFixed(2)} • ${program.category || 'beginner'}</div>
+                                </div>
+                            </label>
+                        `;
+                    }).join('');
                 } else {
-                    programsList.innerHTML = '<p class="text-gray-500 text-center py-4">No draft programs available for publishing.</p>';
+                    programsList.innerHTML = '<p class="text-gray-500 text-center py-4">No published programs available to update.</p>';
                 }
             }
         })
@@ -311,14 +307,13 @@ function loadPublishedPrograms() {
                     Swal.fire({
                         icon: 'warning',
                         title: 'Teacher Access Required',
-                        text: 'The Publish function requires a teacher account. Please log in as a teacher to continue.',
+                        text: 'The Update function requires a teacher account. Please log in as a teacher to continue.',
                         confirmButtonColor: '#3b82f6'
                     });
                 }
                 return;
             }
             
-            // Try next URL
             tryFetch(urlIndex + 1);
         });
     }
@@ -342,7 +337,6 @@ function submitForPublishing() {
         return;
     }
 
-    // Use same path logic as loadDraftPrograms
     const currentPath = window.location.pathname;
     const possiblePaths = [
         currentPath.includes('/pages/teacher/') ? '../../php/program-core.php' : 
@@ -353,13 +347,11 @@ function submitForPublishing() {
         'php/program-core.php'
     ];
     const apiUrls = [...new Set(possiblePaths)];
-    const apiUrl = apiUrls[0]; // Use first (most likely correct) path
+    const apiUrl = apiUrls[0];
 
     fetch(apiUrl, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ 
             action: 'submit_for_publishing', 
             program_ids: selectedPrograms 
@@ -414,7 +406,7 @@ function submitForPublishing() {
     });
 }
 
-// Update Modal Functions
+// ✅ UPDATE Modal Functions
 function showUpdateOptions() {
     const modal = document.getElementById('updateModal');
     if (modal) {
@@ -430,81 +422,80 @@ function closeUpdateModal() {
     }
 }
 
-function showProgramCloneSelector() {
-    // Optionally close your modal, or let SweetAlert overlay over it
-    closeUpdateModal();
-    document.getElementById('updateModal').classList.add('hidden');
-    Swal.fire({
-        title: 'Select a Program to Update',
-        html: '<div id="cloneProgramList" style="min-height:120px;text-align:center;display:flex;align-items:center;justify-content:center;"><i class="ph ph-spinner animate-spin text-2xl text-blue-500"></i> Loading published programs...</div>',
-        showCloseButton: true,
-        width: 500,
-        background: '#fcfbf5',
-        didOpen: () => {
-            fetch("../../php/get-published-programs.php")
-                .then(r => r.json()).then(data => {
-                    let html = '';
-                    if (data && data.length) {
-                        html += `<ul style="margin:0;padding:0;list-style:none;">` +
-                        data.map(prog =>
-                        `<li style="margin-bottom:12px;padding:7px 12px;background:#fff;border-radius:7px;">
-                            <span style="font-weight:500;color:#2563eb;">${escapeHtml(prog.title)}</span>
-                            <button onclick="doCloneAndEditProgram(${prog.programID});" style="background:#2563eb;color:#fff;padding:3px 12px;border-radius:6px;font-size:14px;font-weight:500;margin-left:10px;cursor:pointer;">
-                                Clone to Update
-                            </button>
-                        </li>`).join('') + '</ul>';
-                    } else {
-                        html = `<div style="color:#aaa;">No published programs found.</div>`;
-                    }
-                    document.getElementById('cloneProgramList').innerHTML = html;
-                });
-        }
-    });
-}
-
-function doCloneAndEditProgram(programId) {
-    Swal.fire({ title: 'Cloning program...', allowOutsideClick: false, didOpen:()=>Swal.showLoading() });
-    fetch("../../php/clone-program.php", {
-        method: "POST",
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: "programId=" + encodeURIComponent(programId)
-    }).then(r=>r.json()).then(res => {
-        if (res.success) {
-            Swal.fire({
-                icon: "success",
-                title: "Draft created!",
-                text: "You can now edit and re-publish your update.",
-                timer: 1100,
-                showConfirmButton: false
-            }).then(() => {
-                window.location.href = "program-edit.php?program_id=" + res.newProgramId;
-            });
-        } else {
-            Swal.fire('Error', 'Failed to create draft copy for update.', 'error');
-        }
-    });
-}
-
-function editProgram() {
+// ✅ NEW: Create Program Update with Version Tracking
+function createProgramUpdate() {
     const selectedRadio = document.querySelector('input[name="update_program_id"]:checked');
+    
     if (!selectedRadio) {
-        Swal.fire({icon: 'warning', title: 'No Program Selected', text: 'Please select a published program to edit.'});
+        Swal.fire({
+            icon: 'warning',
+            title: 'No Program Selected',
+            text: 'Please select a published program to update.'
+        });
         return;
     }
+    
     const programId = selectedRadio.value;
-    // Call backend to clone the program and create a new draft
-    fetch('../../php/clone-program.php', {
-        method: 'POST',
-        headers: {'Content-Type':'application/x-www-form-urlencoded'},
-        body: 'programId=' + encodeURIComponent(programId)
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success && res.newProgramId) {
-            // Redirect to the draft edit view
-            window.location.href = `?action=create&program_id=${res.newProgramId}`;
-        } else {
-            Swal.fire('Error', res.message || 'Could not create draft for editing.', 'error');
+    
+    // Confirm action
+    Swal.fire({
+        title: 'Create New Version?',
+        html: `
+            This will:<br>
+            • Create a new draft version you can edit<br>
+            • Keep the old version for current enrollees<br>
+            • Hide the old version from new students
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#f97316',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, Create Version',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading
+            Swal.fire({
+                title: 'Creating new version...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+            
+            // ✅ Call clone-program.php with isUpdate flag
+            fetch('../../php/clone-program.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `programId=${encodeURIComponent(programId)}&isUpdate=true`
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.newProgramId) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'New Version Created!',
+                        text: 'You can now edit and publish the updated version.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // Redirect to edit the new version
+                        window.location.href = `?action=create&program_id=${res.newProgramId}`;
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: res.message || 'Could not create new version.'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error creating version:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'Could not create new version. Please try again.'
+                });
+            });
         }
     });
 }
@@ -515,46 +506,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function bulkUpdateStatus() {
-    closeUpdateModal();
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            icon: 'info',
-            title: 'Coming Soon',
-            text: 'Bulk status update feature will be available soon!'
-        });
-    } else {
-        alert('Bulk status update feature coming soon!');
-    }
-}
-
-function bulkUpdatePricing() {
-    closeUpdateModal();
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            icon: 'info',
-            title: 'Coming Soon',
-            text: 'Bulk pricing update feature will be available soon!'
-        });
-    } else {
-        alert('Bulk pricing update feature coming soon!');
-    }
-}
-
-function bulkUpdateCategories() {
-    closeUpdateModal();
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            icon: 'info',
-            title: 'Coming Soon',
-            text: 'Bulk categories update feature will be available soon!'
-        });
-    } else {
-        alert('Bulk categories update feature coming soon!');
-    }
-}
-
-// Close modals when clicking outside - with null checks
+// Close modals when clicking outside
 document.addEventListener('click', function(event) {
     const publishModal = document.getElementById('publishModal');
     const updateModal = document.getElementById('updateModal');

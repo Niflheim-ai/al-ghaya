@@ -135,50 +135,52 @@
         return $programs;
     }
 
-    function fetchPublishedPrograms($conn, $studentID, $difficulty = 'all', $status = 'all', $search = '') {
-        try {
-            $sql = "
-                SELECT DISTINCT p.programID, p.title, p.description, p.category, p.image, p.thumbnail, 
-                    p.price, p.currency, p.dateCreated, p.datePublished,
-                    'not-enrolled' as enrollment_status
-                FROM programs p
-                LEFT JOIN student_program_enrollments spe ON p.programID = spe.program_id AND spe.student_id = ?
-                WHERE p.status = 'published'
-                AND spe.student_id IS NULL
-            ";
-            
-            $params = [$studentID]; 
-            $types = 'i';
-            
-            // ✅ Add difficulty filter (case-insensitive)
-            if ($difficulty !== 'all') { 
-                $sql .= " AND LOWER(p.category) = LOWER(?)"; 
-                $params[] = $difficulty; 
-                $types .= 's'; 
-            }
-            
-            // ✅ Add search filter
-            if ($search !== '') { 
-                $sql .= " AND (p.title LIKE ? OR p.description LIKE ?)"; 
-                $searchTerm = "%{$search}%";
-                $params[] = $searchTerm; 
-                $params[] = $searchTerm;
-                $types .= 'ss'; 
-            }
-            
-            // ✅ Note: Status filter doesn't apply to "All Programs" (only for "My Programs")
-            // "All Programs" shows programs you're NOT enrolled in, so status is N/A
-            
-            $sql .= " ORDER BY p.datePublished DESC, p.dateCreated DESC";
-            
-            $stmt = $conn->prepare($sql); 
-            $stmt->bind_param($types, ...$params); 
-            $stmt->execute();
-            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        } catch (Exception $e) { 
-            error_log("fetchPublishedPrograms: ".$e->getMessage()); 
-            return []; 
+    function fetchPublishedPrograms($conn, $studentId, $difficulty = 'all', $status = 'all', $search = '') {
+        $sql = "
+            SELECT p.programID, p.title, p.description, p.image, p.thumbnail, 
+                p.category, p.difficulty_level, p.price, p.currency,
+                p.dateCreated, p.dateUpdated,
+                p.version_number, p.parent_program_id,
+                'not-enrolled' AS enrollment_status
+            FROM programs p
+            WHERE p.status = 'published'
+            AND p.is_latest_version = 1  -- ✅ Only show latest versions
+            AND p.programID NOT IN (
+                SELECT program_id 
+                FROM student_program_enrollments 
+                WHERE student_id = ?
+            )
+        ";
+        
+        $params = [$studentId];
+        $types = 'i';
+        
+        // Add difficulty filter
+        if ($difficulty !== 'all') {
+            $sql .= " AND p.category = ?";
+            $params[] = $difficulty;
+            $types .= 's';
         }
+        
+        // Add search filter
+        if (!empty($search)) {
+            $sql .= " AND (p.title LIKE ? OR p.description LIKE ?)";
+            $searchTerm = "%{$search}%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $types .= 'ss';
+        }
+        
+        $sql .= " ORDER BY p.dateCreated DESC";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $programs = $result->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        
+        return $programs;
     }
 
     function enrollStudentInProgram($conn, $studentID, $programID) {

@@ -156,6 +156,10 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
             $symbol = currency_symbol($currency);
             $isMyTab = ($activeTab === 'my');
             
+            // ✅ Check if this is an updated version
+            $isUpdatedVersion = isset($program['version_number']) && $program['version_number'] > 1;
+            $versionNumber = $program['version_number'] ?? 1;
+            
             // ✅ FIXED: Calculate actual progress LIVE instead of using DB value
             if ($isMyTab) {
                 // Count total stories for this program
@@ -222,7 +226,15 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
         ?>
         <a href="student-program-view.php?program_id=<?= $pid ?>" class="block">
             <div class="w-[345px] h-[300px] rounded-[20px] flex flex-col lg:flex-row w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300 relative">
-                <!-- Status indicators -->
+                
+                <!-- ✅ NEW: Version Badge (Top Right) -->
+                <?php if ($isUpdatedVersion): ?>
+                    <div class="absolute top-3 right-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10">
+                        v<?= $versionNumber ?> Updated
+                    </div>
+                <?php endif; ?>
+                
+                <!-- Status indicators (Bottom Right) -->
                 <?php if ($isInProgress): ?>
                     <div class="absolute bottom-3 right-3 bg-[#10375B] text-white text-lg font-semibold px-3 py-1 rounded-full shadow">
                         Resume
@@ -289,7 +301,7 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
                             </p>
                         </div>
 
-                        <!-- Date Created/Updated badge -->
+                        <!-- Date Created/Updated -->
                         <div class="text-gray-700">
                             <p class="text-[14px]/[2em] font-semibold">
                                 Date Created: <?= htmlspecialchars($formattedDate) ?>
