@@ -16,9 +16,6 @@ if (!$program_id) {
     die('Invalid program ID');
 }
 
-// Get certificate settings
-$certSettings = $conn->query("SELECT * FROM certificate_settings WHERE id = 1")->fetch_assoc();
-
 // Get certificate info from database
 $stmt = $conn->prepare("
     SELECT 
@@ -65,11 +62,14 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Certificate - <?= htmlspecialchars($course) ?></title>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Import Google Fonts for better rendering -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="shortcut icon" href="../images/al-ghaya_logoForPrint.svg" type="image/x-icon">
@@ -83,8 +83,8 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
         }
         
         body {
-            font-family: <?= $certSettings['font_family'] ?>, sans-serif;
-            color: <?= $certSettings['primary_color'] ?>;
+            font-family: "Winky Rough", sans-serif;
+            color: #10375b;
             font-size: 15px;
             margin: 0;
             background-color: #f3f4f6;
@@ -103,7 +103,7 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
         #certificate {
             width: 842px;
             height: 595px;
-            background-image: url('<?= $certSettings['background_image'] ?>');
+            background-image: url('CertificateBG.svg');
             background-size: cover;
             background-position: center;
             background-color: #ffffff;
@@ -128,7 +128,7 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
             font-size: 24px;
             font-weight: 600;
             padding-bottom: 25px;
-            color: <?= $certSettings['primary_color'] ?>;
+            color: #10375b;
         }
         
         .content {
@@ -141,14 +141,14 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
         
         .content p {
             font-size: 16px;
-            color: <?= $certSettings['primary_color'] ?>;
+            color: #10375b;
             line-height: 1.5;
         }
         
         .student-name {
             font-size: 40px;
             font-weight: 600;
-            color: <?= $certSettings['primary_color'] ?>;
+            color: #10375b;
         }
         
         .bold {
@@ -186,13 +186,13 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
         
         .signature-block p {
             font-size: 14px;
-            color: <?= $certSettings['primary_color'] ?>;
+            color: #10375b;
             margin: 2px 0;
         }
         
         .lower-section > p {
             font-size: 14px;
-            color: <?= $certSettings['primary_color'] ?>;
+            color: #10375b;
         }
         
         .button-container {
@@ -242,36 +242,27 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
     <div class="container">
         <div id="certificate">
             <div class="upper-section">
-                <h1><?= htmlspecialchars($certSettings['header_title']) ?></h1>
+                <h1>Certificate of Completion</h1>
                 <div class="content">
-                    <p><?= htmlspecialchars($certSettings['intro_text']) ?></p>
+                    <p>This is to certify that</p>
                     <h2 class="student-name"><?= htmlspecialchars($name) ?></h2>
-                    <p>
-                        <?= htmlspecialchars($certSettings['completion_text']) ?> 
-                        <span class="bold"><?= htmlspecialchars($course) ?></span>
-                        <?php if ($certSettings['show_grade']): ?>
-                            <?= htmlspecialchars($certSettings['grade_text']) ?> 
-                            <span class="bold"><?= $score ?>%</span>
-                        <?php endif; ?>
-                    </p>
+                    <p>has successfully completed <span class="bold"><?= htmlspecialchars($course) ?></span> with a grade of <span class="bold"><?= $score ?>%</span></p>
                 </div>
             </div>
             
             <div class="lower-section">
                 <div class="signature-section">
-                    <img src="./<?= htmlspecialchars($certSettings['logo_image']) ?>" alt="Logo" class="logo" crossorigin="anonymous">
+                    <img src="./Logo.svg" alt="Logo" class="logo" crossorigin="anonymous">
                     <div class="signature-block">
-                        <p class="bold"><?= htmlspecialchars($certSettings['signature_name']) ?></p>
-                        <p><?= htmlspecialchars($certSettings['signature_title']) ?></p>
+                        <p class="bold">Omar Eguia</p>
+                        <p>Head of Al-Ghaya</p>
                     </div>
-                    <?php if ($certSettings['show_certificate_code']): ?>
                     <div class="signature-block">
-                        <p><?= htmlspecialchars($certSettings['certificate_code_label']) ?></p>
+                        <p>Certificate Code:</p>
                         <p class="bold"><?= $cert_code ?></p>
                     </div>
-                    <?php endif; ?>
                 </div>
-                <p><?= htmlspecialchars($certSettings['date_label']) ?> <span><?= $date ?></span></p>
+                <p>Date: <span><?= $date ?></span></p>
             </div>
         </div>
         
@@ -290,22 +281,35 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
             const button = this;
             const originalText = button.textContent;
             
+            // Disable button
             button.disabled = true;
             button.textContent = 'Generating Image...';
             
             try {
                 const element = document.getElementById('certificate');
+                
+                // Wait a bit for any rendering to complete
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
+                // Use html2canvas to capture the certificate
                 const canvas = await html2canvas(element, {
-                    scale: 3,
+                    scale: 3, // Higher quality
                     useCORS: true,
                     allowTaint: false,
                     backgroundColor: '#ffffff',
                     logging: false,
-                    imageTimeout: 0
+                    imageTimeout: 0,
+                    onclone: function(clonedDoc) {
+                        // Ensure fonts are loaded in cloned document
+                        const clonedElement = clonedDoc.getElementById('certificate');
+                        if (clonedElement) {
+                            clonedElement.style.fontFamily = '"Winky Rough", sans-serif';
+                            clonedElement.style.color = '#10375b';
+                        }
+                    }
                 });
                 
+                // Convert canvas to blob and download
                 canvas.toBlob(function(blob) {
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
@@ -316,6 +320,7 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
                     
+                    // Success feedback
                     button.textContent = '✓ Downloaded!';
                     setTimeout(() => {
                         button.textContent = originalText;
@@ -331,6 +336,8 @@ $date = date("F j, Y", strtotime($cert['issue_date']));
         });
     </script>
 
+    <!-- Load html2canvas from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </body>
+
 </html>

@@ -115,9 +115,9 @@ if (isset($_SESSION['userID'])) {
                                 <i class="ph ph-user-circle text-[18px] mr-3 text-gray-400"></i>
                                 Profile Settings
                             </a>
-                            <a href="admin-dashboard.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
+                            <a href="admin-system-settings.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
                                 <i class="ph ph-gear text-[18px] mr-3 text-gray-400"></i>
-                                Account Settings
+                                Certificate Settings
                             </a>
                             <a href="admin-help.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150">
                                 <i class="ph ph-question text-[18px] mr-3 text-gray-400"></i>
