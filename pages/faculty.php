@@ -141,7 +141,7 @@
 
         <!-- Right Illustration -->
         <div class="flex justify-center">
-            <img src="../images/hero.svg" alt="Illustration" class="w-auto max-h-[300px] lg:max-h-none">
+            <img src="../images/Hero.svg" alt="Illustration" class="w-auto max-h-[300px] lg:max-h-none">
         </div>
     </div>
 

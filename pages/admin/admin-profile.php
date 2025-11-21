@@ -97,6 +97,7 @@ $statsQuery = [
     'total_admins' => $conn->query("SELECT COUNT(*) as count FROM user WHERE role = 'admin' AND isActive = 1")->fetch_assoc()['count']
 ];
 ?>
+<?php include '../../components/header.php'; ?>
 
 <!DOCTYPE html>
 <html lang="en">

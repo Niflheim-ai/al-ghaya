@@ -821,8 +821,6 @@ $totalRevenue = array_sum(array_column($transactions, 'amount'));
     <i class="ph ph-arrow-up text-xl"></i>
 </button>
 
-<?php include '../../components/footer.php'; ?>
-
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="../../dist/javascript/user-dropdown.js"></script>

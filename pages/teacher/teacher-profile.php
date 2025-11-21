@@ -53,6 +53,7 @@ $statsQuery->bind_param("i", $userID);
 $statsQuery->execute();
 $stats = $statsQuery->get_result()->fetch_assoc();
 ?>
+<?php include '../../components/header.php'; ?>
 
 <!DOCTYPE html>
 <html lang="en">

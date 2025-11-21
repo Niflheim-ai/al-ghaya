@@ -6,7 +6,7 @@
     <!-- Footer Content -->
     <div class="flex flex-col text-center items-center md:flex-row h-fit w-full md:w-fit gap-[30px] md:gap-[50px]">
       <!-- Location -->
-      <div class="flex flex-col gap-[15px] md:gap-[25px] w-full md:w-[203px]">
+      <div class="flex flex-col gap-[15px] md:gap-[25px] w-full md:w-fit">
         <h2 class="sub-header text-[18px] md:text-[24px]">Our Location</h2>
         <div class="flex flex-col text-center gap-[10px]">
           <p class="footer-sub-header text-center text-[16px] md:text-[18px]">Al-Ghaya Office</p>
