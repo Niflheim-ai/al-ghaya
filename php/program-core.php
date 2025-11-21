@@ -407,6 +407,18 @@ function get_draft_programs($conn, $teacher_id) {
     $rows = $res->fetch_all(MYSQLI_ASSOC); $stmt->close(); return $rows; 
 }
 
+// Toolbar update endpoints
+function get_published_programs($conn, $teacher_id) {
+    $stmt = $conn->prepare("SELECT programID, title, price, category FROM programs WHERE teacherID = ? AND status = 'published' ORDER BY dateUpdated DESC LIMIT 100");
+    if (!$stmt) { return []; }
+    $stmt->bind_param("i", $teacher_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $rows = $res->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $rows;
+}
+
 function mark_pending_review($conn, $teacher_id, $program_ids) { 
     if (empty($program_ids)) { return 0; } 
     $in = implode(',', array_fill(0, count($program_ids), '?')); 
@@ -454,7 +466,7 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
         }
     } 
     // Teacher-only actions
-    else if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program','get_draft_programs','submit_for_publishing'])) {
+    else if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','delete_chapter','delete_story','archive_program','get_draft_programs','submit_for_publishing', 'get_published_programs'])) {
         if (!validateTeacherAccess()) {
             if (in_array($action, ['create_program','update_program','create_story','update_story','delete_program','archive_program'])) { 
                 $_SESSION['error_message'] = 'Unauthorized access'; 
@@ -775,6 +787,17 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 }
                 $rows = get_draft_programs($conn, $teacher_id);
                 echo json_encode(['success'=>true,'programs'=>$rows]); exit;
+
+            case 'get_published_programs':
+            header('Content-Type: application/json');
+            // Ensure teacher_id is set locally to avoid undefined variable warnings
+            if (!isset($teacher_id) || !$teacher_id) {
+                $user_id = (int)($_SESSION['userID'] ?? 0);
+                $teacher_id = $user_id ? getTeacherIdFromSession($conn, $user_id) : 0;
+                if (!$teacher_id) { echo json_encode(['success'=>false,'message'=>'Teacher profile not found']); exit; }
+            }
+            $rows = get_published_programs($conn, $teacher_id);
+            echo json_encode(['success'=>true,'programs'=>$rows]); exit;
 
             case 'submit_for_publishing':
                 header('Content-Type: application/json');

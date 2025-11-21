@@ -70,47 +70,33 @@
                     </div>
                     <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
                         <h3 class="text-lg leading-6 font-medium text-gray-900">
-                            Update Programs
+                            Update Published Programs
                         </h3>
                         <div class="mt-2">
                             <p class="text-sm text-gray-500">
                                 Choose what you want to update:
                             </p>
                         </div>
-                        <button onclick="showProgramCloneSelector()" class="w-full text-left px-4 py-2 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center gap-3">
+                        <div class="mt-4 max-h-60 overflow-y-auto">
+                            <div id="updateProgramsList" class="space-y-2">
+                                <!-- Published Programs will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="mt-4 space-y-3">
+                            <!-- <button onclick="showProgramCloneSelector()" class="w-full text-left px-4 py-2 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center gap-3">
                             <i class="ph ph-pencil-simple text-yellow-600"></i>
                             <div>
                                 <div class="font-medium text-yellow-900">Update Published Program</div>
                                 <div class="text-sm text-yellow-700">Clone and edit a program (without affecting current enrollees)</div>
-                            </div>
-                        </button>
-                        <div class="mt-4 space-y-3">
-                            <button onclick="bulkUpdateStatus()" class="w-full text-left px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-3">
-                                <i class="ph ph-arrow-circle-up text-blue-600"></i>
-                                <div>
-                                    <div class="font-medium text-blue-900">Update Program Status</div>
-                                    <div class="text-sm text-blue-600">Change multiple programs from draft to published</div>
-                                </div>
-                            </button>
-                            <button onclick="bulkUpdatePricing()" class="w-full text-left px-4 py-2 bg-green-50 hover:bg-green-100 rounded-lg flex items-center gap-3">
-                                <i class="ph ph-currency-dollar text-green-600"></i>
-                                <div>
-                                    <div class="font-medium text-green-900">Update Pricing</div>
-                                    <div class="text-sm text-green-600">Bulk update program prices</div>
-                                </div>
-                            </button>
-                            <button onclick="bulkUpdateCategories()" class="w-full text-left px-4 py-2 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center gap-3">
-                                <i class="ph ph-tag text-purple-600"></i>
-                                <div>
-                                    <div class="font-medium text-purple-900">Update Categories</div>
-                                    <div class="text-sm text-purple-600">Change program difficulty levels</div>
-                                </div>
-                            </button>
+                            </div> -->
                         </div>
                     </div>
                 </div>
             </div>
             <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="editProgram()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-yellow-600 text-base font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Clone and Edit Selected
+                </button>
                 <button type="button" onclick="closeUpdateModal()" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto sm:text-sm">
                     Close
                 </button>
@@ -250,6 +236,96 @@ function loadDraftPrograms() {
     tryFetch();
 }
 
+function loadPublishedPrograms() {
+    // Multiple fallback paths
+    const currentPath = window.location.pathname;
+    const possiblePaths = [
+        currentPath.includes('/pages/teacher/') ? '../../php/program-core.php' : 
+        currentPath.includes('/pages/') ? '../php/program-core.php' : 
+        'php/program-core.php',
+        '../../php/program-core.php',
+        '../php/program-core.php',
+        'php/program-core.php'
+    ];
+    
+    // Remove duplicates
+    const apiUrls = [...new Set(possiblePaths)];
+    
+    function tryFetch(urlIndex = 0) {
+        if (urlIndex >= apiUrls.length) {
+            const programsList = document.getElementById('publishProgramsList');
+            if (programsList) {
+                programsList.innerHTML = '<p class="text-red-500 text-center py-4">Unable to load programs. Please check your connection.</p>';
+            }
+            return;
+        }
+        
+        const apiUrl = apiUrls[urlIndex];
+        
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'get_published_programs' }),
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 403) {
+                    return response.json().then(data => {
+                        throw new Error('unauthorized');
+                    });
+                }
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const programsList = document.getElementById('updateProgramsList');
+            if (programsList) {
+                if (data.success && data.programs && data.programs.length > 0) {
+                    programsList.innerHTML = data.programs.map(program => `
+                        <label class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
+                            <input type="radio" name="update_program_id" value="${program.programID}" class="form-radio text-yellow-600">
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-900">${program.title || 'Untitled Program'}</div>
+                                <div class="text-sm text-gray-500">₱${parseFloat(program.price || 0).toFixed(2)} • ${program.category || 'beginner'}</div>
+                            </div>
+                        </label>
+                    `).join('');
+                } else {
+                    programsList.innerHTML = '<p class="text-gray-500 text-center py-4">No draft programs available for publishing.</p>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error(`Error with URL ${apiUrl}:`, error);
+            
+            if (error.message === 'unauthorized') {
+                const programsList = document.getElementById('updateProgramsList');
+                if (programsList) {
+                    programsList.innerHTML = '<p class="text-orange-500 text-center py-4">This action requires a teacher account. Please log in as a teacher.</p>';
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Teacher Access Required',
+                        text: 'The Publish function requires a teacher account. Please log in as a teacher to continue.',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                }
+                return;
+            }
+            
+            // Try next URL
+            tryFetch(urlIndex + 1);
+        });
+    }
+    
+    tryFetch();
+}
+
 function submitForPublishing() {
     const selectedPrograms = Array.from(document.querySelectorAll('input[name="publish_programs[]"]:checked')).map(cb => cb.value);
     
@@ -343,6 +419,7 @@ function showUpdateOptions() {
     const modal = document.getElementById('updateModal');
     if (modal) {
         modal.classList.remove('hidden');
+        loadPublishedPrograms();
     }
 }
 
@@ -404,6 +481,30 @@ function doCloneAndEditProgram(programId) {
             });
         } else {
             Swal.fire('Error', 'Failed to create draft copy for update.', 'error');
+        }
+    });
+}
+
+function editProgram() {
+    const selectedRadio = document.querySelector('input[name="update_program_id"]:checked');
+    if (!selectedRadio) {
+        Swal.fire({icon: 'warning', title: 'No Program Selected', text: 'Please select a published program to edit.'});
+        return;
+    }
+    const programId = selectedRadio.value;
+    // Call backend to clone the program and create a new draft
+    fetch('../../php/clone-program.php', {
+        method: 'POST',
+        headers: {'Content-Type':'application/x-www-form-urlencoded'},
+        body: 'programId=' + encodeURIComponent(programId)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success && res.newProgramId) {
+            // Redirect to the draft edit view
+            window.location.href = `?action=create&program_id=${res.newProgramId}`;
+        } else {
+            Swal.fire('Error', res.message || 'Could not create draft for editing.', 'error');
         }
     });
 }
