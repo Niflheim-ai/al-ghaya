@@ -8,6 +8,7 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'my';
 $difficulty = isset($_GET['difficulty']) ? $_GET['difficulty'] : 'all';
 $status = isset($_GET['status']) ? $_GET['status'] : 'all';
 $search = isset($_GET['search']) ? $_GET['search'] : '';
+$dateCreated = isset($_GET['dateCreated']) ? $_GET['dateCreated'] : 'all';
 
 $programs = [];
 $studentId = $_SESSION['userID'] ?? 0;
@@ -122,6 +123,18 @@ function currency_symbol($code){
     return $map[$uc] ?? '';
 }
 
+// Helper: format date to "Month Day, Year" format
+function formatProgramDate($dateString) {
+    if (empty($dateString)) return 'Date not available';
+    
+    try {
+        $date = new DateTime($dateString);
+        return $date->format('F j, Y'); // e.g., "November 22, 2025"
+    } catch (Exception $e) {
+        return 'Invalid date';
+    }
+}
+
 // Collect program IDs and get enrollee counts in one query
 $programIds = array_map(fn($p) => (int)$p['programID'], $programs);
 $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
@@ -195,6 +208,17 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
                     $programImage = '../../uploads/thumbnails/' . $program['thumbnail'];
                 }
             }
+            
+            // ✅ Format the date
+            // For "My Programs", prefer dateUpdated if available, otherwise dateCreated
+            // For "All Programs", use dateCreated
+            $displayDate = '';
+            if ($isMyTab) {
+                $displayDate = !empty($program['dateUpdated']) ? $program['dateUpdated'] : ($program['dateCreated'] ?? '');
+            } else {
+                $displayDate = $program['dateCreated'] ?? '';
+            }
+            $formattedDate = formatProgramDate($displayDate);
         ?>
         <a href="student-program-view.php?program_id=<?= $pid ?>" class="block">
             <div class="w-[345px] h-[300px] rounded-[20px] flex flex-col lg:flex-row w-full h-fit bg-white border border-gray-200 mb-4 hover:shadow-lg transition-shadow duration-300 relative">
@@ -257,11 +281,18 @@ $enrolleeCounts = getEnrolleeCounts($conn, $programIds);
                             <span><?= $enrollees ?> enrollees</span>
                         </div>
 
-                        <!-- Difficulty at bottom -->
+                        <!-- Difficulty badge -->
                         <div class="proficiency-badge mt-2">
                             <i class="ph-fill ph-barbell text-[15px]"></i>
                             <p class="text-[14px]/[2em] font-semibold">
                                 <?= htmlspecialchars(ucfirst(strtolower($program['category']))) ?> Difficulty
+                            </p>
+                        </div>
+
+                        <!-- Date Created/Updated badge -->
+                        <div class="text-gray-700">
+                            <p class="text-[14px]/[2em] font-semibold">
+                                Date Created: <?= htmlspecialchars($formattedDate) ?>
                             </p>
                         </div>
                     </div>

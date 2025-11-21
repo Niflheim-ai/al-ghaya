@@ -62,6 +62,8 @@
         $sql = "
             SELECT p.programID, p.title, p.description, p.image, p.thumbnail, 
                 p.category, p.difficulty_level, p.price, p.currency,
+                p.dateCreated,           -- ✅ ADDED
+                p.dateUpdated,           -- ✅ ADDED
                 spe.enrollment_date,
                 spe.last_accessed,
                 'enrolled' AS enrollment_status,
