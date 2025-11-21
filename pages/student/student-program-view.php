@@ -1149,4 +1149,221 @@ $page_title = htmlspecialchars($program['title']);
       updateProgress();
   });
 </script>
+
+<!-- Anti-Cheat Protection - Put this ONCE at the bottom, before </body> -->
+<?php if ($currentType === 'final_exam' || $currentType === 'chapter_quiz'): ?>
+    <style>
+    .anti-cheat-active {
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+    }
+    .content-blurred {
+        filter: blur(8px);
+        pointer-events: none;
+        transition: filter 0.03s;
+    }
+    #exam-protection-badge {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 2px solid #f59e0b;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #92400e;
+        z-index: 9999;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    </style>
+    
+    <div id="exam-protection-badge">
+        <i class="ph ph-shield-check" style="font-size: 20px;"></i>
+        Exam Protection Active
+    </div>
+    
+    <script>
+    (function() {
+        'use strict';
+        
+        console.log('%c✓ ANTI-CHEAT PROTECTION ACTIVATED', 'color: green; font-size: 16px; font-weight: bold;');
+        
+        // 1. DISABLE RIGHT-CLICK
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('❌ Right-click blocked');
+            return false;
+        }, true);
+        
+        // 2. DISABLE KEYBOARD SHORTCUTS
+        document.addEventListener('keydown', function(e) {
+            // F12 (DevTools)
+            if (e.keyCode === 123 || e.key === 'F12') {
+                e.preventDefault();
+                console.log('❌ F12 blocked');
+                return false;
+            }
+            
+            // Ctrl+Shift+I (Inspect)
+            if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.key === 'I')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+Shift+I blocked');
+                return false;
+            }
+            
+            // Ctrl+Shift+J (Console)
+            if (e.ctrlKey && e.shiftKey && (e.keyCode === 74 || e.key === 'J')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+Shift+J blocked');
+                return false;
+            }
+            
+            // Ctrl+Shift+C (Inspect Element)
+            if (e.ctrlKey && e.shiftKey && (e.keyCode === 67 || e.key === 'C')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+Shift+C blocked');
+                return false;
+            }
+            
+            // Ctrl+U (View Source)
+            if (e.ctrlKey && (e.keyCode === 85 || e.key === 'u')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+U blocked');
+                return false;
+            }
+            
+            // Ctrl+S (Save)
+            if (e.ctrlKey && (e.keyCode === 83 || e.key === 's')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+S blocked');
+                return false;
+            }
+            
+            // Ctrl+P (Print)
+            if (e.ctrlKey && (e.keyCode === 80 || e.key === 'p')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+P blocked');
+                return false;
+            }
+            
+            // Ctrl+C (Copy)
+            if (e.ctrlKey && (e.keyCode === 67 || e.key === 'c')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+C blocked');
+                return false;
+            }
+            
+            // Ctrl+A (Select All)
+            if (e.ctrlKey && (e.keyCode === 65 || e.key === 'a')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+A blocked');
+                return false;
+            }
+            
+            // Ctrl+X (Cut)
+            if (e.ctrlKey && (e.keyCode === 88 || e.key === 'x')) {
+                e.preventDefault();
+                console.log('❌ Ctrl+X blocked');
+                return false;
+            }
+        }, true);
+        
+        // 3. DISABLE TEXT SELECTION
+        document.body.classList.add('anti-cheat-active');
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
+        document.body.style.mozUserSelect = 'none';
+        document.body.style.msUserSelect = 'none';
+        
+        document.onselectstart = function() { 
+            console.log('❌ Text selection blocked');
+            return false; 
+        };
+        
+        // 4. DISABLE COPY
+        document.addEventListener('copy', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.clipboardData.setData('text/plain', '');
+            console.log('❌ Copy blocked');
+            return false;
+        }, true);
+        
+        // 5. DISABLE CUT
+        document.addEventListener('cut', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('❌ Cut blocked');
+            return false;
+        }, true);
+        
+        // 6. DISABLE PASTE
+        document.addEventListener('paste', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('❌ Paste blocked');
+            return false;
+        }, true);
+        
+        // 7. BLUR CONTENT WHEN TAB LOSES FOCUS
+        document.addEventListener('visibilitychange', function() {
+            const mainContent = document.querySelector('main') || document.body;
+            
+            if (document.hidden) {
+                mainContent.classList.add('content-blurred');
+                console.log('⚠️ Tab switched - Content blurred');
+            } else {
+                mainContent.classList.remove('content-blurred');
+                console.log('✓ Tab focused - Content restored');
+            }
+        });
+        
+        window.addEventListener('blur', function() {
+            const mainContent = document.querySelector('main') || document.body;
+            mainContent.classList.add('content-blurred');
+            console.log('⚠️ Window blur - Content blurred');
+        });
+        
+        window.addEventListener('focus', function() {
+            const mainContent = document.querySelector('main') || document.body;
+            mainContent.classList.remove('content-blurred');
+            console.log('✓ Window focus - Content restored');
+        });
+        
+        // 8. DISABLE DRAG & DROP
+        document.addEventListener('dragstart', function(e) {
+            e.preventDefault();
+            console.log('❌ Drag blocked');
+            return false;
+        }, true);
+        
+        // 9. PREVENT IMAGE SAVING
+        document.addEventListener('mousedown', function(e) {
+            if (e.target.tagName === 'IMG') {
+                e.preventDefault();
+                console.log('❌ Image save blocked');
+                return false;
+            }
+        }, true);
+        
+        // 10. WARN BEFORE LEAVING PAGE
+        window.addEventListener('beforeunload', function(e) {
+            e.preventDefault();
+            e.returnValue = 'Your exam progress may be lost if you leave this page.';
+            return e.returnValue;
+        });
+        
+        console.log('%c✓ All protections enabled successfully', 'color: green; font-weight: bold;');
+        
+    })();
+    </script>
+<?php endif; ?>
+
 <?php include '../../components/footer.php'; ?>
