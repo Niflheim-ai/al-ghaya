@@ -43,7 +43,6 @@ function cloneProgram($conn, $originalProgramId, $teacherId) {
             'status' => 'draft',
             'overview_video_url' => $prog['overview_video_url']
         ];
-        // You can add 'original_program_id' if your schema supports it.
         $newProgramId = program_create($conn, $data);
         if (!$newProgramId) throw new Exception('Could not clone program metadata');
 
@@ -55,11 +54,63 @@ function cloneProgram($conn, $originalProgramId, $teacherId) {
             if (!$chapterId) throw new Exception('Failed to clone chapter');
             $oldChapterToNew[$chapter['chapter_id']] = $chapterId;
 
+            // 3.1 Clone CHAPTER QUIZ (if exists)
+            $quiz = quiz_getByChapter($conn, $chapter['chapter_id']);
+            if ($quiz) {
+                $quizTitle = $quiz['title'];
+                $quizMaxQuestions = isset($quiz['max_questions']) ? $quiz['max_questions'] : 30; // Use default if missing
+                $quizDateCreated = date('Y-m-d H:i:s'); // Always assign to variable
+
+                // Insert the quiz for the new chapter
+                $quizInsert = $conn->prepare(
+                    "INSERT INTO chapter_quizzes (chapter_id, program_id, title, max_questions, dateCreated) VALUES (?, ?, ?, ?, ?)"
+                );
+                if (!$quizInsert) { throw new Exception('Failed to prepare quiz insert: ' . $conn->error); }
+                $quizInsert->bind_param("iisis", $chapterId, $newProgramId, $quizTitle, $quizMaxQuestions, $quizDateCreated);
+                if (!$quizInsert->execute()) { throw new Exception('Failed to insert quiz: ' . $quizInsert->error); }
+                $newQuizId = $quizInsert->insert_id;
+                $quizInsert->close();
+
+                // Clone each quiz question for the new quiz
+                $quizQuestions = quizQuestion_getByQuiz($conn, $quiz['quiz_id']);
+                if (!empty($quizQuestions)) {
+                    foreach ($quizQuestions as $qq) {
+                        $qqText = $qq['question_text'];
+                        $qqOrder = isset($qq['question_order']) ? $qq['question_order'] : 1;
+
+                        $quizQInsert = $conn->prepare(
+                            "INSERT INTO quiz_questions (quiz_id, question_text, question_order) VALUES (?, ?, ?)"
+                        );
+                        if (!$quizQInsert) { throw new Exception('Failed to prepare quiz_question insert: ' . $conn->error); }
+                        $quizQInsert->bind_param("isi", $newQuizId, $qqText, $qqOrder);
+                        if (!$quizQInsert->execute()) { throw new Exception('Failed to insert quiz_question: ' . $quizQInsert->error); }
+                        $newQuizQId = $quizQInsert->insert_id;
+                        $quizQInsert->close();
+
+                        // Clone each option for this quiz question
+                        if (!empty($qq['options'])) {
+                            foreach ($qq['options'] as $opt) {
+                                $optText = $opt['option_text'];
+                                $isCorrect = isset($opt['is_correct']) ? $opt['is_correct'] : 0;
+                                $optOrder = isset($opt['option_order']) ? $opt['option_order'] : 1;
+
+                                $optInsert = $conn->prepare(
+                                    "INSERT INTO quiz_question_options (quiz_question_id, option_text, is_correct, option_order) VALUES (?, ?, ?, ?)"
+                                );
+                                if (!$optInsert) { throw new Exception('Failed to prepare quiz_question_option insert: ' . $conn->error); }
+                                $optInsert->bind_param("isii", $newQuizQId, $optText, $isCorrect, $optOrder);
+                                if (!$optInsert->execute()) { throw new Exception('Failed to insert quiz_question_option: ' . $optInsert->error); }
+                                $optInsert->close();
+                            }
+                        }
+                    }
+                }
+            }
+
             // 4. Clone stories for this chapter
             $stories = chapter_getStories($conn, $chapter['chapter_id']);
             foreach ($stories as $story) {
-                // Core: synopses, title, video, etc.
-                $storyData = [  
+                $storyData = [
                     'chapter_id' => $chapterId,
                     'title' => $story['title'],
                     'synopsis_arabic' => $story['synopsis_arabic'],
@@ -82,7 +133,7 @@ function cloneProgram($conn, $originalProgramId, $teacherId) {
                     $sectionStmt->close();
 
                     // Clone questions for this section
-                    $questions = section_getQuestions($conn, $section['section_id']);  // key: section_id!
+                    $questions = section_getQuestions($conn, $section['section_id']);
                     foreach ($questions as $question) {
                         $qStmt = $conn->prepare(
                             "INSERT INTO interactive_questions (section_id, question_text, question_type, question_order) VALUES (?, ?, ?, ?)"
@@ -91,7 +142,7 @@ function cloneProgram($conn, $originalProgramId, $teacherId) {
                             "issi",
                             $newSectionId,
                             $question['question_text'],
-                            $question['question_type'], // e.g. 'multiple_choice'
+                            $question['question_type'],
                             $question['question_order']
                         );
                         $qStmt->execute();
