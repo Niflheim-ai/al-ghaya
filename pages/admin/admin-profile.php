@@ -151,18 +151,18 @@ $statsQuery = [
             <div class="lg:col-span-1">
                 <div class="profile-card rounded-xl shadow-lg overflow-hidden text-white">
                     <div class="p-8 text-center">
-                        <div class="w-32 h-32 rounded-full bg-white bg-opacity-20 flex items-center justify-center mx-auto mb-4">
+                        <div class="w-32 h-32 rounded-full bg-red-600 border border-white border-[2px] bg-opacity-20 flex items-center justify-center mx-auto mb-4">
                             <span class="text-4xl font-bold text-white">
                                 <?= strtoupper(substr($user['fname'], 0, 1) . substr($user['lname'], 0, 1)) ?>
                             </span>
                         </div>
                         <h2 class="text-2xl font-bold mb-2"><?= htmlspecialchars($user['fname'] . ' ' . $user['lname']) ?></h2>
                         <p class="text-red-100 mb-2"><?= htmlspecialchars($user['email']) ?></p>
-                        <div class="bg-white bg-opacity-10 rounded-lg p-3 mb-4">
+                        <div class="bg-red-600 bg-opacity-10 rounded-lg p-3 mb-4">
                             <p class="text-sm text-red-100">System Administrator</p>
                             <p class="font-semibold">Al-Ghaya LMS</p>
                         </div>
-                        <div class="bg-white bg-opacity-10 rounded-lg p-3">
+                        <div class="bg-red-600 bg-opacity-10 rounded-lg p-3">
                             <p class="text-sm text-red-100">Admin since</p>
                             <p class="font-semibold"><?= date('F Y', strtotime($user['dateCreated'])) ?></p>
                         </div>
