@@ -39,7 +39,7 @@ require_once '../../php/program-core.php';
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-yellow-800 bg-yellow-100 rounded-full border border-yellow-200"><i class="ph-file-dashed-fill mr-1.5 text-yellow-600"></i>Draft</span>';
                         case 'archived':
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-gray-800 bg-gray-100 rounded-full border border-gray-200"><i class="ph-archive-fill mr-1.5 text-gray-600"></i>Archived</span>';
-                        case 'pending':
+                        case 'pending_review':
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-blue-800 bg-blue-100 rounded-full border border-blue-200"><i class="ph-clock-fill mr-1.5 text-blue-600"></i>Pending Review</span>';
                         case 'rejected':
                             return '<span class="inline-flex items-center px-3 py-1 text-sm font-semibold text-red-800 bg-red-100 rounded-full border border-red-200"><i class="ph-x-circle-fill mr-1.5 text-red-600"></i>Rejected</span>';

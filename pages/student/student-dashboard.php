@@ -219,11 +219,11 @@
                                 <div class="flex items-center gap-2">
                                     <p class="body-text2-semibold text-2xl font-bold text-[#10375B] notranslate">Level <?= $userStats['level'] ?></p>
                                     <div class="relative group">
-                                        <button class="flex items-center justify-center w-5 h-5 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors duration-200">
+                                        <button onclick="openPointsModal()" class="flex items-center justify-center w-5 h-5 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors duration-200">
                                             <i class="ph ph-question text-[14px] text-gray-600"></i>
                                         </button>
                                         <!-- Tooltip -->
-                                        <div class="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-64 bg-gray-900 text-white text-sm rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
+                                        <div id="pointsTooltip" class="absolute z-99 left-full ml-2 top-1/2 -translate-y-1/2 w-64 bg-gray-900 text-white text-sm rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
                                             <div class="space-y-2">
                                                 <p class="font-semibold border-b border-gray-700 pb-1">Earn Points:</p>
                                                 <p>📚 Complete a program: <strong>50 pts</strong></p>
@@ -503,8 +503,46 @@
     </div>
 </div>
 
+<!-- Modal Background -->
+<div id="pointsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <!-- Modal Box -->
+    <div class="bg-white rounded-lg shadow-xl w-80 p-5 relative animate-fadeIn">
+        <button onclick="closePointsModal()" class="absolute top-2 right-2 text-gray-600 hover:text-gray-800">
+            ✖
+        </button>
+
+        <p class="font-semibold text-lg mb-3 border-b pb-2">Earn Points:</p>
+
+        <div class="space-y-2 text-gray-700">
+            <p>📚 Complete a program: <strong>50 pts</strong></p>
+            <p>✅ Complete Daily Challenges: <strong>10 pts</strong></p>
+            <p>📅 Daily login: <strong>10 pts</strong></p>
+        </div>
+    </div>
+</div>
+
 <!-- Include SweetAlert2 for welcome message -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    function openPointsModal() {
+        document.getElementById("pointsModal").classList.remove("hidden");
+    }
+
+    function closePointsModal() {
+        document.getElementById("pointsModal").classList.add("hidden");
+    }
+
+    // Close when clicking outside modal box
+    document.addEventListener("click", function(e) {
+        const modal = document.getElementById("pointsModal");
+        const box = modal.querySelector("div");
+
+        if (!modal.classList.contains("hidden") && !box.contains(e.target)) {
+            closePointsModal();
+        }
+    });
+</script>
 
 <!-- JavaScript for interactive elements -->
 <script>
@@ -578,17 +616,25 @@ setTimeout(() => {
 </script>
 
 <style>
-.swal2-popup-welcome {
-    border-radius: 12px !important;
-    padding: 2rem !important;
-    max-width: 600px !important;
-}
+    .swal2-popup-welcome {
+        border-radius: 12px !important;
+        padding: 2rem !important;
+        max-width: 600px !important;
+    }
 
-.swal2-title-welcome {
-    font-size: 1.75rem !important;
-    font-weight: 700 !important;
-    color: #1f2937 !important;
-}
+    .swal2-title-welcome {
+        font-size: 1.75rem !important;
+        font-weight: 700 !important;
+        color: #1f2937 !important;
+    }
+
+    @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+    }
 </style>
 
 <!-- Back to Top button -->

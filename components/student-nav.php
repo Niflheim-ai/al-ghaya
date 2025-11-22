@@ -191,6 +191,12 @@ if (isset($_SESSION['userID'])) {
                 echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
             } ?>">Leaderboards</a>
 
+            <a href="student-achievements.php" class="<?php if ($current_page == 'achievements') {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 bg-gray-700 text-white';
+            } else {
+                echo 'block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white';
+            } ?>">Achievements</a>
+
             <div class="border-t border-gray-700 w-full my-2"></div>
             <a href="student-profile.php" class="block w-full text-center rounded-md px-3 py-2 text-md font-medium text-neutral-800 hover:bg-gray-700 hover:text-white">Profile</a>
             <button onclick="confirmStudentSignOut()" class="block w-full text-center rounded-md bg-red-600 px-3 py-2 text-base font-medium text-white hover:bg-red-700">Sign Out</button>
