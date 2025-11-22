@@ -62,7 +62,7 @@ $course = $cert['program_title'];
 $date = date("F j, Y", strtotime($cert['issue_date']));
 
 // Define the validation URL for QR code
-$validationURL = "validate-certificate.php?code=" . urlencode($cert_code);
+$validationURL = "https://blue-duck-442985.hostingersite.com/certificate/validate-certificate.php?code=" . urlencode($cert_code);
 ?>
 <!DOCTYPE html>
 <html lang="en">
