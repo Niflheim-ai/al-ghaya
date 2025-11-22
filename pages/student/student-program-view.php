@@ -104,18 +104,49 @@ $showCertificate = $certificateEarned;
 
 $compiledExamQuestions = [];
 if ($viewExam && $showExam) {
+    // Step 1: Get all chapter quizzes
     $quizIds = [];
     foreach($chapters as $ch) {
         $quiz = getChapterQuiz($conn, $ch['chapter_id']);
         if($quiz) $quizIds[] = $quiz['quiz_id'];
     }
-    $questions = [];
-    foreach($quizIds as $qid) {
-        $result = quizQuestion_getByQuiz($conn, $qid);
-        foreach ($result as $q) $questions[] = $q;
+    
+    $totalQuizzes = count($quizIds);
+    $targetQuestions = 50;
+    
+    if ($totalQuizzes > 0) {
+        // Step 2: Calculate minimum questions per quiz to ensure coverage
+        $minQuestionsPerQuiz = 1;
+        $remainingQuestions = $targetQuestions - ($totalQuizzes * $minQuestionsPerQuiz);
+        
+        $guaranteedQuestions = [];
+        $extraQuestions = [];
+        
+        // Step 3: Get at least 1 question from each quiz
+        foreach($quizIds as $qid) {
+            $allQuestionsFromQuiz = quizQuestion_getByQuiz($conn, $qid);
+            
+            if (!empty($allQuestionsFromQuiz)) {
+                // Shuffle and take 1 guaranteed question
+                shuffle($allQuestionsFromQuiz);
+                $guaranteedQuestions[] = array_shift($allQuestionsFromQuiz);
+                
+                // Save remaining questions for later random selection
+                $extraQuestions = array_merge($extraQuestions, $allQuestionsFromQuiz);
+            }
+        }
+        
+        // Step 4: Fill remaining slots with random questions
+        shuffle($extraQuestions);
+        $additionalQuestions = array_slice($extraQuestions, 0, $remainingQuestions);
+        
+        // Step 5: Combine and shuffle final set
+        $compiledExamQuestions = array_merge($guaranteedQuestions, $additionalQuestions);
+        shuffle($compiledExamQuestions);
+        
+        // Step 6: Ensure we have exactly 50 questions (or less if not enough available)
+        $compiledExamQuestions = array_slice($compiledExamQuestions, 0, $targetQuestions);
     }
-    shuffle($questions);
-    $compiledExamQuestions = array_slice($questions, 0, 50);
 }
 
 $navigation = [];
