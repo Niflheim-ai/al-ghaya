@@ -11,6 +11,19 @@ $studentID = (int)$_SESSION['userID'];
 $current_page = 'achievements';
 $page_title = 'My Achievements';
 
+// Fetch certificate settings (for background and logo)
+$certSettings = $conn->query("SELECT * FROM certificate_settings WHERE id = 1")->fetch_assoc();
+
+// Fetch student name from DB for use in achievement certificate
+$studentID = (int)$_SESSION['userID'];
+$userStmt = $conn->prepare("SELECT fname, lname FROM user WHERE userID = ?");
+$userStmt->bind_param("i", $studentID);
+$userStmt->execute();
+$user = $userStmt->get_result()->fetch_assoc();
+$userStmt->close();
+
+$studentFullName = trim(($user['fname'] ?? '') . ' ' . ($user['lname'] ?? ''));
+
 // Get all achievement definitions
 $achievementsStmt = $conn->query("
     SELECT * FROM achievement_definitions 
@@ -176,70 +189,70 @@ $pointsStmt->close();
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <?php foreach ($allAchievements as $achievement): ?>
                     <?php 
-                    $isUnlocked = isset($unlockedAchievements[$achievement['achievement_type']]);
-                    $dateUnlocked = $isUnlocked ? $unlockedAchievements[$achievement['achievement_type']] : null;
+                        $isUnlocked = isset($unlockedAchievements[$achievement['achievement_type']]);
+                        $dateUnlocked = $isUnlocked ? $unlockedAchievements[$achievement['achievement_type']] : null;
                     ?>
-                    
                     <div class="achievement-card bg-white rounded-xl shadow-md p-6 border-2 <?= $isUnlocked ? 'border-green-500' : 'border-gray-200' ?> relative <?= !$isUnlocked ? 'locked' : '' ?>">
                         
-                        <!-- Obtained Badge -->
                         <?php if ($isUnlocked): ?>
-                            <div class="badge-obtained">
-                                <i class="ph ph-check-circle"></i> Obtained
-                            </div>
+                        <div class="badge-obtained">
+                            <i class="ph ph-check-circle"></i> Obtained
+                        </div>
                         <?php endif; ?>
 
-                        <!-- Lock Icon for Locked Achievements -->
                         <?php if (!$isUnlocked): ?>
-                            <div class="lock-overlay">
-                                <i class="ph ph-lock"></i>
-                            </div>
+                        <div class="lock-overlay">
+                            <i class="ph ph-lock"></i>
+                        </div>
                         <?php endif; ?>
 
-                        <!-- Achievement Icon -->
                         <div class="flex justify-center mb-4">
-                            <?php if (!empty($achievement['icon'])): ?>
-                                <img src="../../images/achievements/<?= htmlspecialchars($achievement['icon']) ?>" 
-                                     alt="<?= htmlspecialchars($achievement['name']) ?>"
-                                     class="achievement-icon">
-                            <?php else: ?>
-                                <div class="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center">
-                                    <i class="ph ph-trophy text-4xl text-gray-400"></i>
-                                </div>
-                            <?php endif; ?>
+                        <?php if (!empty($achievement['icon'])): ?>
+                            <img src="../../images/achievements/<?= htmlspecialchars($achievement['icon']) ?>" 
+                                alt="<?= htmlspecialchars($achievement['name']) ?>"
+                                class="achievement-icon">
+                        <?php else: ?>
+                            <div class="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center">
+                                <i class="ph ph-trophy text-4xl text-gray-400"></i>
+                            </div>
+                        <?php endif; ?>
                         </div>
 
-                        <!-- Achievement Name -->
                         <h3 class="text-lg font-bold text-gray-900 text-center mb-2">
-                            <?= htmlspecialchars($achievement['name']) ?>
+                        <?= htmlspecialchars($achievement['name']) ?>
                         </h3>
-
-                        <!-- Achievement Description -->
                         <p class="text-sm text-gray-600 text-center mb-3">
-                            <?= htmlspecialchars($achievement['description']) ?>
+                        <?= htmlspecialchars($achievement['description']) ?>
                         </p>
-
-                        <!-- Points Required (if applicable) -->
                         <?php if ($achievement['points_required']): ?>
-                            <div class="flex items-center justify-center gap-2 mb-3">
-                                <i class="ph ph-star text-yellow-500"></i>
-                                <span class="text-sm font-semibold text-gray-700">
-                                    <?= number_format($achievement['points_required']) ?> points
-                                </span>
-                            </div>
+                        <div class="flex items-center justify-center gap-2 mb-3">
+                            <i class="ph ph-star text-yellow-500"></i>
+                            <span class="text-sm font-semibold text-gray-700"><?= number_format($achievement['points_required']) ?> points</span>
+                        </div>
                         <?php endif; ?>
-
-                        <!-- Unlock Date -->
                         <?php if ($isUnlocked && $dateUnlocked): ?>
-                            <div class="text-center pt-3 border-t border-gray-200">
-                                <p class="text-xs text-gray-500">
-                                    <i class="ph ph-calendar"></i> 
-                                    Unlocked on <?= date('M j, Y', strtotime($dateUnlocked)) ?>
-                                </p>
-                            </div>
+                        <div class="text-center pt-3 border-t border-gray-200">
+                            <p class="text-xs text-gray-500">
+                            <i class="ph ph-calendar"></i> 
+                            Unlocked on <?= date('M j, Y', strtotime($dateUnlocked)) ?>
+                            </p>
+                        </div>
+
+                        <!-- Download Button -->
+                        <div class="mt-2 flex justify-center">
+                            <button class="download-achievement-btn bg-green-500 hover:bg-green-600 text-white text-xs px-4 py-2 rounded transition"
+                            data-achievement='<?= htmlspecialchars(json_encode([
+                                'name' => $achievement['name'],
+                                'description' => $achievement['description'],
+                                'icon' => $achievement['icon'],
+                                'date' => $dateUnlocked,
+                                'student_name' => $studentFullName,
+                            ])) ?>'>
+                            <i class="ph ph-download mr-1"></i> Download Badge
+                            </button>
+                        </div>
                         <?php endif; ?>
                     </div>
-                    
                 <?php endforeach; ?>
             </div>
 
@@ -251,8 +264,56 @@ $pointsStmt->close();
                 </div>
             <?php endif; ?>
         </div>
-
     </div>
 </div>
 
+<!-- Hidden Certificate Template -->
+<div id="achievementCertificateTemplate" style="display:none; width:842px; height:595px; position:relative; font-family:'<?= $certSettings['font_family'] ?>', sans-serif;">
+  <!-- Background image -->
+  <img src="../../certificate/backgrounds/<?= htmlspecialchars($certSettings['background_image']) ?>" alt="Certificate Background" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;border-radius:16px;z-index:0;" crossorigin="anonymous">
+  
+  <!-- Content -->
+  <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:56px 32px;">
+    <div id="achCertIcon"></div>
+    <div style="font-size:36px;font-weight:700;margin:18px 0 12px;color:<?= $certSettings['primary_color'] ?>;" id="achCertTitle"></div>
+    <div style="font-size:20px;margin-bottom:24px;color:#374151;" id="achCertDesc"></div>
+    <div style="font-size:22px;font-weight:500;color:#2563eb;margin-bottom:18px;" id="achCertUser"></div>
+    <div style="font-size:16px;color:#374151;" id="achCertDate"></div>
+  </div>
+  <!-- Logo center bottom -->
+  <img src="../../certificate/logos/<?= htmlspecialchars($certSettings['logo_image']) ?>" alt="Logo" style="position:absolute;left:50%;bottom:40px;transform:translateX(-50%);width:140px;opacity:0.95;z-index:2;" crossorigin="anonymous">
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+    document.addEventListener('click', function(e) {
+    if (e.target.closest('.download-achievement-btn')) {
+        const btn = e.target.closest('.download-achievement-btn');
+        const data = JSON.parse(btn.getAttribute('data-achievement'));
+        // Build the template
+        const tpl = document.getElementById('achievementCertificateTemplate');
+        document.getElementById('achCertIcon').innerHTML = data.icon
+        ? `<img src="../../images/achievements/${data.icon}" style="width:100px;height:100px;object-fit:contain;display:block;margin:0 auto 8px;">`
+        : '';
+        document.getElementById('achCertTitle').textContent = data.name;
+        document.getElementById('achCertDesc').textContent = data.description;
+        document.getElementById('achCertUser').textContent = `Awarded to: ${data.student_name || 'Student'}`;
+        document.getElementById('achCertDate').textContent = `Unlocked on: ${data.date ? new Date(data.date).toLocaleDateString() : ''}`;
+        tpl.style.display = 'block';
+        html2canvas(tpl, { scale: 2 }).then(canvas => {
+        tpl.style.display = 'none';
+        canvas.toBlob(function(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${data.name.replace(/\s+/g, '_')}_Certificate.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 'image/png', 1.0);
+        });
+    }
+    });
+</script>
 <?php include '../../components/footer.php'; ?>
