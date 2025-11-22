@@ -37,7 +37,7 @@ if ($storyId > 0) {
         </div>
     <?php endif; ?>
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <form id="storyForm" method="POST" action="../../php/program-core.php" class="space-y-8">
+        <form id="storyForm" method="POST" enctype="multipart/form-data" action="../../php/program-core.php" class="space-y-8" onsubmit="return validateStoryForm(event)">
             <input type="hidden" name="action" value="<?= $storyData ? 'update_story' : 'create_story' ?>">
             <input type="hidden" name="programID" value="<?= $programId ?>">
             <input type="hidden" name="chapter_id" value="<?= $chapterId ?>">
@@ -71,22 +71,75 @@ if ($storyId > 0) {
                           <?= $isPublished ? 'disabled' : '' ?>><?= $storyData ? htmlspecialchars($storyData['synopsis_english']) : '' ?></textarea>
             </div>
 
-            <!-- Video Link -->
-            <div class="space-y-2">
-                <label for="video_url" class="block text-sm font-medium text-gray-700">Video link of the Story</label>
-                <div class="relative">
-                    <input type="url" id="video_url" name="video_url" required
-                        value="<?= $storyData ? htmlspecialchars($storyData['video_url']) : '' ?>"
-                        placeholder="https://youtube.com/..."
-                        class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        <?= $isPublished ? 'disabled' : '' ?>>
-                    <button type="button" onclick="validateVideoUrl()"
-                        class="absolute right-2 top-2 p-2 text-gray-400 hover:text-blue-600"
-                        <?= $isPublished ? 'disabled' : '' ?>>
-                        <i class="ph ph-check-circle text-xl"></i>
-                    </button>
+            <!-- Video -->
+            <div class="space-y-4">
+                <label class="block text-sm font-medium text-gray-700">Story Video</label>
+                <div class="flex gap-4 mb-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="video_type" value="url"
+                            <?= (!$storyData || ($storyData['video_type'] ?? 'url') === 'url') ? 'checked' : '' ?>
+                            onchange="toggleStoryVideoInput('url')"
+                            class="text-blue-600 focus:ring-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
+                        <span class="text-sm font-medium">YouTube/External URL</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="video_type" value="upload"
+                            <?= ($storyData && ($storyData['video_type'] ?? '') === 'upload') ? 'checked' : '' ?>
+                            onchange="toggleStoryVideoInput('upload')"
+                            class="text-blue-600 focus:ring-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
+                        <span class="text-sm font-medium">Upload Video</span>
+                    </label>
                 </div>
-                <p class="text-sm text-gray-500">This video will be played for students to progress through the story</p>
+
+                <!-- URL input -->
+                <div id="storyUrlInput" class="<?= ($storyData && ($storyData['video_type'] ?? 'url') !== 'url') ? 'hidden' : '' ?>">
+                    <input type="url" id="video_url" name="video_url"
+                        value="<?= $storyData ? htmlspecialchars($storyData['video_url'] ?? '') : '' ?>"
+                        placeholder="https://youtube.com/..."
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        <?= $isPublished ? 'disabled' : '' ?>>
+                    <p class="text-sm text-gray-500">Enter a YouTube or Vimeo URL</p>
+                </div>
+
+                <!-- Upload input -->
+                <div id="storyUploadInput" class="<?= (!$storyData || ($storyData['video_type'] ?? 'url') === 'url') ? 'hidden' : '' ?>">
+                    <?php if ($storyData && $storyData['video_file']): ?>
+                    <div id="storyCurrentVideoPreview" class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700">Current Video:</span>
+                            <?php if (!$isPublished): ?>
+                                <button type="button" onclick="removeCurrentStoryVideo()" 
+                                    class="text-red-500 hover:text-red-700 text-sm">
+                                    <i class="ph ph-trash mr-1"></i>Remove
+                                </button>
+                            <?php endif; ?>
+                        </div>
+                        <video controls class="w-full max-w-md rounded-lg">
+                            <source src="../../uploads/story_videos/<?= htmlspecialchars($storyData['video_file']) ?>" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <p class="text-xs text-gray-500 mt-2"><?= htmlspecialchars($storyData['video_file']) ?></p>
+                    </div>
+                    <?php endif; ?>
+                    <div class="flex flex-col items-center gap-4 p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
+                        <div id="storyVideoPreviewContainer" class="hidden w-full max-w-md">
+                            <video id="storyVideoPreview" controls class="w-full rounded-lg border border-gray-200"></video>
+                            <p id="storyVideoFileName" class="text-sm text-gray-600 mt-2 text-center"></p>
+                        </div>
+                        <div class="text-center">
+                            <input type="file" id="video_file" name="video_file" 
+                                accept="video/mp4,video/webm,video/ogg"
+                                class="hidden" onchange="previewStoryVideo(this)" <?= $isPublished ? 'disabled' : '' ?>>
+                            <label for="video_file"
+                                class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center gap-2 <?= $isPublished ? 'opacity-60 pointer-events-none' : '' ?>">
+                                <i class="ph ph-upload-simple text-xl"></i>
+                                <?= ($storyData && $storyData['video_file']) ? 'Replace Video' : 'Upload Video' ?>
+                            </label>
+                            <p class="text-sm text-gray-500 mt-2">Max size: 100MB • Formats: MP4, WebM, OGG</p>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="remove_story_video" name="remove_story_video" value="0">
             </div>
 
             <!-- Interactive Sections Management -->
@@ -176,7 +229,7 @@ if ($storyId > 0) {
                     Cancel
                 </button>
                 <?php if (!$isPublished): ?>
-                <button type="button" onclick="saveStory()"
+                <button type="submit"
                     class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors inline-flex items-center gap-2">
                     <i class="ph ph-floppy-disk"></i><?= $storyData ? 'Update Story' : 'Save Story' ?>
                 </button>
@@ -333,65 +386,120 @@ function updateAddButton() {
     }
 }
 
-function saveStory(){
-    const title=document.getElementById('title').value.trim();
-    const ar=document.getElementById('synopsis_arabic').value.trim();
-    const en=document.getElementById('synopsis_english').value.trim();
-    const url=document.getElementById('video_url').value.trim();
-    
-    if(!title||!ar||!en||!url){ 
-        Swal.fire({title:'Missing Information',text:'Please fill in all required fields.',icon:'error'}); 
-        return; 
+// Toggle between URL and Upload in story form
+function toggleStoryVideoInput(type) {
+    const urlInput = document.getElementById('storyUrlInput');
+    const uploadInput = document.getElementById('storyUploadInput');
+    if (type === 'url') {
+        urlInput.classList.remove('hidden');
+        uploadInput.classList.add('hidden');
+        document.getElementById('video_file').value = '';
+        document.getElementById('storyVideoPreviewContainer').classList.add('hidden');
+    } else {
+        urlInput.classList.add('hidden');
+        uploadInput.classList.remove('hidden');
+        document.getElementById('video_url').value = '';
     }
-    
-    // Validate at least 1 interactive section
+}
+
+// Preview uploaded video in story form
+function previewStoryVideo(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const maxSize = 100 * 1024 * 1024; // 100MB
+        if (file.size > maxSize) {
+            Swal.fire({title: 'File Too Large', text: 'Video must be less than 100MB.', icon: 'error'});
+            input.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('storyVideoPreview').src = e.target.result;
+            document.getElementById('storyVideoFileName').textContent = file.name;
+            document.getElementById('storyVideoPreviewContainer').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Remove current video in story form
+function removeCurrentStoryVideo() {
+    Swal.fire({
+        title: 'Remove Video?',
+        text: 'This will remove the current story video.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, remove it'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('storyCurrentVideoPreview').remove();
+            document.getElementById('remove_story_video').value = '1';
+            Swal.fire('Removed!', 'Video will be removed when you save.', 'success');
+        }
+    });
+}
+
+function validateStoryForm(e) {
+    const title = document.getElementById('title').value.trim();
+    const ar = document.getElementById('synopsis_arabic').value.trim();
+    const en = document.getElementById('synopsis_english').value.trim();
+
+    // Video input logic
+    const videoType = document.querySelector('input[name="video_type"]:checked')?.value || 'url';
+    const url = document.getElementById('video_url').value.trim();
+    const fileInput = document.getElementById('video_file');
+    const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+    const existingFile = document.getElementById('storyCurrentVideoPreview'); // for edit forms
+
+    if (!title || !ar || !en) {
+        Swal.fire({ title:'Missing Information', text:'Please fill in all required fields.', icon:'error' });
+        e.preventDefault(); return false;
+    }
+    if (videoType === 'url') {
+        if (!url) {
+            Swal.fire({ title:'Missing Video URL', text:'Please provide a video URL.', icon:'error' });
+            e.preventDefault(); return false;
+        }
+    } else if (videoType === 'upload') {
+        if (!file && !existingFile) {
+            Swal.fire({ title:'Missing Video File', text:'Please upload a video file.', icon:'error' });
+            e.preventDefault(); return false;
+        }
+    }
     const sections = document.querySelectorAll('.interactive-section');
     if (sections.length === 0) {
-        Swal.fire({title:'Missing Interactive Section',text:'Please add at least 1 interactive section to the story.',icon:'error'});
-        return;
+        Swal.fire({ title:'Missing Interactive Section', text:'Please add at least 1 interactive section to the story.', icon:'error' });
+        e.preventDefault(); return false;
     }
-    
-    // Validate each section has question and options filled
     let isValid = true;
     sections.forEach((section, idx) => {
         const questionInput = section.querySelector('input[name*="[questions][0][text]"]');
         if (!questionInput || !questionInput.value.trim()) {
-            Swal.fire({title:'Missing Question',text:`Interactive Section ${idx + 1} needs a question.`,icon:'error'});
-            isValid = false;
-            return;
+            Swal.fire({ title:'Missing Question', text:`Interactive Section ${idx + 1} needs a question.`, icon:'error' });
+            isValid = false; return;
         }
-        
         const optionInputs = section.querySelectorAll('input[name*="[options]"][name*="[text]"]');
-        let hasCorrectAnswer = false;
-        let allOptionsFilled = true;
-        
+        let hasCorrectAnswer = false, allOptionsFilled = true;
         optionInputs.forEach(optInput => {
-            if (!optInput.value.trim()) {
-                allOptionsFilled = false;
-            }
+            if (!optInput.value.trim()) allOptionsFilled = false;
             const checkbox = optInput.parentElement.querySelector('input[type="checkbox"]');
-            if (checkbox && checkbox.checked) {
-                hasCorrectAnswer = true;
-            }
+            if (checkbox && checkbox.checked) hasCorrectAnswer = true;
         });
-        
         if (!allOptionsFilled) {
-            Swal.fire({title:'Missing Options',text:`Interactive Section ${idx + 1} needs all options filled.`,icon:'error'});
-            isValid = false;
-            return;
+            Swal.fire({ title:'Missing Options', text:`Interactive Section ${idx + 1} needs all options filled.`, icon:'error' });
+            isValid = false; return;
         }
-        
         if (!hasCorrectAnswer) {
-            Swal.fire({title:'Missing Correct Answer',text:`Interactive Section ${idx + 1} needs at least one correct answer marked.`,icon:'error'});
-            isValid = false;
-            return;
+            Swal.fire({ title:'Missing Correct Answer', text:`Interactive Section ${idx + 1} needs at least one correct answer marked.`, icon:'error' });
+            isValid = false; return;
         }
     });
-    
-    if (!isValid) return;
-    
-    Swal.fire({title:'Saving Story...',allowOutsideClick:false,allowEscapeKey:false,showConfirmButton:false,didOpen:()=>Swal.showLoading()});
-    document.getElementById('storyForm').submit();
+    if (!isValid) { e.preventDefault(); return false; }
+    // Show loading
+    Swal.fire({ title:'Saving Story...', allowOutsideClick:false, allowEscapeKey:false, showConfirmButton:false, didOpen:()=>Swal.showLoading() });
+    return true; // allow form to POST
 }
 
 function validateVideoUrl(){

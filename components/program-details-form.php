@@ -142,13 +142,90 @@
             </div>
 
             <!-- Overview Video -->
-            <div class="space-y-2">
-                <label for="overview_video_url" class="block text-sm font-medium text-gray-700">Overview Video</label>
-                <input type="url" id="overview_video_url" name="overview_video_url"
-                       value="<?= $program ? htmlspecialchars($program['overview_video_url'] ?? '') : '' ?>"
-                       placeholder="https://youtube.com/..."
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
-                <p class="text-sm text-gray-500">A YouTube video to be displayed in the program overview</p>
+            <div class="space-y-4">
+                <label class="block text-sm font-medium text-gray-700">Overview Video</label>
+                
+                <!-- Video Type Selector -->
+                <div class="flex gap-4 mb-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="video_type" value="url" 
+                            <?= (!$program || ($program['overview_video_type'] ?? 'url') === 'url') ? 'checked' : '' ?>
+                            onchange="toggleVideoInput('url')" 
+                            class="text-blue-600 focus:ring-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
+                        <span class="text-sm font-medium">YouTube/External URL</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="video_type" value="upload" 
+                            <?= ($program && ($program['overview_video_type'] ?? '') === 'upload') ? 'checked' : '' ?>
+                            onchange="toggleVideoInput('upload')" 
+                            class="text-blue-600 focus:ring-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
+                        <span class="text-sm font-medium">Upload Video</span>
+                    </label>
+                </div>
+                
+                <!-- URL Input -->
+                <div id="urlInput" class="<?= ($program && ($program['overview_video_type'] ?? 'url') === 'upload') ? 'hidden' : '' ?>">
+                    <input type="url" id="overview_video_url" name="overview_video_url"
+                        value="<?= $program ? htmlspecialchars($program['overview_video_url'] ?? '') : '' ?>"
+                        placeholder="https://youtube.com/watch?v=..."
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" <?= $isPublished ? 'disabled' : '' ?>>
+                    <p class="text-sm text-gray-500 mt-2">Enter a YouTube or Vimeo URL</p>
+                </div>
+                
+                <!-- Upload Input -->
+                <div id="uploadInput" class="<?= (!$program || ($program['overview_video_type'] ?? 'url') === 'url') ? 'hidden' : '' ?>">
+                    <div class="flex flex-col gap-4">
+                        <!-- Video Preview -->
+                        <?php if ($program && $program['overview_video_file']): ?>
+                        <div id="currentVideoPreview" class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700">Current Video:</span>
+                                <?php if (!$isPublished): ?>
+                                <button type="button" onclick="removeCurrentVideo()" 
+                                        class="text-red-500 hover:text-red-700 text-sm">
+                                    <i class="ph ph-trash mr-1"></i>Remove
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                            <video controls class="w-full max-w-md rounded-lg">
+                                <source src="../../uploads/videos/<?= htmlspecialchars($program['overview_video_file']) ?>" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                            <p class="text-xs text-gray-500 mt-2"><?= htmlspecialchars($program['overview_video_file']) ?></p>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <!-- Upload New Video -->
+                        <div class="flex flex-col items-center gap-4 p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
+                            <div id="videoPreviewContainer" class="hidden w-full max-w-md">
+                                <video id="videoPreview" controls class="w-full rounded-lg border border-gray-200">
+                                    Your browser does not support the video tag.
+                                </video>
+                                <p id="videoFileName" class="text-sm text-gray-600 mt-2 text-center"></p>
+                            </div>
+                            <div class="text-center">
+                                <input type="file" id="overview_video_file" name="overview_video_file" 
+                                    accept="video/mp4,video/webm,video/ogg" 
+                                    class="hidden" onchange="previewVideo(this)" <?= $isPublished ? 'disabled' : '' ?>>
+                                <label for="overview_video_file" 
+                                    class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center gap-2 <?= $isPublished ? 'opacity-60 pointer-events-none' : '' ?>">
+                                    <i class="ph ph-upload-simple text-xl"></i>
+                                    <?= ($program && $program['overview_video_file']) ? 'Replace Video' : 'Upload Video' ?>
+                                </label>
+                                <p class="text-sm text-gray-500 mt-2">Max size: 100MB • Formats: MP4, WebM, OGG</p>
+                                <div id="uploadProgress" class="hidden mt-4 w-full max-w-md">
+                                    <div class="bg-gray-200 rounded-full h-2">
+                                        <div id="uploadProgressBar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                                    </div>
+                                    <p id="uploadProgressText" class="text-sm text-gray-600 mt-2 text-center">Uploading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Hidden input to track video removal -->
+                <input type="hidden" id="remove_video" name="remove_video" value="0">
             </div>
 
             <hr class="border-gray-200">
@@ -366,6 +443,235 @@ function submitProgramForm(form, status) {
     });
 
     form.submit();
+}
+
+// Toggle between URL and Upload inputs
+function toggleVideoInput(type) {
+    const urlInput = document.getElementById('urlInput');
+    const uploadInput = document.getElementById('uploadInput');
+    
+    if (type === 'url') {
+        urlInput.classList.remove('hidden');
+        uploadInput.classList.add('hidden');
+        document.getElementById('overview_video_file').value = '';
+        document.getElementById('videoPreviewContainer').classList.add('hidden');
+    } else {
+        urlInput.classList.add('hidden');
+        uploadInput.classList.remove('hidden');
+        document.getElementById('overview_video_url').value = '';
+    }
+}
+
+// Preview uploaded video
+function previewVideo(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const maxSize = 100 * 1024 * 1024; // 100MB
+        
+        // Check file size
+        if (file.size > maxSize) {
+            Swal.fire({
+                title: 'File Too Large',
+                text: 'Video file must be less than 100MB.',
+                icon: 'error',
+                confirmButtonColor: '#3b82f6'
+            });
+            input.value = '';
+            return;
+        }
+        
+        // Preview video
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const videoPreview = document.getElementById('videoPreview');
+            const videoFileName = document.getElementById('videoFileName');
+            const previewContainer = document.getElementById('videoPreviewContainer');
+            
+            videoPreview.src = e.target.result;
+            videoFileName.textContent = file.name;
+            previewContainer.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Remove current video
+function removeCurrentVideo() {
+    Swal.fire({
+        title: 'Remove Video?',
+        text: 'This will remove the current overview video.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, remove it'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('currentVideoPreview').remove();
+            document.getElementById('remove_video').value = '1';
+            Swal.fire('Removed!', 'Video will be removed when you save.', 'success');
+        }
+    });
+}
+
+// Update the saveProgram function to handle video uploads with progress
+function saveProgram(status) {
+    const form = document.getElementById('programDetailsForm');
+    const currentStatus = getProgramStatus();
+    
+    // Validation and confirmation logic (keep existing)
+    if (status === 'draft' && currentStatus === 'pending_review') {
+        Swal.fire({
+            title: 'Program Already Pending Review',
+            text: 'Saving as draft will REMOVE this program from the review queue. Are you sure you want to save as draft?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d97706',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Save as Draft',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitProgramFormWithVideo(form, status);
+            }
+        });
+    } else {
+        Swal.fire({
+            title: 'Save as Draft?',
+            text: 'You can edit and submit for review later.',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Save as Draft',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitProgramFormWithVideo(form, status);
+            }
+        });
+    }
+}
+
+// Submit form with video upload progress
+function submitProgramFormWithVideo(form, status) {
+    // Remove previous status inputs
+    Array.from(form.querySelectorAll('input[name="status"]')).forEach(e => e.remove());
+    let s = document.createElement('input');
+    s.type = 'hidden';
+    s.name = 'status';
+    s.value = (status && typeof status === 'string' && status.trim().length) ? status : 'draft';
+    form.appendChild(s);
+    
+    // Validate form
+    if (!validateProgramForm(form)) {
+        return;
+    }
+    
+    // Check if video is being uploaded
+    const videoFile = document.getElementById('overview_video_file').files[0];
+    const hasVideoUpload = videoFile && document.querySelector('input[name="video_type"]:checked').value === 'upload';
+    
+    if (hasVideoUpload) {
+        // Use AJAX with progress tracking for video upload
+        uploadWithProgress(form);
+    } else {
+        // Regular form submission
+        Swal.fire({
+            title: 'Saving Program...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => Swal.showLoading()
+        });
+        form.submit();
+    }
+}
+
+// Upload with progress bar
+function uploadWithProgress(form) {
+    const formData = new FormData(form);
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressText = document.getElementById('uploadProgressText');
+    const progressContainer = document.getElementById('uploadProgress');
+    
+    // Show progress
+    progressContainer.classList.remove('hidden');
+    
+    Swal.fire({
+        title: 'Uploading Video...',
+        html: '<div class="mt-4"><div class="bg-gray-200 rounded-full h-3"><div id="swalProgressBar" class="bg-blue-600 h-3 rounded-full transition-all" style="width: 0%"></div></div><p id="swalProgressText" class="text-sm text-gray-600 mt-2">0%</p></div>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false
+    });
+    
+    const xhr = new XMLHttpRequest();
+    
+    // Track upload progress
+    xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            const swalBar = document.getElementById('swalProgressBar');
+            const swalText = document.getElementById('swalProgressText');
+            
+            if (progressBar) progressBar.style.width = percentComplete + '%';
+            if (swalBar) swalBar.style.width = percentComplete + '%';
+            if (progressText) progressText.textContent = `Uploading: ${Math.round(percentComplete)}%`;
+            if (swalText) swalText.textContent = `${Math.round(percentComplete)}%`;
+        }
+    });
+    
+    // Handle completion
+    xhr.addEventListener('load', () => {
+        if (xhr.status === 200) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.success) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Program saved successfully!',
+                        icon: 'success',
+                        confirmButtonColor: '#3b82f6'
+                    }).then(() => {
+                        window.location.href = 'teacher-programs.php';
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: response.message || 'Failed to save program.',
+                        icon: 'error',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                }
+            } catch (e) {
+                // If not JSON, it might be a redirect - follow it
+                window.location.reload();
+            }
+        } else {
+            Swal.fire({
+                title: 'Upload Failed',
+                text: 'Failed to upload video. Please try again.',
+                icon: 'error',
+                confirmButtonColor: '#3b82f6'
+            });
+        }
+        progressContainer.classList.add('hidden');
+    });
+    
+    // Handle errors
+    xhr.addEventListener('error', () => {
+        Swal.fire({
+            title: 'Network Error',
+            text: 'Failed to upload. Please check your connection.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+        });
+        progressContainer.classList.add('hidden');
+    });
+    
+    xhr.open('POST', '../../php/program-core.php', true);
+    xhr.send(formData);
 }
 
 function showAddChapterModal() {

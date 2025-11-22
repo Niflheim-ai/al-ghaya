@@ -148,17 +148,73 @@ function convertToEmbedUrl($url) {
 
 // Core program CRUD
 function program_create($conn, $data) {
-    $sql = "INSERT INTO programs (teacherID, title, description, difficulty_label, category, price, thumbnail, status, overview_video_url, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
-    $stmt = $conn->prepare($sql); if (!$stmt) { return false; }
-    $stmt->bind_param("issssdsss", $data['teacherID'], $data['title'], $data['description'], $data['difficulty_label'], $data['category'], $data['price'], $data['thumbnail'], $data['status'], $data['overview_video_url']);
-    if ($stmt->execute()) { $id = $stmt->insert_id; $stmt->close(); return $id; } $stmt->close(); return false;
+    $sql = "INSERT INTO programs (
+        teacherID, title, description, difficulty_label, category, price, 
+        thumbnail, status, overview_video_url, overview_video_file, overview_video_type,
+        dateCreated, dateUpdated
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+    
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return false;
+    
+    $stmt->bind_param(
+        "issssdsssss",
+        $data['teacherID'],
+        $data['title'],
+        $data['description'],
+        $data['difficulty_label'],
+        $data['category'],
+        $data['price'],
+        $data['thumbnail'],
+        $data['status'],
+        $data['overview_video_url'],
+        $data['overview_video_file'],
+        $data['overview_video_type']
+    );
+    
+    if ($stmt->execute()) {
+        $id = $stmt->insert_id;
+        $stmt->close();
+        return $id;
+    }
+    $stmt->close();
+    return false;
 }
 
-function program_update($conn, $program_id, $data) {
-    $sql = "UPDATE programs SET title = ?, description = ?, difficulty_label = ?, category = ?, price = ?, status = ?, overview_video_url = ?, dateUpdated = NOW() WHERE programID = ?";
-    $stmt = $conn->prepare($sql); if (!$stmt) { return false; }
-    $stmt->bind_param("sssssdsi", $data['title'], $data['description'], $data['difficulty_label'], $data['category'], $data['price'], $data['status'], $data['overview_video_url'], $program_id);
-    $ok = $stmt->execute(); $stmt->close(); return $ok;
+function program_update($conn, $programId, $data) {
+    $sql = "UPDATE programs SET 
+        title = ?, 
+        description = ?, 
+        difficulty_label = ?, 
+        category = ?, 
+        price = ?, 
+        status = ?, 
+        overview_video_url = ?,
+        overview_video_file = ?,
+        overview_video_type = ?,
+        dateUpdated = NOW() 
+    WHERE programID = ?";
+    
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return false;
+    
+    $stmt->bind_param(
+        "ssssdssssi",
+        $data['title'],
+        $data['description'],
+        $data['difficulty_label'],
+        $data['category'],
+        $data['price'],
+        $data['status'],
+        $data['overview_video_url'],
+        $data['overview_video_file'],
+        $data['overview_video_type'],
+        $programId
+    );
+    
+    $ok = $stmt->execute();
+    $stmt->close();
+    return $ok;
 }
 
 function program_getById($conn, $program_id, $teacher_id = null) { 
@@ -317,31 +373,60 @@ function chapter_getQuiz($conn, $chapter_id) {
 }
 
 // Stories
-function story_create($conn,$data){ 
-    $check=$conn->query("SHOW TABLES LIKE 'chapter_stories'"); 
-    if(!$check||$check->num_rows==0){ return false; } 
-    $orderStmt=$conn->prepare("SELECT COALESCE(MAX(story_order),0)+1 FROM chapter_stories WHERE chapter_id=?"); 
-    if(!$orderStmt){ return false; } 
-    $orderStmt->bind_param("i",$data['chapter_id']); $orderStmt->execute(); 
-    $next=$orderStmt->get_result()->fetch_array()[0]; $orderStmt->close(); 
-    $stmt=$conn->prepare("INSERT INTO chapter_stories (chapter_id,title,synopsis_arabic,synopsis_english,video_url,story_order,dateCreated) VALUES (?,?,?,?,?, ?, NOW())"); 
-    if(!$stmt){ return false; } 
-    $stmt->bind_param("issssi",$data['chapter_id'],$data['title'],$data['synopsis_arabic'],$data['synopsis_english'],$data['video_url'],$next); 
-    $ok=$stmt->execute(); $id=$stmt->insert_id; $stmt->close(); 
-    // ✅ Update counts after creating story
+function story_create($conn, $data) {
+    $check = $conn->query("SHOW TABLES LIKE 'chapter_stories'");
+    if (!$check || $check->num_rows == 0) { return false; }
+    $orderStmt = $conn->prepare("SELECT COALESCE(MAX(story_order),0)+1 FROM chapter_stories WHERE chapter_id=?");
+    if (!$orderStmt) { return false; }
+    $orderStmt->bind_param("i", $data['chapter_id']); $orderStmt->execute();
+    $next = $orderStmt->get_result()->fetch_array()[0]; $orderStmt->close();
+
+    $stmt = $conn->prepare("
+        INSERT INTO chapter_stories
+            (chapter_id, title, synopsis_arabic, synopsis_english, video_type, video_url, video_file, story_order, dateCreated)
+        VALUES (?,?,?,?,?,?,?, ?, NOW())
+    ");
+    if (!$stmt) { return false; }
+    $stmt->bind_param(
+        "issssssi",
+        $data['chapter_id'],
+        $data['title'],
+        $data['synopsis_arabic'],
+        $data['synopsis_english'],
+        $data['video_type'],
+        $data['video_url'],
+        $data['video_file'],
+        $next
+    );
+    $ok = $stmt->execute(); $id = $stmt->insert_id; $stmt->close();
+    // Update counts after creating story
     if ($ok) chapter_updateCounts($conn, $data['chapter_id']);
-    return $ok?$id:false; 
+    return $ok ? $id : false;
 }
 
-function story_update($conn,$story_id,$data){ 
-    $stmt=$conn->prepare("UPDATE chapter_stories SET title=?, synopsis_arabic=?, synopsis_english=?, video_url=? WHERE story_id=?"); 
-    if(!$stmt){ return false; } 
-    $stmt->bind_param("ssssi",$data['title'],$data['synopsis_arabic'],$data['synopsis_english'],$data['video_url'],$story_id); 
-    $ok=$stmt->execute(); $stmt->close(); 
-    // ✅ Get chapter_id to update counts
+function story_update($conn, $story_id, $data) {
+    $stmt = $conn->prepare("
+        UPDATE chapter_stories SET
+            title=?, synopsis_arabic=?, synopsis_english=?,
+            video_type=?, video_url=?, video_file=?
+        WHERE story_id=?
+    ");
+    if (!$stmt) { return false; }
+    $stmt->bind_param(
+        "ssssssi",
+        $data['title'],
+        $data['synopsis_arabic'],
+        $data['synopsis_english'],
+        $data['video_type'],
+        $data['video_url'],
+        $data['video_file'],
+        $story_id
+    );
+    $ok = $stmt->execute(); $stmt->close();
+    // Get chapter_id to update counts
     $story = story_getById($conn, $story_id);
     if ($story && $ok) chapter_updateCounts($conn, $story['chapter_id']);
-    return $ok; 
+    return $ok;
 }
 
 function story_delete($conn,$story_id){ 
@@ -515,75 +600,243 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
             // Teacher actions with status enforcement
             case 'create_program':
                 error_log("DEBUG: Entered create_program handler");
-                error_log("DEBUG POST: " . print_r($_POST, true));
-                error_log("DEBUG FILES: " . print_r($_FILES, true));
-                $incoming_status = $_POST['status'] ?? 'MISSING';
-                $status = normalize_status($incoming_status);
-                if (!$status || empty(trim($status))) { $status = 'draft'; }
-                error_log("CREATE PROGRAM: incoming='$incoming_status' normalized='$status'");
-
-                // Convert video URL to embed format
-                $rawVideoUrl = trim($_POST['overview_video_url'] ?? '');
-                $embedVideoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
-                $thumbnail = "../../images/blog-bg.svg";
-
-                // After converting URL
-                error_log("DEBUG: Video URL - Raw: '$rawVideoUrl'");
-                error_log("DEBUG: Video URL - Converted: '$embedVideoUrl'");
+                error_log("DEBUG: POST => " . print_r($_POST, true));
+                error_log("DEBUG: FILES => " . print_r($_FILES, true));
                 
+                $incomingStatus = $_POST['status'] ?? 'MISSING';
+                $status = normalize_status($incomingStatus);
+                if (!$status || empty(trim($status))) $status = 'draft';
+                error_log("CREATE PROGRAM: incoming=$incomingStatus normalized=$status");
                 
-                $data = [ 'teacherID'=>$teacher_id, 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'thumbnail'=>'default-thumbnail.jpg', 'overview_video_url'=>$embedVideoUrl ];
+                // Handle video type
+                $videoType = $_POST['video_type'] ?? 'url';
+                $videoUrl = '';
+                $videoFile = null;
+                $removeVideo = isset($_POST['remove_video']) && $_POST['remove_video'] === '1';
                 
-                if (empty($data['title']) || strlen($data['title']) < 3) { $_SESSION['error_message'] = 'Program title must be at least 3 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
-                if (empty($data['description']) || strlen($data['description']) < 10) { $_SESSION['error_message'] = 'Program description must be at least 10 characters long'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit; }
+                if ($videoType === 'url') {
+                    // Convert video URL to embed format
+                    $rawVideoUrl = trim($_POST['overview_video_url'] ?? '');
+                    $videoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
+                    error_log("DEBUG: Video URL - Raw: $rawVideoUrl");
+                    error_log("DEBUG: Video URL - Converted: $videoUrl");
+                } elseif ($videoType === 'upload' && isset($_FILES['overview_video_file']) && $_FILES['overview_video_file']['error'] === UPLOAD_ERR_OK) {
+                    // Handle video upload
+                    $uploadDir = __DIR__ . '/../uploads/videos/';
+                    if (!file_exists($uploadDir)) {
+                        if (!mkdir($uploadDir, 0755, true)) {
+                            $_SESSION['error_message'] = 'Failed to create video upload directory.';
+                            header("Location: ../pages/teacher/teacher-programs.php?action=create");
+                            exit;
+                        }
+                    }
+                    
+                    $file = $_FILES['overview_video_file'];
+                    $maxSize = 100 * 1024 * 1024; // 100MB
+                    
+                    // Validate file size
+                    if ($file['size'] > $maxSize) {
+                        $_SESSION['error_message'] = 'Video file must be less than 100MB.';
+                        header("Location: ../pages/teacher/teacher-programs.php?action=create");
+                        exit;
+                    }
+                    
+                    // Validate file type
+                    $allowedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $mimeType = finfo_file($finfo, $file['tmp_name']);
+                    finfo_close($finfo);
+                    
+                    if (!in_array($mimeType, $allowedTypes)) {
+                        $_SESSION['error_message'] = 'Invalid video format. Use MP4, WebM, or OGG.';
+                        header("Location: ../pages/teacher/teacher-programs.php?action=create");
+                        exit;
+                    }
+                    
+                    // Generate unique filename
+                    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                    $videoFile = 'video_' . time() . '_' . uniqid() . '.' . $extension;
+                    $uploadPath = $uploadDir . $videoFile;
+                    
+                    // Move uploaded file
+                    if (!move_uploaded_file($file['tmp_name'], $uploadPath)) {
+                        $_SESSION['error_message'] = 'Failed to upload video file.';
+                        header("Location: ../pages/teacher/teacher-programs.php?action=create");
+                        exit;
+                    }
+                    
+                    error_log("DEBUG: Video file uploaded: $videoFile");
+                }
+                
+                $thumbnail = '../../images/blog-bg.svg'; // After converting URL
+                
+                $data = [
+                    'teacherID' => $teacher_id,
+                    'title' => trim($_POST['title'] ?? ''),
+                    'description' => trim($_POST['description'] ?? ''),
+                    'difficulty_label' => $_POST['difficulty_level'] ?? 'Student',
+                    'category' => mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'),
+                    'price' => floatval($_POST['price'] ?? 0),
+                    'status' => $status,
+                    'thumbnail' => 'default-thumbnail.jpg',
+                    'overview_video_url' => $videoUrl,
+                    'overview_video_file' => $videoFile,
+                    'overview_video_type' => $videoType
+                ];
+                
+                if (empty($data['title']) || strlen($data['title']) < 3) {
+                    $_SESSION['error_message'] = "Program title must be at least 3 characters long.";
+                    header("Location: ../pages/teacher/teacher-programs.php?action=create");
+                    exit;
+                }
+                
+                if (empty($data['description']) || strlen($data['description']) < 10) {
+                    $_SESSION['error_message'] = "Program description must be at least 10 characters long.";
+                    header("Location: ../pages/teacher/teacher-programs.php?action=create");
+                    exit;
+                }
+                
                 if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
                     $t = uploadThumbnail($_FILES['thumbnail']);
-                    if ($t) $thumbnail = $t;
+                    if ($t) {
+                        $thumbnail = $t;
+                        $data['thumbnail'] = $thumbnail;
+                    }
                 }
-                $data['thumbnail'] = $thumbnail;
                 
-                $program_id = program_create($conn, $data);
-                if ($program_id) { 
-                    enforce_program_status($conn, $program_id, $status);
-                    chapter_add($conn, $program_id, 'Introduction', 'Welcome to this program!', ''); 
-                    $_SESSION['success_message']='Program created successfully!'; 
-                    header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit; 
+                $programId = program_create($conn, $data);
+                if ($programId) {
+                    enforce_program_status($conn, $programId, $status);
+                    chapter_add($conn, $programId, 'Introduction', 'Welcome to this program!', '');
+                    $_SESSION['success_message'] = "Program created successfully!";
+                    header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $programId);
+                    exit;
                 }
-                error_log("DEBUG: Data array: " . print_r($data, true));
-                $_SESSION['error_message']='Failed to create program. Please try again.'; header('Location: ../pages/teacher/teacher-programs.php?action=create'); exit;
                 
+                error_log("DEBUG: Data array => " . print_r($data, true));
+                $_SESSION['error_message'] = "Failed to create program. Please try again.";
+                header("Location: ../pages/teacher/teacher-programs.php?action=create");
+                exit;       
             case 'update_program':
-                $program_id = intval($_POST['programID'] ?? 0);
-                if (!$program_id) { $_SESSION['error_message']='Program ID is required.'; header('Location: ../pages/teacher/teacher-programs.php'); exit; }
-                $incoming_status = $_POST['status'] ?? 'MISSING';
-                $status = normalize_status($incoming_status);
-                if (!$status || empty(trim($status))) { $status = 'draft'; }
-                error_log("UPDATE PROGRAM: programID=$program_id incoming='$incoming_status' normalized='$status'");
-
-                // Convert video URL to embed format
-                $rawVideoUrl = trim($_POST['overview_video_url'] ?? '');
-                $embedVideoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
+                $programId = intval($_POST['programID'] ?? 0);
+                if (!$programId) {
+                    $_SESSION['error_message'] = 'Program ID is required.';
+                    header("Location: ../pages/teacher/teacher-programs.php");
+                    exit;
+                }
                 
-                $data = [ 'title'=>trim($_POST['title'] ?? ''), 'description'=>trim($_POST['description'] ?? ''), 'difficulty_label'=>$_POST['difficulty_level'] ?? 'Student', 'category'=>mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'), 'price'=>floatval($_POST['price'] ?? 0), 'status'=>$status, 'overview_video_url'=>$embedVideoUrl ];
+                $incomingStatus = $_POST['status'] ?? 'MISSING';
+                $status = normalize_status($incomingStatus);
+                if (!$status || empty(trim($status))) $status = 'draft';
+                error_log("UPDATE PROGRAM: programID=$programId incoming=$incomingStatus normalized=$status");
+                
+                // Get existing program
+                $existingProgram = program_getById($conn, $programId);
+                
+                // Handle video type
+                $videoType = $_POST['video_type'] ?? 'url';
+                $videoUrl = '';
+                $videoFile = $existingProgram['overview_video_file'] ?? null;
+                $removeVideo = isset($_POST['remove_video']) && $_POST['remove_video'] === '1';
+                
+                if ($removeVideo && $existingProgram) {
+                    // Remove existing video file
+                    if (!empty($existingProgram['overview_video_file'])) {
+                        $oldVideoPath = __DIR__ . '/../uploads/videos/' . $existingProgram['overview_video_file'];
+                        if (file_exists($oldVideoPath)) {
+                            unlink($oldVideoPath);
+                        }
+                    }
+                    $videoFile = null;
+                    $videoType = 'url';
+                } elseif ($videoType === 'url') {
+                    // Convert video URL to embed format
+                    $rawVideoUrl = trim($_POST['overview_video_url'] ?? '');
+                    $videoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
+                    $videoFile = null; // Clear file if switching to URL
+                } elseif ($videoType === 'upload' && isset($_FILES['overview_video_file']) && $_FILES['overview_video_file']['error'] === UPLOAD_ERR_OK) {
+                    // Handle video upload
+                    $uploadDir = __DIR__ . '/../uploads/videos/';
+                    if (!file_exists($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    
+                    $file = $_FILES['overview_video_file'];
+                    $maxSize = 100 * 1024 * 1024; // 100MB
+                    
+                    // Validate file size
+                    if ($file['size'] > $maxSize) {
+                        $_SESSION['error_message'] = 'Video file must be less than 100MB.';
+                        header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $programId);
+                        exit;
+                    }
+                    
+                    // Validate file type
+                    $allowedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $mimeType = finfo_file($finfo, $file['tmp_name']);
+                    finfo_close($finfo);
+                    
+                    if (!in_array($mimeType, $allowedTypes)) {
+                        $_SESSION['error_message'] = 'Invalid video format. Use MP4, WebM, or OGG.';
+                        header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $programId);
+                        exit;
+                    }
+                    
+                    // Generate unique filename
+                    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                    $videoFile = 'video_' . time() . '_' . uniqid() . '.' . $extension;
+                    $uploadPath = $uploadDir . $videoFile;
+                    
+                    // Move uploaded file
+                    if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+                        // Delete old video if updating
+                        if ($existingProgram && !empty($existingProgram['overview_video_file'])) {
+                            $oldVideoPath = $uploadDir . $existingProgram['overview_video_file'];
+                            if (file_exists($oldVideoPath)) {
+                                unlink($oldVideoPath);
+                            }
+                        }
+                    } else {
+                        $_SESSION['error_message'] = 'Failed to upload video file.';
+                        header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $programId);
+                        exit;
+                    }
+                }
+                
+                $data = [
+                    'title' => trim($_POST['title'] ?? ''),
+                    'description' => trim($_POST['description'] ?? ''),
+                    'difficulty_label' => $_POST['difficulty_level'] ?? 'Student',
+                    'category' => mapDifficultyToCategory($_POST['difficulty_level'] ?? 'Student'),
+                    'price' => floatval($_POST['price'] ?? 0),
+                    'status' => $status,
+                    'overview_video_url' => $videoUrl,
+                    'overview_video_file' => $videoFile,
+                    'overview_video_type' => $videoType
+                ];
                 
                 if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
                     $t = uploadThumbnail($_FILES['thumbnail']);
                     if ($t) {
                         $thumbStmt = $conn->prepare("UPDATE programs SET thumbnail = ?, dateUpdated = NOW() WHERE programID = ?");
                         if ($thumbStmt) {
-                            $thumbStmt->bind_param("si", $t, $program_id);
+                            $thumbStmt->bind_param("si", $t, $programId);
                             $thumbStmt->execute();
                             $thumbStmt->close();
                         }
                     }
                 }
                 
-                if (program_update($conn, $program_id, $data)) { 
-                    enforce_program_status($conn, $program_id, $status);
-                    $_SESSION['success_message']='Program updated successfully!'; 
-                } else { $_SESSION['error_message']='No changes made or error updating program.'; }
-                header('Location: ../pages/teacher/teacher-programs.php?action=create&program_id=' . $program_id); exit;
-
+                if (program_update($conn, $programId, $data)) {
+                    enforce_program_status($conn, $programId, $status);
+                    $_SESSION['success_message'] = "Program updated successfully!";
+                } else {
+                    $_SESSION['error_message'] = "No changes made or error updating program.";
+                }
+                
+                header("Location: ../pages/teacher/teacher-programs.php?action=create&program_id=" . $programId);
+                exit;
             case 'archive_program':
                 $program_id = intval($_POST['programID'] ?? 0);
                 if (!$program_id) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Program ID required']); exit; }
@@ -602,147 +855,225 @@ if (basename($_SERVER['PHP_SELF']) === 'program-core.php') {
                 
             case 'create_story':
                 require_once __DIR__ . '/story-sections-handler.php';
-    
+
                 $program_id = intval($_POST['programID'] ?? 0);
                 $chapter_id = intval($_POST['chapter_id'] ?? 0);
                 $title = trim($_POST['title'] ?? '');
                 $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? '');
                 $synopsis_english = trim($_POST['synopsis_english'] ?? '');
-                $video_url = trim($_POST['video_url'] ?? '');
-                // Convert video URL to embed format
-                $rawVideoUrl = trim($_POST['vide_ourl'] ?? '');
-                $videourl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
                 $sections_data = $_POST['sections'] ?? [];
-                
-                // Validate required fields
-                if (empty($title) || empty($synopsis_arabic) || empty($synopsis_english) || empty($video_url)) {
+
+                // Video handling
+                $videoType = $_POST['video_type'] ?? 'url';
+                $videoUrl = '';
+                $videoFile = null;
+                $removeVideo = isset($_POST['remove_story_video']) && $_POST['remove_story_video'] === '1';
+
+                if ($videoType === 'url') {
+                    $rawVideoUrl = trim($_POST['video_url'] ?? '');
+                    $videoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
+                } elseif ($videoType === 'upload' && isset($_FILES['video_file']) && $_FILES['video_file']['error'] === UPLOAD_ERR_OK) {
+                    $uploadDir = __DIR__ . '/../uploads/story_videos/';
+                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+
+                    $file = $_FILES['video_file'];
+                    $maxSize = 100 * 1024 * 1024;
+                    if ($file['size'] > $maxSize) {
+                        $_SESSION['error_message'] = 'Story video must be less than 100MB.';
+                        header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
+                        exit;
+                    }
+                    $allowedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $mimeType = finfo_file($finfo, $file['tmp_name']);
+                    if (!in_array($mimeType, $allowedTypes)) {
+                        $_SESSION['error_message'] = 'Invalid video format. Use MP4, WebM, or OGG.';
+                        header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
+                        exit;
+                    }
+                    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                    $videoFile = 'story_video_' . time() . '_' . uniqid() . '.' . $extension;
+                    $uploadPath = $uploadDir . $videoFile;
+                    if (!move_uploaded_file($file['tmp_name'], $uploadPath)) {
+                        $_SESSION['error_message'] = 'Failed to upload story video file.';
+                        header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
+                        exit;
+                    }
+                }
+
+                // Validate required fields (video can be either)
+                if (
+                    empty($title) ||
+                    empty($synopsis_arabic) ||
+                    empty($synopsis_english) ||
+                    ($videoType === 'url' && empty($videoUrl)) ||
+                    ($videoType === 'upload' && empty($videoFile))
+                ) {
                     $_SESSION['error_message'] = 'All fields are required for the story.';
                     header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
                     exit;
                 }
-                
-                // Validate at least 1 interactive section
+
+                // Section count validation
                 if (empty($sections_data) || count($sections_data) < 1) {
                     $_SESSION['error_message'] = 'At least 1 interactive section is required.';
                     header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
                     exit;
                 }
-                
-                // Validate maximum 3 sections
                 if (count($sections_data) > 3) {
                     $_SESSION['error_message'] = 'Maximum of 3 interactive sections allowed per story.';
                     header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
                     exit;
                 }
-                
                 if (!$program_id) {
                     $_SESSION['error_message'] = 'Program ID is required.';
                     header('Location: ../pages/teacher/teacher-programs.php');
                     exit;
                 }
-                
+
+                // Limit stories per chapter
                 $existingStories = chapter_getStories($conn, $chapter_id);
                 if (count($existingStories) >= 3) {
                     $_SESSION['error_message'] = 'Maximum of 3 stories per chapter allowed.';
                     header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
                     exit;
                 }
-                
-                // Start transaction
+
+                // Transaction for story + sections
                 $conn->begin_transaction();
                 try {
-                    // Create story
                     $story_id = story_create($conn, [
                         'chapter_id' => $chapter_id,
                         'title' => $title,
                         'synopsis_arabic' => $synopsis_arabic,
                         'synopsis_english' => $synopsis_english,
-                        'video_url' => $videourl
+                        'video_type' => $videoType,
+                        'video_url' => $videoUrl,
+                        'video_file' => $videoFile
                     ]);
-                    
-                    if (!$story_id) {
-                        throw new Exception('Failed to create story');
-                    }
-                    
-                    // Save interactive sections
-                    if (!saveStoryInteractiveSections($conn, $story_id, $sections_data)) {
-                        throw new Exception('Failed to save interactive sections');
-                    }
-                    
+
+                    if (!$story_id) throw new Exception('Failed to create story');
+                    if (!saveStoryInteractiveSections($conn, $story_id, $sections_data)) throw new Exception('Failed to save interactive sections');
+
                     $conn->commit();
                     $_SESSION['success_message'] = 'Story and interactive sections created successfully!';
                     header('Location: ../pages/teacher/teacher-programs.php?action=edit_chapter&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
                     exit;
-                    
                 } catch (Exception $e) {
                     $conn->rollback();
                     error_log('Create story error: ' . $e->getMessage());
                     $_SESSION['error_message'] = 'Failed to save story: ' . $e->getMessage();
                     header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
                     exit;
-                }
-                
+                }           
             case 'update_story':
                 require_once __DIR__ . '/story-sections-handler.php';
-    
+
                 $program_id = intval($_POST['programID'] ?? 0);
                 $chapter_id = intval($_POST['chapter_id'] ?? 0);
                 $story_id = intval($_POST['story_id'] ?? 0);
                 $title = trim($_POST['title'] ?? '');
                 $synopsis_arabic = trim($_POST['synopsis_arabic'] ?? '');
                 $synopsis_english = trim($_POST['synopsis_english'] ?? '');
-                $video_url = trim($_POST['video_url'] ?? '');
-                // Convert video URL to embed format
-                $rawVideoUrl = trim($_POST['video_url'] ?? '');
-                $videourl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
                 $sections_data = $_POST['sections'] ?? [];
-                
+
+                // Fetch old story for file cleanup
+                $story = story_getById($conn, $story_id);
+
+                $videoType = $_POST['video_type'] ?? 'url';
+                $videoUrl = '';
+                $videoFile = $story['video_file'] ?? null;
+                $removeVideo = isset($_POST['remove_story_video']) && $_POST['remove_story_video'] === '1';
+
+                if ($removeVideo && $story) {
+                    if (!empty($story['video_file'])) {
+                        $oldVideoPath = __DIR__ . '/../uploads/story_videos/' . $story['video_file'];
+                        if (file_exists($oldVideoPath)) unlink($oldVideoPath);
+                    }
+                    $videoFile = null;
+                    $videoType = 'url';
+                } elseif ($videoType === 'url') {
+                    $rawVideoUrl = trim($_POST['video_url'] ?? '');
+                    $videoUrl = !empty($rawVideoUrl) ? convertToEmbedUrl($rawVideoUrl) : '';
+                    $videoFile = null;
+                } elseif ($videoType === 'upload' && isset($_FILES['video_file']) && $_FILES['video_file']['error'] === UPLOAD_ERR_OK) {
+                    $uploadDir = __DIR__ . '/../uploads/story_videos/';
+                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+
+                    $file = $_FILES['video_file'];
+                    $maxSize = 100 * 1024 * 1024;
+                    if ($file['size'] > $maxSize) {
+                        $_SESSION['error_message'] = 'Story video must be less than 100MB.';
+                        header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id);
+                        exit;
+                    }
+                    $allowedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $mimeType = finfo_file($finfo, $file['tmp_name']);
+                    if (!in_array($mimeType, $allowedTypes)) {
+                        $_SESSION['error_message'] = 'Invalid video format. Use MP4, WebM, or OGG.';
+                        header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id);
+                        exit;
+                    }
+                    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                    $videoFile = 'story_video_' . time() . '_' . uniqid() . '.' . $extension;
+                    $uploadPath = $uploadDir . $videoFile;
+                    if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+                        if ($story && !empty($story['video_file'])) {
+                            $oldVideoPath = $uploadDir . $story['video_file'];
+                            if (file_exists($oldVideoPath)) unlink($oldVideoPath);
+                        }
+                    } else {
+                        $_SESSION['error_message'] = 'Failed to upload story video file.';
+                        header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id);
+                        exit;
+                    }
+                }
+
                 // Validate required fields
-                if (!$story_id || empty($title) || empty($synopsis_arabic) || empty($synopsis_english) || empty($video_url)) {
+                if (
+                    !$story_id ||
+                    empty($title) ||
+                    empty($synopsis_arabic) ||
+                    empty($synopsis_english) ||
+                    ($videoType === 'url' && empty($videoUrl)) ||
+                    ($videoType === 'upload' && empty($videoFile))
+                ) {
                     $_SESSION['error_message'] = 'All fields are required for the story update.';
                     header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id);
                     exit;
                 }
-                
-                // Validate at least 1 interactive section
+
                 if (empty($sections_data) || count($sections_data) < 1) {
                     $_SESSION['error_message'] = 'At least 1 interactive section is required.';
                     header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id);
                     exit;
                 }
-                
-                // Validate maximum 3 sections
                 if (count($sections_data) > 3) {
                     $_SESSION['error_message'] = 'Maximum of 3 interactive sections allowed per story.';
                     header('Location: ../pages/teacher/teacher-programs.php?action=add_story&program_id=' . $program_id . '&chapter_id=' . $chapter_id . '&story_id=' . $story_id);
                     exit;
                 }
-                
-                // Start transaction
+
+                // Transaction for update + sections
                 $conn->begin_transaction();
                 try {
-                    // Update story
                     $data = [
                         'title' => $title,
                         'synopsis_arabic' => $synopsis_arabic,
                         'synopsis_english' => $synopsis_english,
-                        'video_url' => $videourl
+                        'video_type' => $videoType,
+                        'video_url' => $videoUrl,
+                        'video_file' => $videoFile
                     ];
-                    
-                    if (!story_update($conn, $story_id, $data)) {
-                        throw new Exception('Failed to update story');
-                    }
-                    
-                    // Save interactive sections (this deletes old ones and creates new)
-                    if (!saveStoryInteractiveSections($conn, $story_id, $sections_data)) {
-                        throw new Exception('Failed to save interactive sections');
-                    }
-                    
+
+                    if (!story_update($conn, $story_id, $data)) throw new Exception('Failed to update story');
+                    if (!saveStoryInteractiveSections($conn, $story_id, $sections_data)) throw new Exception('Failed to save interactive sections');
+
                     $conn->commit();
                     $_SESSION['success_message'] = 'Story and interactive sections updated successfully!';
                     header('Location: ../pages/teacher/teacher-programs.php?action=edit_chapter&program_id=' . $program_id . '&chapter_id=' . $chapter_id);
                     exit;
-                    
                 } catch (Exception $e) {
                     $conn->rollback();
                     error_log('Update story error: ' . $e->getMessage());

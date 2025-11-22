@@ -784,11 +784,27 @@ $page_title = htmlspecialchars($program['title']);
                 <p class="text-gray-800 leading-relaxed"><?= nl2br(htmlspecialchars($currentContent['synopsis_english'])) ?></p>
               </div>
             <?php endif; ?>
-            <?php if (!empty($currentContent['video_url'])): ?>
+            <?php
+              $hasUpload = !empty($currentContent['video_type']) && $currentContent['video_type'] === 'upload' && !empty($currentContent['video_file']);
+              $hasUrl = !empty($currentContent['video_url']);
+            ?>
+            <?php if ($hasUpload): ?>
+              <div class="space-y-3">
+                <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <i class="ph ph-video-camera text-red-600"></i> Watch Story Video
+                </h3>
+                <video controls class="w-full rounded-lg shadow border" style="max-height:400px">
+                  <source src="../../uploads/story_videos/<?= htmlspecialchars($currentContent['video_file']) ?>" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            <?php elseif ($hasUrl): ?>
               <?php $embedUrl = toVideoEmbedUrl($currentContent['video_url']); ?>
               <?php if ($embedUrl): ?>
                 <div class="space-y-3">
-                  <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2"><i class="ph ph-video-camera text-red-600"></i> Watch Story Video</h3>
+                  <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <i class="ph ph-video-camera text-red-600"></i> Watch Story Video
+                  </h3>
                   <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg shadow-lg">
                     <iframe 
                       class="absolute top-0 left-0 w-full h-full"
@@ -797,7 +813,7 @@ $page_title = htmlspecialchars($program['title']);
                       frameborder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;"
                       allowfullscreen
-                      <?= $isGoogleDrive ? 'sandbox="allow-scripts allow-same-origin allow-presentation"' : '' // Hide pop-out as much as possible ?>>
+                      <?= isset($isGoogleDrive) && $isGoogleDrive ? 'sandbox="allow-scripts allow-same-origin allow-presentation"' : '' ?>>
                     </iframe>
                   </div>
                 </div>

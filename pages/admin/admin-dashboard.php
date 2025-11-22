@@ -645,12 +645,88 @@ function loadProgramDetails(programId) {
     });
 }
 
-// Render program details in modal
+function getYouTubeOrVimeoEmbed(url) {
+  if (!url) return '';
+  const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([\w\-]{11})/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vimeo = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
+  return '';
+}
+
 function renderProgramDetails(program) {
   const modalContent = document.getElementById('modalContent');
   document.getElementById('modalProgramTitle').textContent = program.title;
   document.getElementById('modalProgramTeacher').textContent = `Teacher: ${program.teacher_name} (${program.teacher_email})`;
-  
+
+  // --- Overview Video Logic (handles uploaded file and embed URL) ---
+  let overviewVideoHtml = '';
+  if (program.overview_video_type === 'upload' && program.overview_video_file) {
+    overviewVideoHtml = `
+      <div class="mb-4">
+        <p class="text-sm font-semibold text-blue-900 mb-2">
+          <i class="ph ph-play-circle text-blue-600 mr-1"></i>
+          Program Introduction Video
+        </p>
+        <video controls class="w-full rounded-lg shadow border" style="max-height:400px">
+          <source src="../../uploads/videos/${escapeHtml(program.overview_video_file)}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+        <p class="text-xs text-gray-500 mt-2">${escapeHtml(program.overview_video_file)}</p>
+      </div>
+    `;
+  } else if (program.overview_video_url_embed) {
+    overviewVideoHtml = `
+      <div class="mb-4">
+        <p class="text-sm font-semibold text-blue-900 mb-2">
+          <i class="ph ph-play-circle text-blue-600 mr-1"></i>
+          Program Introduction Video
+        </p>
+        <div class="relative bg-white rounded-lg overflow-hidden" style="padding-bottom: 56.25%; height: 0;">
+          <iframe
+            src="${escapeHtml(program.overview_video_url_embed)}"
+            class="absolute top-0 left-0 w-full h-full"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen>
+          </iframe>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">${escapeHtml(program.overview_video_url)}</p>
+      </div>
+    `;
+  } else if (program.overview_video_url) {
+    const embedUrl = getYouTubeOrVimeoEmbed(program.overview_video_url);
+    if (embedUrl) {
+      overviewVideoHtml = `
+        <div class="mb-4">
+          <p class="text-sm font-semibold text-blue-900 mb-2">
+            <i class="ph ph-play-circle text-blue-600 mr-1"></i>
+            Program Introduction Video
+          </p>
+          <div class="relative bg-white rounded-lg overflow-hidden" style="padding-bottom: 56.25%; height: 0;">
+            <iframe
+              src="${escapeHtml(embedUrl)}"
+              class="absolute top-0 left-0 w-full h-full"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen>
+            </iframe>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">${escapeHtml(program.overview_video_url)}</p>
+        </div>
+      `;
+    } else {
+      overviewVideoHtml = `
+        <div class="mb-4"><p class="text-xs text-red-600 italic">Invalid or no program introduction video found.</p></div>
+      `;
+    }
+  } else {
+    overviewVideoHtml = `
+      <div class="mb-4"><p class="text-xs text-red-600 italic">No program introduction video found.</p></div>
+    `;
+  }
+
+  // ---- Full Chapter/Stories/Questions/Options Logic from your code ----
   let chaptersHtml = '';
   if (program.chapters && program.chapters.length > 0) {
     program.chapters.forEach((chapter, idx) => {
@@ -890,13 +966,11 @@ function renderProgramDetails(program) {
   } else {
     chaptersHtml = '<p class="text-gray-500 italic">No chapters found in this program</p>';
   }
-  
+
   modalContent.innerHTML = `
     <div class="space-y-6">
-      <!-- Program Overview -->
       <div class="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-5 shadow-sm">
         <h3 class="text-xl font-bold text-blue-900 mb-4">📋 Program Overview</h3>
-        
         <div class="grid grid-cols-2 gap-4 text-sm mb-4">
           <div class="bg-white p-2 rounded"><strong>Difficulty:</strong> <span class="capitalize">${escapeHtml(program.category)}</span></div>
           <div class="bg-white p-2 rounded"><strong>Price:</strong> ₱${parseFloat(program.price).toFixed(2)}</div>
@@ -910,7 +984,7 @@ function renderProgramDetails(program) {
             <strong class="text-gray-900">Prerequisites:</strong>
             <p class="text-gray-700 mt-1">${escapeHtml(program.prerequisites)}</p>
           </div>
-        ` : ''} 
+        ` : ''}
         ${program.learning_objectives ? `
           <div class="bg-white p-3 rounded mt-3">
             <strong class="text-gray-900">Learning Objectives:</strong>
@@ -918,27 +992,7 @@ function renderProgramDetails(program) {
           </div>
         ` : ''}
       </div>
-
-      <!-- Overview Video -->
-        ${program.overview_video_url_embed ? `
-          <div class="mb-4">
-            <p class="text-sm font-semibold text-blue-900 mb-2">
-              <i class="ph ph-play-circle text-blue-600 mr-1"></i>
-              Program Introduction Video
-            </p>
-            <div class="relative bg-white rounded-lg overflow-hidden" style="padding-bottom: 56.25%; height: 0;">
-              <iframe 
-                src="${escapeHtml(program.overview_video_url_embed)}" 
-                class="absolute top-0 left-0 w-full h-full"
-                frameborder="0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                allowfullscreen>
-              </iframe>
-            </div>
-          </div>
-        ` : ''}
-
-      <!-- Chapters and Content -->
+      ${overviewVideoHtml}
       <div>
         <h3 class="text-xl font-bold text-gray-900 mb-4">📚 Program Content (${program.chapters ? program.chapters.length : 0} Chapters)</h3>
         ${chaptersHtml}

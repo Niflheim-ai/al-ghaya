@@ -112,42 +112,51 @@ $enrollees = (int)($enrolStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
           </div>
 
           <!-- Overview Video (YouTube-safe embed) -->
-          <?php 
-            $embedUrl = toVideoEmbedUrl($program['overview_video_url'] ?? '');
-            $isGoogleDrive = strpos($embedUrl, 'drive.google.com') !== false;
+          <?php
+          $hasUpload = !empty($program['overview_video_type']) && $program['overview_video_type'] === 'upload' && !empty($program['overview_video_file']);
+          $embedUrl = !$hasUpload ? toVideoEmbedUrl($program['overview_video_url'] ?? '') : '';
+          $isGoogleDrive = strpos($embedUrl, 'drive.google.com') !== false;
           ?>
-          <?php if ($embedUrl): ?>
-          <div>
-            <h2 class="text-xl font-bold mb-2">Overview</h2>
-            <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg">
-              <iframe 
-                class="absolute top-0 left-0 w-full h-full"
-                src="<?= htmlspecialchars($embedUrl) ?>"
-                title="Program Overview"
-                frameborder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;"
-                allowfullscreen
-                <?= $isGoogleDrive ? 'sandbox="allow-scripts allow-same-origin allow-presentation"' : '' // Hide pop-out as much as possible ?>>
-              </iframe>
-              <?php if ($isGoogleDrive): ?>
-                <style>
-                  /* Attempt to suppress Google Drive's popout button (best-effort, iframe isolation) */
-                  iframe[src*="drive.google.com"] {
-                    pointer-events: auto !important;
-                  }
-                </style>
-                <script>
-                  // No reliable way to hide the popout icon due to cross-origin policies,
-                  // but you may attempt to overlay a transparent div if necessary.
-                </script>
-              <?php endif; ?>
+
+          <?php if ($hasUpload): ?>
+            <div>
+              <h2 class="text-xl font-bold mb-2">Overview</h2>
+              <video controls class="w-full rounded-lg shadow border" style="max-height:400px">
+                <source src="<?= '../../uploads/videos/' . htmlspecialchars($program['overview_video_file']) ?>" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+              <p class="text-xs text-gray-500 mt-2"><?= htmlspecialchars($program['overview_video_file']) ?></p>
             </div>
-          </div>
+          <?php elseif ($embedUrl): ?>
+            <div>
+              <h2 class="text-xl font-bold mb-2">Overview</h2>
+              <div class="relative w-full pb-[56.25%] h-0 overflow-hidden rounded-lg">
+                <iframe 
+                  class="absolute top-0 left-0 w-full h-full"
+                  src="<?= htmlspecialchars($embedUrl) ?>"
+                  title="Program Overview"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture;"
+                  allowfullscreen
+                  <?= $isGoogleDrive ? 'sandbox="allow-scripts allow-same-origin allow-presentation"' : '' ?>>
+                </iframe>
+                <?php if ($isGoogleDrive): ?>
+                  <style>
+                    iframe[src*="drive.google.com"] {
+                      pointer-events: auto !important;
+                    }
+                  </style>
+                  <script>
+                    // See note in previous code (no reliable JS-only fix for Drive popout)
+                  </script>
+                <?php endif; ?>
+              </div>
+            </div>
           <?php elseif (!empty($program['overview_video_url'])): ?>
-          <div>
-            <h2 class="text-xl font-bold mb-2">Overview</h2>
-            <p class="text-sm text-gray-500">Embedding is not available. <a class="text-blue-600 underline" href="<?= htmlspecialchars($program['overview_video_url']) ?>" target="_blank" rel="noopener">Watch on YouTube</a>.</p>
-          </div>
+            <div>
+              <h2 class="text-xl font-bold mb-2">Overview</h2>
+              <p class="text-sm text-gray-500">Embedding is not available. <a class="text-blue-600 underline" href="<?= htmlspecialchars($program['overview_video_url']) ?>" target="_blank" rel="noopener">Watch on YouTube</a>.</p>
+            </div>
           <?php endif; ?>
 
           <!-- Teacher info - centered -->
