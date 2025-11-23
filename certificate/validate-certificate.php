@@ -55,21 +55,24 @@ if ($code && preg_match('/^AL-\d{4}-\d{4}$/', $code)) {
     <div class="max-w-lg w-full bg-white/90 rounded-xl shadow-2xl mx-4 my-8 flex flex-col justify-center items-center p-6 sm:p-10">
       <h1 class="text-2xl sm:text-3xl font-bold text-blue-900 mb-3 text-center">Certificate Validation</h1>
       <?php if ($info): ?>
-        <div class="w-full mb-6">
-          <div class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-2 mb-4 justify-center">
-            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
-            </svg>
-            <span class="text-green-700 font-semibold">This certificate is VALID.</span>
-          </div>
-          <div class="text-sm sm:text-base space-y-3">
-            <p><span class="font-semibold text-blue-700">Student:</span> <?= htmlspecialchars($info['student_name']) ?></p>
-            <p><span class="font-semibold text-blue-700">Email:</span> <?= htmlspecialchars($info['student_email']) ?></p>
-            <p><span class="font-semibold text-blue-700">Program:</span> <?= htmlspecialchars($info['program_title']) ?></p>
-            <p><span class="font-semibold text-blue-700">Category:</span> <?= htmlspecialchars($info['program_category']) ?></p>
-            <p><span class="font-semibold text-blue-700">Date Issued:</span> <?= date('F j, Y', strtotime($info['issue_date'])) ?></p>
-            <p><span class="font-semibold text-blue-700">Certificate Code:</span> <span class="tracking-wider"><?= htmlspecialchars($code) ?></span></p>
-          </div>
+        <div class="w-full">
+            <div class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-2 mb-4 justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span class="text-green-700 font-semibold">This certificate is VALID.</span>
+            </div>
+            <div class="text-sm sm:text-base space-y-3">
+                <p><span class="font-semibold text-blue-700">Student:</span> <?= htmlspecialchars($info['student_name']) ?></p>
+                <p><span class="font-semibold text-blue-700">Email:</span> <?= htmlspecialchars($info['student_email']) ?></p>
+                <p><span class="font-semibold text-blue-700">Program:</span> <?= htmlspecialchars($info['program_title']) ?></p>
+                <p><span class="font-semibold text-blue-700">Category:</span> <?= htmlspecialchars($info['program_category']) ?></p>
+                <p><span class="font-semibold text-blue-700">Date Issued:</span> <?= date('F j, Y', strtotime($info['issue_date'])) ?></p>
+                <p><span class="font-semibold text-blue-700">Certificate Code:</span> <span class="tracking-wider"><?= htmlspecialchars($code) ?></span></p>
+            </div>
+            <!-- <div class="logo mt-5 opacity-25">
+                <img src="logos/Logo.svg" alt="">
+            </div> -->
         </div>
       <?php else: ?>
         <div class="w-full mb-6">
